@@ -84,9 +84,8 @@ note: '本章的核心是「能力边界」而不是数学。重点是理解为�
 
 ## 四、动手：三种度量的对比与边界探测
 
-<div class="code-block">
-  <div class="code-head"><span>embedding_bounds.py</span><span class="lang">python</span></div>
-  <pre><code>import numpy as np
+```python title="embedding_bounds.py"
+import numpy as np
 def l2_normalize(m: np.ndarray) -> np.ndarray:
     n = np.linalg.norm(m, axis=-1, keepdims=True)
     return m / np.where(n == 0, 1, n)
@@ -146,8 +145,9 @@ def hybrid_score(vec_score: np.ndarray, kw_score: np.ndarray,
     v = (vec_score - vec_score.min()) / (vec_score.ptp() + 1e-9)
     k = (kw_score - kw_score.min()) / (kw_score.ptp() + 1e-9)
     return alpha * v + (1 - alpha) * k
-</code></pre>
-</div>
+```
+
+
 
 <div class="box box-practice">
   <span class="box-title">实操任务</span>

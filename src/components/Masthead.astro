@@ -2,6 +2,10 @@
 /**
  * 报头：全站统一。
  * compact = true 时只保留顶部细条与双线，用于章节页（把版面让给正文）。
+ *
+ * 这里刻意不放「第 N 期」这种期号：本站在意图上是一个可以反复回来读的
+ * 学习站，内容按「章」组织、随修订更新，而不是每天换一期的报刊。
+ * 顶部细条只说清楚三件事——这是什么站、谁做的、怎么用。
  */
 interface Props {
   compact?: boolean;
@@ -11,22 +15,23 @@ interface Props {
 }
 
 const { compact = false, kicker, title, en } = Astro.props;
-const buildDate = new Date();
-const buildLabel = `${buildDate.getFullYear()}年${buildDate.getMonth() + 1}月${buildDate.getDate()}日`;
 ---
 
 <div class="masthead" data-masthead>
   <div class="masthead-top">
-    <span class="vol">学习报 · 第 <span data-issue>1</span> 期</span>
-    <span data-today>{buildLabel}</span>
-    <span>杭州 · 电子版 · 免费</span>
+    <span class="vol">Agent 工程学习站</span>
+    <span class="made-by">
+      做棵大树 出品 ·
+      <a href="https://beatree.cn" target="_blank" rel="noopener">beatree.cn</a>
+    </span>
+    <span>免费 · 无需登录 · 进度存本机</span>
   </div>
 
   {
     !compact && (
       <div class="masthead-title">
         <h1>Harness Times</h1>
-        <div class="cn">HARNESS 与 AGENT 工程学习报</div>
+        <div class="cn">HARNESS 与 AGENT 工程学习站</div>
       </div>
     )
   }
@@ -59,25 +64,3 @@ const buildLabel = `${buildDate.getFullYear()}年${buildDate.getMonth() + 1}月$
     )
   }
 </div>
-
-<script>
-  // 报头日期与期号在客户端计算：静态站构建日期会被冻结，读者看到的应该是"今天"。
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const d = new Date();
-  const week = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
-  const label = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 · 星期${week}`;
-  const todayEl = document.querySelector('[data-today]');
-  if (todayEl) todayEl.textContent = label;
-
-  // 期号 = 自站点起始日算起的天数，让"第 N 期"每天都会变，符合日报直觉
-  const epoch = Date.UTC(2026, 0, 1);
-  const now = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
-  const issue = Math.max(1, Math.floor((now - epoch) / 86400000) + 1);
-  document.querySelectorAll('[data-issue]').forEach((el) => {
-    el.textContent = String(issue);
-  });
-
-  // 侧栏报头里的期号（如果有）
-  const sd = document.querySelector('[data-issue-side]');
-  if (sd) sd.textContent = `第 ${issue} 期 · ${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
-</script>

@@ -117,9 +117,8 @@ note: '本章的核心判断题（为什么用 Subagent 而不是长上下文单
 
 **第三，信息损失。** 子 Agent 的结论太简略，父 Agent 无法判断其可信度。**解法**：结论里必须带最小必要证据——一句话的依据、来源标识、以及该子任务的置信度。
 
-<div class="code-block">
-  <div class="code-head"><span>subagent_protocol.py</span><span class="lang">python</span></div>
-  <pre><code>from dataclasses import dataclass, asdict
+```python title="subagent_protocol.py"
+from dataclasses import dataclass, asdict
 from typing import Literal
 import json
 @dataclass
@@ -166,7 +165,7 @@ def merge(results: list[SubResult]) -> dict:
     failed = [r for r in results if r.status == "failed"]
     # 低置信度结论不进主结论，只作为参考项
     strong = [r for r in ok if r.confidence >= 0.7]
-    weak = [r for r in ok if r.confidence &lt; 0.7]
+    weak = [r for r in ok if r.confidence < 0.7]
     conflicts = detect_conflicts(strong)
     return {
         "primary": [{"conclusion": r.conclusion, "sources": r.sources} for r in strong],
@@ -191,8 +190,9 @@ def detect_conflicts(results: list[SubResult]) -> list[dict]:
     return found
 def contradicts(a: str, b: str) -> bool:
     return False        # 占位：真实实现用语义模型或规则
-</code></pre>
-</div>
+```
+
+
 
 ## 五、什么时候<b>不要</b>用多 Agent
 

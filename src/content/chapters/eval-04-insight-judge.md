@@ -156,9 +156,8 @@ note: '本章的 Rubric 设计与偏差控制是评测工程的深水区。第 1
 
 ## 三、动手：可校准的评分器
 
-<div class="code-block">
-  <div class="code-head"><span>insight_judge.py</span><span class="lang">python</span></div>
-  <pre><code>import json, re
+````python title="insight_judge.py"
+import json, re
 from dataclasses import dataclass
 RUBRIC = """
 你是评审员。请对下面这份分析输出按四个维度打分（1-5 的整数），
@@ -195,9 +194,9 @@ class Verdict:
                 + self.actionable * w["actionable"] + self.clarity * w["clarity"])
     def passed(self) -> bool:
         """一票否决：可操作性过低 → 直接判定不合格，不用平均分"""
-        if self.actionable &lt;= 2:
+        if self.actionable <= 2:
             return False
-        return self.weighted &gt;= 3.5
+        return self.weighted >= 3.5
     def explain(self) -> str:
         return (f"方向 {self.direction} 证据 {self.evidence} "
                 f"动作 {self.actionable} 表达 {self.clarity}　"
@@ -228,7 +227,7 @@ def judge_stable(output: str, call_model, repeats: int = 2) -> tuple[Verdict, di
     spread = max(scores) - min(scores)
     meta = {
         "spread": spread,
-        "reliable": spread &lt;= 0.8,     # 分差超过 0.8 视为不可靠
+        "reliable": spread <= 0.8,     # 分差超过 0.8 视为不可靠
         "verdicts": [v.explain() for v in verdicts],
     }
     # 取中位数（比均值更抗单次异常）
@@ -251,8 +250,9 @@ def pairwise_stable(a: str, b: str, call_model) -> dict:
         "winner": pick1 if pick1 == pick2 else "tie",
         "note": "两次顺序一致的结论才可采信；否则记为平局",
     }
-</code></pre>
-</div>
+````
+
+
 
 <div class="box box-warn">
   <span class="box-title">一个必须提防的循环论证</span>

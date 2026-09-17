@@ -98,9 +98,8 @@ note: '本章的核心判据只有一句话：能被解释、能被更正、能�
 
 这三件事是记忆系统的底线，也是产品能不能被信任的前提。
 
-<div class="code-block">
-  <div class="code-head"><span>memory_store.py</span><span class="lang">python</span></div>
-  <pre><code>from dataclasses import dataclass, field
+```python title="memory_store.py"
+from dataclasses import dataclass, field
 from datetime import datetime
 import hashlib
 @dataclass
@@ -179,8 +178,9 @@ class MemoryStore:
 def memory_fingerprint(text: str) -> str:
     """内容指纹，用于跨库去重"""
     return hashlib.sha256(text.strip().encode()).hexdigest()[:16]
-</code></pre>
-</div>
+```
+
+
 
 <div class="box box-practice">
   <span class="box-title">实操任务</span>

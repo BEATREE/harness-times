@@ -111,9 +111,8 @@ Trace 的价值不是「记录发生了什么」，而是「能在本地重现�
 
 ## 三、动手：Trace 与重放
 
-<div class="code-block">
-  <div class="code-head"><span>trace_replay.py</span><span class="lang">python</span></div>
-  <pre><code>import json, time, hashlib
+```python title="trace_replay.py"
+import json, time, hashlib
 from dataclasses import dataclass, field, asdict
 @dataclass
 class ToolCall:
@@ -193,8 +192,9 @@ def attribution_report(traces: list[Trace]) -> dict:
         "user_retry_rate": sum(1 for t in traces if t.user_signal == "retried") / len(traces)
                            if traces else 0,
     }
-</code></pre>
-</div>
+```
+
+
 
 ## 四、回归门禁：让评测有约束力
 

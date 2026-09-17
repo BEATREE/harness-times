@@ -125,9 +125,8 @@ note: '读完请务必记住一条工程纪律：需要结构化输出的地方�
 
 **第三层：后置校验 + 有限重试。** 无论前面怎么做，都要在拿到结果后做一次校验（能否解析、字段是否齐全、取值范围是否合法）。校验失败时的重试必须带「上一次错在哪」的信息，否则只是重复同样的错误。
 
-<div class="code-block">
-  <div class="code-head"><span>constrained_tool_call.py</span><span class="lang">python</span></div>
-  <pre><code>import json
+```python title="constrained_tool_call.py"
+import json
 from typing import Any
 TOOL_SCHEMA = {
     "type": "object",
@@ -172,11 +171,12 @@ def validate(obj: dict, schema: dict) -> str | None:
             return f"缺少必填字段 {key}"
     if obj.get("unit") not in schema["properties"]["unit"]["enum"]:
         return f"unit 取值非法：{obj.get('unit')}"
-    if not isinstance(obj.get("days"), int) or not 1 &lt;= obj["days"] &lt;= 7:
+    if not isinstance(obj.get("days"), int) or not 1 <= obj["days"] <= 7:
         return f"days 必须是 1-7 的整数，当前为 {obj.get('days')}"
     return None
-</code></pre>
-</div>
+```
+
+
 
 <div class="box box-practice">
   <span class="box-title">实操任务</span>

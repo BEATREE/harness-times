@@ -120,9 +120,8 @@ note: '本章是全站篇幅最长的一章，因为它同时影响效果上限�
 
 检索到的内容如果不带来源，模型无从判断可信度，也无法在回答里给出可验证的引用。最小可行的做法是给每段知识打三个标签：
 
-<div class="code-block">
-  <div class="code-head"><span>context_builder.py</span><span class="lang">python</span></div>
-  <pre><code>from dataclasses import dataclass
+```python title="context_builder.py"
+from dataclasses import dataclass
 import json, time
 @dataclass
 class KnowledgeChunk:
@@ -185,8 +184,9 @@ def summarize_progress(steps: list[dict]) -> str:
         + "；".join(f"{s['tool']}→{s.get('status')}" for s in failed[-5:])
         + "\n· 待办：见任务目标未覆盖的部分"
     )
-</code></pre>
-</div>
+```
+
+
 
 ## 四、什么时候该压缩：三个触发信号
 

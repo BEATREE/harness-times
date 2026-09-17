@@ -105,9 +105,8 @@ note: '本章最容易答错的是一道看似简单的推理题：稀疏激活�
 
 ## 四、动手：三十行感受一次路由
 
-<div class="code-block">
-  <div class="code-head"><span>moe_router.py</span><span class="lang">python</span></div>
-  <pre><code>import numpy as np
+```python title="moe_router.py"
+import numpy as np
 def softmax(x, axis=-1):
     m = x.max(axis=axis, keepdims=True)
     e = np.exp(x - m)
@@ -140,8 +139,9 @@ x = np.random.default_rng(1).normal(size=(64, 16))
 y = layer.forward(x)
 print('输出形状:', y.shape)          # (64, 16)，与输入一致
 print('专家使用次数:', layer.last_usage)   # 观察是否集中在少数专家身上
-</code></pre>
-</div>
+```
+
+
 
 <div class="box box-practice">
   <span class="box-title">实操任务</span>

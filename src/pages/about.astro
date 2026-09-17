@@ -4,24 +4,206 @@ import Masthead from '../components/Masthead.astro';
 import { DOMAINS, TOTALS, chaptersByDomain } from '../data/curriculum';
 import { INTERVIEW_TOTAL } from '../data/interview';
 import { STORAGE_KEY, REVIEW_INTERVALS } from '../lib/progress';
+
+/**
+ * 关联网站清单。
+ *
+ * 这里只放「点进去就有东西读」的站点，不做友情链接式的堆砌：
+ *   · 每个链接都先用 scripts/check-links.mjs 验过可达；
+ *   · 每个都写一句「为什么值得读」——没有这句的链接就不该出现在这一页。
+ * 新增链接请一并更新 scripts/sources.txt，那是这份清单的原始台账。
+ */
+const RELATED = [
+  {
+    group: '官方文档与工程手册',
+    note: '一手资料。凡是二手解读有分歧的地方，回到这里对一遍。',
+    items: [
+      {
+        name: 'Anthropic Engineering',
+        url: 'https://www.anthropic.com/engineering',
+        desc: '把「怎么把 Agent 做稳」写清楚的官方工程博客，上下文工程、工具设计都在这。',
+      },
+      {
+        name: 'Building Effective Agents',
+        url: 'https://www.anthropic.com/engineering/building-effective-agents',
+        desc: '「什么时候用工作流、什么时候才该上 Agent」的代表性文章，值得反复读。',
+      },
+      {
+        name: 'Claude Docs · 提示工程',
+        url: 'https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/overview',
+        desc: '官方提示工程总览，含工具调用与结构化输出的约束写法。',
+      },
+      {
+        name: 'Anthropic Learn',
+        url: 'https://www.anthropic.com/learn',
+        desc: '官方课程入口，从提示工程到 Agent 的分阶学习路径。',
+      },
+      {
+        name: 'OpenAI Cookbook',
+        url: 'https://developers.openai.com/cookbook',
+        desc: '大量可直接运行的示例：工具调用、评测、RAG、结构化输出。',
+      },
+      {
+        name: 'OpenAI Platform Docs',
+        url: 'https://platform.openai.com/docs/overview',
+        desc: '模型与 API 的权威参考，函数调用与 JSON 模式看这里。',
+      },
+      {
+        name: 'OpenAI Academy',
+        url: 'https://academy.openai.com/',
+        desc: '官方学习中心，偏入门与业务视角，适合补齐背景。',
+      },
+      {
+        name: 'Model Context Protocol',
+        url: 'https://modelcontextprotocol.io/',
+        desc: 'MCP 规范与 SDK。工具与数据源标准化目前的事实标准。',
+      },
+    ],
+  },
+  {
+    group: '长期更新的工程博客',
+    note: '这些作者的特点是：写自己踩过的坑，而不是转述别人的结论。',
+    items: [
+      {
+        name: 'Simon Willison',
+        url: 'https://simonwillison.net/',
+        desc: '几乎每天更新的大模型实践笔记，工具与提示的真实观察记录。',
+      },
+      {
+        name: 'Lilian Weng',
+        url: 'https://lilianweng.github.io/',
+        desc: '从系统视角讲 Agent、记忆与规划的综述式长文，适合建立框架。',
+      },
+      {
+        name: 'Eugene Yan',
+        url: 'https://eugeneyan.com/',
+        desc: '把 LLM 应用当工程问题来写，检索与评测部分尤其扎实。',
+      },
+      {
+        name: 'Hamel Husain',
+        url: 'https://hamel.dev/',
+        desc: '评测（evals）领域最值得读的实操专栏，专治「只会上模型不会评」。',
+      },
+      {
+        name: 'Chip Huyen',
+        url: 'https://huyenchip.com/blog/',
+        desc: '《Designing Machine Learning Systems》作者，ML 系统与 LLM 应用。',
+      },
+      {
+        name: 'Phil Schmid',
+        url: 'https://www.philschmid.de/',
+        desc: 'Agent 与推理优化的实践笔记，代码多、跑得动。',
+      },
+    ],
+  },
+  {
+    group: '评测、基准与前沿',
+    note: '想知道「怎么证明它真的行」，就从这些基准的做法开始看。',
+    items: [
+      {
+        name: 'SWE-bench',
+        url: 'https://www.swebench.com/',
+        desc: '用真实 GitHub issue 评测代码 Agent 的基准与排行榜。',
+      },
+      {
+        name: 'SWE-bench 仓库',
+        url: 'https://github.com/SWE-bench/SWE-bench',
+        desc: '数据集与评测工具。想自己复现一套评测流程，从这里起手。',
+      },
+      {
+        name: 'τ-bench',
+        url: 'https://github.com/sierra-research/tau-bench',
+        desc: '评测「多轮对话 + 工具调用 + 规则约束」的 Agent 基准。',
+      },
+      {
+        name: 'arXiv cs.CL 最新',
+        url: 'https://arxiv.org/list/cs.CL/recent',
+        desc: '计算语言学方向最新预印本，用来追前沿而不是学基础。',
+      },
+    ],
+  },
+  {
+    group: '框架与工具',
+    note: '框架会换，但「编排 / 沙箱 / 工具协议」这几件事不会。',
+    items: [
+      {
+        name: 'LangChain',
+        url: 'https://python.langchain.com/docs/introduction/',
+        desc: '老牌框架文档，工具抽象与检索链的常见写法都在这里。',
+      },
+      {
+        name: 'LangGraph',
+        url: 'https://langchain-ai.github.io/langgraph/',
+        desc: '用图描述有状态流程，长任务编排与人工确认的主流选择。',
+      },
+      {
+        name: 'AutoGen',
+        url: 'https://microsoft.github.io/autogen/stable/',
+        desc: '微软的多 Agent 对话框架，看多角色协作的实现方式。',
+      },
+      {
+        name: 'OpenAI Agents SDK',
+        url: 'https://github.com/openai/openai-agents-python',
+        desc: '官方轻量 Agent 运行时，handoff 与 guardrail 的设计可参考。',
+      },
+      {
+        name: 'CrewAI',
+        url: 'https://docs.crewai.com/',
+        desc: '角色分工式多 Agent 框架，文档与示例比较完整。',
+      },
+      {
+        name: 'E2B',
+        url: 'https://e2b.dev/',
+        desc: '给 Agent 用的云端沙箱，跑不可信代码时的隔离执行环境。',
+      },
+    ],
+  },
+  {
+    group: '中文资源',
+    note: '底子类内容，中文读起来更快。',
+    items: [
+      {
+        name: '动手学深度学习',
+        url: 'https://zh.d2l.ai/',
+        desc: '中文深度学习教材，用来补模型原理的底子。',
+      },
+      {
+        name: '李宏毅机器学习',
+        url: 'https://speech.ee.ntu.edu.tw/~hylee/ml/2023-spring.php',
+        desc: '中文机器学习课程，讲 Transformer 与生成模型很清楚。',
+      },
+      {
+        name: 'Datawhale · LLM 教程',
+        url: 'https://github.com/datawhalechina/hugging-llm',
+        desc: '中文大模型系统性教程，从原理一路到微调与部署。',
+      },
+      {
+        name: '宝玉',
+        url: 'https://baoyu.io/',
+        desc: '长期翻译与解读大模型一手资料的中文专栏。',
+      },
+    ],
+  },
+];
 ---
 
 <BaseLayout
-  title="关于本报"
-  description="Harness Times 的定位、版块结构、隐私说明与使用方式。所有学习记录只保存在本机浏览器，可通过 JSON 导出与恢复。"
+  title="关于本站"
+  description="Harness Times 是什么、由谁维护、怎么读、数据存在哪，以及值得一起读的关联网站。所有学习记录只保存在本机浏览器。"
   currentDomain=""
 >
-  <Masthead kicker="版权页 · 说明" title="关于本报" en="About This Paper" />
+  <Masthead kicker="关于本站 · About" title="关于本站" en="About This Site" />
 
   <section class="lead-col">
     <p class="lead" style="margin-bottom:16px">
-      《Harness Times》是一份针对 <b>Harness 工程 / Agent 开发</b>方向的中文学习刊。它不追求信息量的广度，
-      而是按「由浅入深、原理到实操」的顺序，把四个版块共 {TOTALS.chapters} 章内容排成一条可执行的阅读路径。
-      每一章都包含原理讲解、SVG 图解、可动手的代码、以及「面试官会怎么问」。
+      Harness Times 是一个<b>关于 Harness 工程与 Agent 开发的中文学习站</b>。
+      它按「由浅入深、原理到实操」的顺序，把四个版块共 {TOTALS.chapters} 章内容排成一条可执行的阅读路径；
+      每一章都包含原理讲解、SVG 图解、可动手的代码，以及「面试官会怎么问」。
     </p>
-    <p style="font-family:var(--font-ui);font-size:.84rem;line-height:1.85;color:var(--ink-muted)">
-      内容的写法遵循一条原则：<b>先给判据，再给结论</b>。所以你会看到大量「判据是……」「红线是……」
-      「如果答不出代价和边界，就说明还没掌握」这类表述——因为可迁移的是判断方法，不是结论本身。
+    <p class="disclaimer">
+      <b>先说清楚一件事：本站不是一份每天更新的报刊。</b>
+      站名里的 Times 只是个名字，内容按「章」组织、随修订更新，读完一遍之后隔一段时间回来重看，仍然是同一批章节。
+      所以这里没有期号、没有「今日头条」——你不需要每天来打卡，需要的是把某一章真正读懂。
     </p>
   </section>
 
@@ -31,6 +213,67 @@ import { STORAGE_KEY, REVIEW_INTERVALS } from '../lib/progress';
     <div class="s"><span class="n">{INTERVIEW_TOTAL}</span><span class="l">面试问答</span></div>
     <div class="s"><span class="n">{Math.round(TOTALS.minutes / 60)}</span><span class="l">小时总阅读量</span></div>
   </div>
+
+  <div class="section-head">关于「做棵大树」</div>
+
+  <div class="maker">
+    <div class="maker-text">
+      <p>
+        本站由 <b>做棵大树</b> 独立维护。主站在
+        <a href="https://beatree.cn" target="_blank" rel="noopener">beatree.cn</a>，
+        日常在那里写更零散的实践笔记与工具折腾记录；Harness Times 是把其中成体系的部分重新组织、
+        补齐图解与练习之后沉淀下来的学习站。
+      </p>
+      <p>
+        内容全部免费、无需登录。如果你觉得有用，欢迎关注微信公众号「做棵大树」——
+        新章节和修订会在那里先说一声，也方便你直接留言指出写错的地方。
+      </p>
+      <p class="maker-links">
+        <a class="btn" href="https://beatree.cn" target="_blank" rel="noopener">访问主站 beatree.cn</a>
+      </p>
+    </div>
+
+    <figure class="qr">
+      <img
+        src="https://beatree.cn/gzh/gzh-qr-card.jpg"
+        alt="「做棵大树」微信公众号二维码"
+        width="210"
+        height="210"
+        loading="lazy"
+        decoding="async"
+      />
+      <figcaption>微信扫码关注「做棵大树」</figcaption>
+    </figure>
+  </div>
+
+  <div class="section-head">关联网站</div>
+  <p class="related-note">
+    下面这些站点是本站反复参考、也建议你一起读的。只收录「点进去就有东西读」的页面，
+    并附上一句为什么值得读。
+  </p>
+
+  {
+    RELATED.map((group) => (
+      <section class="rel-group">
+        <h3>
+          {group.group}
+          <span class="rel-count">{group.items.length}</span>
+        </h3>
+        {group.note && <p class="rel-group-note">{group.note}</p>}
+        <ul class="rel-list">
+          {group.items.map((item) => (
+            <li class="rel-item">
+              <a href={item.url} target="_blank" rel="noopener">
+                <span class="rel-name">{item.name}</span>
+                <span class="rel-host">{new URL(item.url).host.replace(/^www\./, '')}</span>
+                <span class="rel-desc">{item.desc}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))
+  }
 
   <div class="section-head">版块结构与阅读顺序</div>
 
@@ -82,9 +325,9 @@ import { STORAGE_KEY, REVIEW_INTERVALS } from '../lib/progress';
   <section class="privacy">
     <p>
       <b>所有学习记录只保存在你自己的浏览器里，不会上传到任何服务器。</b>
-      本站是纯静态站点，没有任何后端接口、没有账号体系、没有埋点上报。
+      本站是纯静态站点，没有后端接口、没有账号体系、没有埋点上报。
       你在页面上产生的每一个动作——标记学完、给掌握度打分、写笔记、答自测题、加入复习队列——
-      都写进浏览器的 localStorage，键名为 <code>{STORAGE_KEY}</code>。
+      都只写进浏览器本地的 localStorage，键名为 <code>{STORAGE_KEY}</code>。
     </p>
     <div class="tbl-wrap">
       <table class="news">
@@ -96,16 +339,17 @@ import { STORAGE_KEY, REVIEW_INTERVALS } from '../lib/progress';
           <tr><td>个人笔记</td><td>本机浏览器</td><td>章节页回看、进度页笔记汇总</td></tr>
           <tr><td>自测题作答记录</td><td>本机浏览器</td><td>自测正确率统计</td></tr>
           <tr><td>面试题「已能答出」自评</td><td>本机浏览器（独立键 <code>ht:interview:v1</code>）</td><td>面试题库进度</td></tr>
+          <tr><td>目录折叠 / 侧栏收起状态</td><td>本机浏览器（键 <code>ht:nav:*</code>）</td><td>记住你的导航偏好</td></tr>
         </tbody>
       </table>
     </div>
     <p class="warn-note">
-      <b>请注意：</b>因为是本地存储，清除浏览器数据、换浏览器、换设备、使用无痕模式，都会导致记录丢失。
+      <b>请注意：</b>既然是本地存储，清除浏览器数据、换浏览器、换设备、使用无痕模式，都会导致记录丢失。
       建议定期在「学习进度」页做一次 <b>导出 JSON</b> 备份。
     </p>
   </section>
 
-  <div class="section-head">怎么用这份刊</div>
+  <div class="section-head">怎么用这个站</div>
 
   <div class="grid-2">
     <div class="how">
@@ -115,6 +359,14 @@ import { STORAGE_KEY, REVIEW_INTERVALS } from '../lib/progress';
         <li>右侧阅读进度条随滚动更新；页面停留时长会自动累计（切到后台会暂停计时）。</li>
         <li>读完后做两件事：点一下<b>掌握度自评</b>、写一条<b>笔记</b>（Ctrl / ⌘ + Enter 保存）。</li>
         <li>自测题每节 3 道，作答后会给出解析；答错的题目所在章节建议重新加复习。</li>
+      </ul>
+    </div>
+    <div class="how">
+      <h4>左侧目录</h4>
+      <ul>
+        <li>四个版块各有一套配色，<b>分组标题右侧的箭头可以单独折叠</b>，只展开你在读的那一版。</li>
+        <li>侧栏右缘中间的<b>‹ 按钮可以把整个目录收起</b>，正文会跟着变宽并重新居中；状态会记住。</li>
+        <li>窄屏下目录变成抽屉，用左上角的 ☰ 打开。</li>
       </ul>
     </div>
     <div class="how">
@@ -148,12 +400,13 @@ import { STORAGE_KEY, REVIEW_INTERVALS } from '../lib/progress';
   <div class="section-head">内容说明与边界</div>
 
   <div class="box box-warn">
-    <span class="box-title">请把这份刊当作「判断框架」，而不是「标准答案」</span>
+    <span class="box-title">请把这里当作「判断框架」，而不是「标准答案」</span>
     <ul>
       <li>其中的工程做法来自公开资料与通用工程实践的整理，<b>不是任何一家公司的内部规范</b>。不同团队的技术选型差异很大，遇到具体问题请以你自己的测量结果为准。</li>
       <li>面试问答的参考答案旨在展示<b>答题结构与思维层次</b>，不是可供背诵的话术。真正的加分点永远来自你在真实系统里踩过的坑。</li>
       <li>代码片段为了可读性做了简化（省略了异常处理、日志、并发安全等），<b>请勿直接用于生产环境</b>。</li>
       <li>涉及具体模型与产品的性能数字仅用于建立数量级直觉，实际表现随版本与部署方式变化，请以官方文档为准。</li>
+      <li>站外的关联网站由各自作者维护，其观点与本站无关；链接若失效欢迎告知。</li>
     </ul>
   </div>
 
@@ -169,7 +422,7 @@ import { STORAGE_KEY, REVIEW_INTERVALS } from '../lib/progress';
   </div>
 
   <div class="site-meta">
-    <span>本书共 {TOTALS.chapters} 章 · 约 {TOTALS.minutes} 分钟 · {INTERVIEW_TOTAL} 道面试问答</span>
+    <span>本站共 {TOTALS.chapters} 章 · 约 {TOTALS.minutes} 分钟 · {INTERVIEW_TOTAL} 道面试问答</span>
     <span>纯静态站点 · 无后端 · 无追踪 · 数据只在本机</span>
   </div>
 </BaseLayout>
@@ -178,6 +431,136 @@ import { STORAGE_KEY, REVIEW_INTERVALS } from '../lib/progress';
   .lead-col {
     max-width: 66ch;
   }
+  .disclaimer {
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    line-height: 1.85;
+    color: var(--ink-muted);
+    border-left: 3px solid var(--gold);
+    padding: 2px 0 2px 14px;
+    margin-top: 4px;
+  }
+  .disclaimer b {
+    color: var(--ink-soft);
+  }
+
+  /* --- 关于「做棵大树」 --- */
+  .maker {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 26px;
+    align-items: start;
+    border-top: 1px solid var(--ink);
+    padding-top: 14px;
+  }
+  .maker-text p {
+    font-size: 0.95rem;
+    line-height: 1.85;
+    color: var(--ink-soft);
+    text-align: justify;
+    margin-bottom: 12px;
+  }
+  .maker-links {
+    margin-top: 14px !important;
+  }
+  .qr {
+    margin: 0;
+    text-align: center;
+    border: 1px solid var(--border);
+    background: var(--paper-light);
+    padding: 12px 12px 9px;
+  }
+  .qr img {
+    width: 210px;
+    height: 210px;
+    object-fit: contain;
+    background: #fff;
+  }
+  .qr figcaption {
+    font-family: var(--font-ui);
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    color: var(--ink-muted);
+    margin-top: 8px;
+  }
+
+  /* --- 关联网站 --- */
+  .related-note {
+    font-size: 0.86rem;
+    line-height: 1.8;
+    color: var(--ink-muted);
+    margin: 0 0 6px;
+  }
+  .rel-group {
+    margin-top: 26px;
+  }
+  .rel-group h3 {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--red);
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 7px;
+    margin: 0 0 6px;
+  }
+  .rel-count {
+    color: var(--ink-faint);
+    letter-spacing: 0.04em;
+  }
+  .rel-group-note {
+    font-size: 0.8rem;
+    line-height: 1.75;
+    color: var(--ink-faint);
+    margin: 0 0 10px;
+  }
+  .rel-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
+    gap: 0 24px;
+  }
+  .rel-item {
+    border-bottom: 1px solid var(--border-light);
+  }
+  .rel-item a {
+    display: block;
+    border: 0;
+    padding: 10px 0;
+    color: inherit;
+  }
+  .rel-item a:hover .rel-name {
+    color: var(--red);
+  }
+  .rel-name {
+    display: block;
+    font-size: 0.93rem;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.4;
+    transition: color 0.18s ease;
+  }
+  .rel-host {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--ink-faint);
+    margin: 2px 0 5px;
+  }
+  .rel-desc {
+    display: block;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: var(--ink-muted);
+  }
+
+  /* --- 隐私 --- */
   .privacy p {
     font-size: 0.92rem;
     line-height: 1.8;
@@ -197,6 +580,8 @@ import { STORAGE_KEY, REVIEW_INTERVALS } from '../lib/progress';
   .warn-note b {
     color: var(--red);
   }
+
+  /* --- 用法 --- */
   .grid-2 {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -245,5 +630,14 @@ import { STORAGE_KEY, REVIEW_INTERVALS } from '../lib/progress';
     font-size: 0.62rem;
     letter-spacing: 0.1em;
     color: var(--ink-faint);
+  }
+
+  @media (max-width: 620px) {
+    .maker {
+      grid-template-columns: 1fr;
+    }
+    .qr {
+      justify-self: start;
+    }
   }
 </style>

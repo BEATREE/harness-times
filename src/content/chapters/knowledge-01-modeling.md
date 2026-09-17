@@ -120,9 +120,8 @@ note: '本章的「三层知识结构」是知识引擎部分的地基，后面�
 
 **这不是检索问题，是建模问题。** 而它造成的后果比检索错更严重——用户会基于错误的对比做出决策。
 
-<div class="code-block">
-  <div class="code-head"><span>knowledge_model.py</span><span class="lang">python</span></div>
-  <pre><code>from dataclasses import dataclass, field
+```python title="knowledge_model.py"
+from dataclasses import dataclass, field
 from typing import Literal
 from datetime import date
 @dataclass
@@ -172,7 +171,7 @@ class Inference:
     produced_at: str
     confidence: float = 0.7
     def is_valid(self) -> bool:
-        return len(self.based_on) > 0 and 0.0 &lt;= self.confidence &lt;= 1.0
+        return len(self.based_on) > 0 and 0.0 <= self.confidence <= 1.0
     def render(self) -> str:
         return (f"[推断·{self.confidence:.1f}] {self.conclusion}\n"
                 f"  依据：{', '.join(self.based_on) or '（缺失，不应展示）'}\n"
@@ -216,8 +215,9 @@ def render_for_prompt(facts: list[Fact], inferences: list[Inference],
     head = ("以下为可核验材料。【事实】可直接作为结论依据；"
             "【推断】仅代表某一时期的分析观点，需判断其依据是否仍然成立。\n\n")
     return head + "\n\n".join(text)
-</code></pre>
-</div>
+```
+
+
 
 ## 四、自测
 

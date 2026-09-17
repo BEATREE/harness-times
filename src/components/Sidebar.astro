@@ -15,8 +15,7 @@ const { currentChapter, currentDomain } = Astro.props;
   <div class="sidebar-scroll">
     <div class="sidebar-masthead">
       <a class="logo" href="/">Harness<br />Times</a>
-      <div class="subtitle">Agent 工程学习报</div>
-      <div class="issue" data-issue-side>第 1 期</div>
+      <div class="subtitle">Agent 工程学习站</div>
     </div>
 
     <div class="nav-label">
@@ -26,29 +25,41 @@ const { currentChapter, currentDomain } = Astro.props;
 
     {
       DOMAINS.map((d) => (
-        <div class="nav-group">
-          <a
-            class="nav-label"
-            href={`/${d.id}/`}
-            style={currentDomain === d.id ? 'color:var(--red)' : ''}
-          >
-            <span>
-              {d.no} · {d.name}
-            </span>
-            <span class="part-no">{chaptersByDomain(d.id).length}</span>
-          </a>
-
-          {chaptersByDomain(d.id).map((c) => (
-            <a
-              class:list={['nav-item', currentChapter === c.id && 'active']}
-              href={pathOf(c.id)}
-              data-nav-chapter={c.id}
-            >
-              <span class="num">{String(c.no).padStart(2, '0')}</span>
-              <span class="label-zh">{c.title}</span>
-              <span class="mark" aria-hidden="true" />
+        <div class="nav-group" data-domain={d.id} data-group={d.id}>
+          <div class="nav-group-head">
+            <a class="nav-label" href={`/${d.id}/`}>
+              <span>
+                {d.no} · {d.name}
+              </span>
+              <span class="part-no">{chaptersByDomain(d.id).length}</span>
             </a>
-          ))}
+            <button
+              class="nav-caret"
+              type="button"
+              data-group-toggle={d.id}
+              aria-expanded="true"
+              aria-controls={`group-${d.id}`}
+              aria-label={`展开或收起「${d.name}」目录`}
+            >
+              ▾
+            </button>
+          </div>
+
+          <div class="nav-group-body" id={`group-${d.id}`}>
+            <div class="nav-group-inner">
+              {chaptersByDomain(d.id).map((c) => (
+                <a
+                  class:list={['nav-item', currentChapter === c.id && 'active']}
+                  href={pathOf(c.id)}
+                  data-nav-chapter={c.id}
+                >
+                  <span class="num">{String(c.no).padStart(2, '0')}</span>
+                  <span class="label-zh">{c.title}</span>
+                  <span class="mark" aria-hidden="true" />
+                </a>
+              ))}
+            </div>
+          </div>
         </div>
       ))
     }
@@ -66,7 +77,7 @@ const { currentChapter, currentDomain } = Astro.props;
     </a>
     <a class="nav-item" href="/about/" data-nav-page="about">
       <span class="num">?</span>
-      <span class="label-zh">关于本报</span>
+      <span class="label-zh">关于本站</span>
     </a>
   </div>
 
@@ -82,6 +93,109 @@ const { currentChapter, currentDomain } = Astro.props;
     </div>
   </div>
 </aside>
+
+<button
+  class="nav-collapse-btn"
+  type="button"
+  data-nav-collapse
+  aria-expanded="true"
+  aria-controls="sidebar"
+  aria-label="收起目录"
+  title="收起 / 展开目录"
+>
+  ‹
+</button>
+
+<!--
+  导航的「记忆」放在这段 is:inline 脚本里，而不是下面那个打包脚本里。
+  原因：打包出来的 <script> 是 module，浏览器会把它推迟到 DOM 解析完之后才执行，
+  那时代码还没算、但首帧可能已经画出来了——侧栏会先按「全部展开」闪一下，
+  再蹦成用户上次折叠的样子。is:inline 是同步脚本，在解析到这里时立刻执行，
+  一定早于首帧，所以不会闪。
+  这里只用普通 JS，不需要 import。
+-->
+<script is:inline>
+  (() => {
+    const GROUPS_KEY = 'ht:nav:groups';
+    const SIDEBAR_KEY = 'ht:nav:sidebar';
+    const body = document.body;
+
+    const readGroups = () => {
+      try {
+        const raw = localStorage.getItem(GROUPS_KEY);
+        const arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+      } catch {
+        return [];
+      }
+    };
+
+    const writeGroups = (list) => {
+      try {
+        localStorage.setItem(GROUPS_KEY, JSON.stringify(list));
+      } catch {
+        /* 隐私模式，忽略 */
+      }
+    };
+
+    // —— 1. 侧栏整体收起状态：先复原，再绑定按钮 ——
+    let sidebarCollapsed = false;
+    try {
+      sidebarCollapsed = localStorage.getItem(SIDEBAR_KEY) === 'collapsed';
+    } catch {
+      /* ignore */
+    }
+
+    const applySidebar = (collapsed) => {
+      body.classList.toggle('nav-collapsed', collapsed);
+      const btn = document.querySelector('[data-nav-collapse]');
+      if (btn) {
+        btn.setAttribute('aria-expanded', String(!collapsed));
+        btn.setAttribute('aria-label', collapsed ? '展开目录' : '收起目录');
+        btn.textContent = collapsed ? '›' : '‹';
+      }
+    };
+
+    applySidebar(sidebarCollapsed);
+
+    document.querySelector('[data-nav-collapse]')?.addEventListener('click', () => {
+      sidebarCollapsed = !sidebarCollapsed;
+      applySidebar(sidebarCollapsed);
+      try {
+        localStorage.setItem(SIDEBAR_KEY, sidebarCollapsed ? 'collapsed' : 'open');
+      } catch {
+        /* ignore */
+      }
+    });
+
+    // —— 2. 分组折叠：复原上次状态；但「当前所在的组」永远展开 ——
+    const groups = Array.from(document.querySelectorAll('.nav-group[data-group]'));
+    if (groups.length) {
+      const collapsed = new Set(readGroups());
+
+      const setGroup = (group, isCollapsed) => {
+        group.classList.toggle('collapsed', isCollapsed);
+        const id = group.getAttribute('data-group');
+        const caret = group.querySelector('[data-group-toggle]');
+        caret?.setAttribute('aria-expanded', String(!isCollapsed));
+        if (isCollapsed) collapsed.add(id);
+        else collapsed.delete(id);
+      };
+
+      groups.forEach((group) => {
+        const hasActive = group.querySelector('.nav-item.active');
+        setGroup(group, !hasActive && collapsed.has(group.getAttribute('data-group')));
+      });
+
+      groups.forEach((group) => {
+        group.querySelector('[data-group-toggle]')?.addEventListener('click', () => {
+          setGroup(group, !group.classList.contains('collapsed'));
+          writeGroups(Array.from(collapsed));
+        });
+      });
+    }
+  })();
+</script>
 
 <div class="scrim" data-scrim></div>
 <button class="menu-toggle" data-menu-toggle aria-label="打开目录">☰</button>

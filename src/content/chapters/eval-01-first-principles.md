@@ -112,9 +112,8 @@ note: '本章建立评测的判断框架。后面四章都是它的展开：评�
 
 ## 四、动手：一个可复现的评测骨架
 
-<div class="code-block">
-  <div class="code-head"><span>eval_framework.py</span><span class="lang">python</span></div>
-  <pre><code>from dataclasses import dataclass, field
+```python title="eval_framework.py"
+from dataclasses import dataclass, field
 from typing import Callable, Any
 import statistics, json
 @dataclass
@@ -227,8 +226,9 @@ def compare(baseline: EvalReport, candidate: EvalReport) -> str:
             lines.append(f"⚠ 分层「{tag}」出现回落：{v_old:.1%} → {v_new:.1%}，"
                          f"整体指标可能掩盖了局部退化，请检查")
     return "\n".join(lines)
-</code></pre>
-</div>
+```
+
+
 
 <div class="box box-practice">
   <span class="box-title">实操任务</span>

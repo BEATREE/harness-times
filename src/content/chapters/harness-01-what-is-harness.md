@@ -90,9 +90,8 @@ note: '本刊读者若只读一章，请读这一章。它决定了后面所有�
   </table>
 </div>
 
-<div class="code-block">
-  <div class="code-head"><span>minimal_harness.py</span><span class="lang">python</span></div>
-  <pre><code>"""
+```python title="minimal_harness.py"
+"""
 最小可用 Harness 骨架。
 刻意把六层压缩成 40 行，只为展示「Harness 到底在做什么」。
 生产环境每一行都会膨胀成好几十行，但骨架不变。
@@ -173,8 +172,9 @@ def run(task: str, budget: Budget) -> dict:
             observations.append({"role": "user",
                                  "content": f"工具执行失败[{classify_error(e)}]：{e}"})
     return {"status": "budget_exhausted", "turns": budget.turns, "trace": budget.trace}
-</code></pre>
-</div>
+```
+
+
 
 <div class="box box-key">
   <span class="box-title">这段代码里最值钱的三行</span>

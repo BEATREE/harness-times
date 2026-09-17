@@ -155,9 +155,8 @@ note: '本章是知识引擎部分的收尾，也是三章内容的汇总：实�
 
 **第三，矛盾的证据要同时呈现。** 如果两路检索召回了互相冲突的内容，不要静默选一个——把两个都列出来并标注来源与时间，让用户判断。<b>这一点与第 1 章、第 5 章的原则完全一致：不假装自己知道答案。</b>
 
-<div class="code-block">
-  <div class="code-head"><span>hybrid_trust.py</span><span class="lang">python</span></div>
-  <pre><code>from dataclasses import dataclass, field
+```python title="hybrid_trust.py"
+from dataclasses import dataclass, field
 @dataclass
 class Evidence:
     """带可验证信息的证据块"""
@@ -241,8 +240,9 @@ def provenance_block(evidences: list[Evidence]) -> str:
         link = e.url or "（无链接）"
         lines.append(f"  {e.eid}　{e.source}　{loc}　更新 {e.updated_at}　{link}")
     return "\n".join(lines)
-</code></pre>
-</div>
+```
+
+
 
 <div class="box box-practice">
   <span class="box-title">实操任务</span>

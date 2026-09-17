@@ -95,9 +95,8 @@ DeepSeek 提出的 MLA（Multi-head Latent Attention）思路是：不直接缓�
 
 下面这段代码用纯 Python 模拟三种 decode 策略的「搬运次数」，用来建立数量级直觉。真实基准请用专业压测工具，但模型足够说明问题。
 
-<div class="code-block">
-  <div class="code-head"><span>decode_cost_model.py</span><span class="lang">python</span></div>
-  <pre><code>"""
+```python title="decode_cost_model.py"
+"""
 用「显存搬运次数」估算 decode 成本。
 核心假设：decode 每步都要把权重搬运一遍（带宽受限），
 所以「总搬运量 = 步数 × 权重体积」，优化就是减少这两个因子。
@@ -131,8 +130,9 @@ b, c = speculative(70, 512, accept_rate=0.7)
 print(f'投机解码 接受率 0.7  搬运 {b:8.1f} GiB　前向 {c:.0f} 次  ← 少了一半以上的搬运')
 b, _ = quantized(70, 512, bytes_per=1)
 print(f'fp8 量化             搬运 {b:8.1f} GiB  ← 直接减半')
-</code></pre>
-</div>
+```
+
+
 
 <div class="box box-practice">
   <span class="box-title">实操任务</span>

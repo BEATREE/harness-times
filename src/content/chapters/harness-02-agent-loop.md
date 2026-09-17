@@ -102,9 +102,8 @@ Agent 循环的最小结构只有三步，这三步的命名在不同框架里�
 
 ## 四、动手：一个带完整刹车的循环
 
-<div class="code-block">
-  <div class="code-head"><span>agent_loop.py</span><span class="lang">python</span></div>
-  <pre><code>import hashlib, json, time
+```python title="agent_loop.py"
+import hashlib, json, time
 from dataclasses import dataclass, field
 def sig(tool: str, args: dict) -> str:
     """工具调用签名：参数做稳定序列化，避免键序影响"""
@@ -178,8 +177,9 @@ def run(task: str, call_model, exec_tool, ask_human):
             ctx.append({"role": "user", "content": "用户拒绝了该操作。"})
             continue
         ctx.append({"role": "tool", "content": str(result)[:2000]})
-</code></pre>
-</div>
+```
+
+
 
 <div class="box box-practice">
   <span class="box-title">实操任务</span>

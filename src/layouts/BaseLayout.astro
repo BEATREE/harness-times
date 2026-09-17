@@ -48,13 +48,14 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://harness-tim
           <slot />
           <footer class="site-foot">
             <span>
-              Harness Times · Harness 与 Agent 工程学习报<br />
+              Harness Times · Harness 与 Agent 工程学习站 · 由「做棵大树」维护<br />
               学习进度保存在本机浏览器，不会上传任何数据
             </span>
             <span>
               <a href="/progress/">学习进度</a> ·
               <a href="/interview/">面试题总览</a> ·
-              <a href="/about/">关于本报</a>
+              <a href="/about/">关于本站</a> ·
+              <a href="https://beatree.cn" target="_blank" rel="noopener">beatree.cn</a>
             </span>
           </footer>
         </div>
@@ -66,13 +67,16 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://harness-tim
     <script>
       import { load } from '../lib/progress';
 
-      // —— 纸张翻页过渡：拦截站内链接，先播离场动画再跳转 ——
+      // —— 换页过渡：入场由 body 上的 is-entering 触发，离场靠拦截站内链接 ——
       const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
       if (!reduced) {
-        document.body.classList.remove('is-entering');
-        // 入场动画只播一次，避免返回时重复
-        setTimeout(() => document.body.classList.remove('is-entering'), 500);
+        // 注意：绝对不能在这里立刻 remove('is-entering')。
+        // 这个 class 写在 HTML 上，浏览器要在首帧计算样式时才会起播 paperEnter；
+        // 而模块脚本跑得比首帧更早，立刻摘掉等于把入场动画直接掐死
+        //——之前「只看到灰屏闪一下、看不到入场」就有这个原因。
+        // 正确做法是等动画演完再摘，顺便避免从 bfcache 返回时重播。
+        window.setTimeout(() => document.body.classList.remove('is-entering'), 400);
 
         document.addEventListener('click', (e) => {
           if (e.defaultPrevented || e.button !== 0) return;
@@ -92,10 +96,13 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://harness-tim
 
           e.preventDefault();
           document.body.classList.add('is-leaving');
-          setTimeout(() => {
+          // 与 paperExit 的 180ms 对齐，留一点余量即可
+          window.setTimeout(() => {
             location.href = url.href;
-          }, 290);
+          }, 190);
         });
+      } else {
+        document.body.classList.remove('is-entering');
       }
 
       // —— 全局提示条 ——

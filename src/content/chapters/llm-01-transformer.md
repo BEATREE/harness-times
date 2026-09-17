@@ -141,9 +141,8 @@ note: '本章不推导公式，只走一遍数据形状。读完后请合上文�
 
 不写一遍就容易把形状记混。下面这段 NumPy 代码把图 1 完整实现了一遍，重点看注释里标注的形状。
 
-<div class="code-block">
-  <div class="code-head"><span>scaled_dot_product_attention.py</span><span class="lang">python</span></div>
-  <pre><code>import numpy as np
+```python title="scaled_dot_product_attention.py"
+import numpy as np
 def softmax(x, axis=-1):
     m = x.max(axis=axis, keepdims=True)      # 数值稳定：先减去最大值
     e = np.exp(x - m)
@@ -169,8 +168,9 @@ print(out.shape)          # (5, 8) —— 形状与输入一致，这是所有�
 # 顺手验证因果掩码（decoder 只能看左边）
 mask = np.triu(np.ones((n, n)), k=1).astype(bool)
 print(mask.astype(int))
-</code></pre>
-</div>
+```
+
+
 
 <div class="box box-practice">
   <span class="box-title">实操任务（建议 20 分钟）</span>

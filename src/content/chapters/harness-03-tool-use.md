@@ -104,9 +104,8 @@ note: '这一章的内容可以直接拿去改你手上的 Harness —— 它是
 
 **第三层，执行前校验。** 无论前面怎么写，Handler 入口必须再校验一遍——因为模型可能根本不走结构化输出通道，或者你做了参数转换。
 
-<div class="code-block">
-  <div class="code-head"><span>tool_contract.py</span><span class="lang">python</span></div>
-  <pre><code>from dataclasses import dataclass
+```python title="tool_contract.py"
+from dataclasses import dataclass
 from typing import Any, Callable
 import json
 @dataclass
@@ -129,7 +128,7 @@ def search_articles(q: str, limit: int = 10) -> ToolResult:
     # --- 第三层：执行前校验（不信任任何上游） ---
     if not isinstance(q, str) or not q.strip():
         return ToolResult("bad_args", message="参数 q 不能为空，请给出中文关键词。")
-    if not (1 &lt;= limit &lt;= 20):
+    if not (1 <= limit <= 20):
         return ToolResult("bad_args",
                           message=f"limit 必须在 1-20 之间，当前为 {limit}。",
                           data={"allowed": [1, 20]})
@@ -174,8 +173,9 @@ def send_notification(user_id: str, text: str, idempotency_key: str) -> ToolResu
     return res
 def db_search(q, limit): raise NotImplementedError
 def api_send(user_id, text): raise NotImplementedError
-</code></pre>
-</div>
+```
+
+
 
 <div class="box box-key">
   <span class="box-title">幂等键为什么必须由调用方提供</span>

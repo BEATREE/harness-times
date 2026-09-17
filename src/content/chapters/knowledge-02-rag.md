@@ -113,9 +113,8 @@ note: '本章的失效模式表是实操清单，建议直接拿它去排查你�
 
 ## 三、动手：可调参的检索链路
 
-<div class="code-block">
-  <div class="code-head"><span>rag_pipeline.py</span><span class="lang">python</span></div>
-  <pre><code>from dataclasses import dataclass, field
+```python title="rag_pipeline.py"
+from dataclasses import dataclass, field
 from typing import Callable
 import re
 @dataclass
@@ -236,8 +235,9 @@ def table_to_text(rows: list[list[str]]) -> str:
         pairs = ", ".join(f"{h}为{v}" for h, v in zip(header, r))
         lines.append(f"该表一行记录：{pairs}")
     return f"表头：{', '.join(header)}\n" + "\n".join(lines)
-</code></pre>
-</div>
+```
+
+
 
 <div class="box box-practice">
   <span class="box-title">实操任务</span>

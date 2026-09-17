@@ -95,9 +95,8 @@ note: '本章开头那条纪律（评测集和调试集必须分开）是最容�
 
 ## 四、动手：评测集管理
 
-<div class="code-block">
-  <div class="code-head"><span>eval_dataset.py</span><span class="lang">python</span></div>
-  <pre><code>from dataclasses import dataclass, field, asdict
+```python title="eval_dataset.py"
+from dataclasses import dataclass, field, asdict
 from typing import Literal
 import json, random, hashlib
 Layer = Literal["smoke", "regression", "boundary", "adversarial"]
@@ -157,7 +156,7 @@ class Dataset:
             "layers": layers,
             "missing_origin": len(no_origin),        # 无溯源的样本无法维护
             "advice": (
-                "冒烟集偏少，建议至少 10 条" if layers["smoke"] &lt; 10 else
+                "冒烟集偏少，建议至少 10 条" if layers["smoke"] < 10 else
                 "对抗集缺失，安全类问题不会被评测覆盖" if layers["adversarial"] == 0 else
                 "结构基本健康"
             ),
@@ -180,8 +179,9 @@ def from_badcase(trace_id: str, expect_tool: str, expect_args: dict,
         expect_tool=expect_tool, expect_args=expect_args,
         origin=f"trace:{trace_id}", reason=reason,
     )
-</code></pre>
-</div>
+```
+
+
 
 <div class="box box-practice">
   <span class="box-title">实操任务</span>

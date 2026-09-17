@@ -1,4 +1,4 @@
-# Harness Times · 学习报
+# Harness Times · Agent 工程学习站
 
 一份用**报纸版式**写成的 Harness / Agent 工程中文学习站。22 章正文，覆盖大模型原理、Harness 工程、评测工程、知识引擎构建四大领域；理论、动手实操、面试问答三层递进。
 
@@ -69,14 +69,53 @@ src/
 ├── lib/progress.ts          # 存储层（localStorage，带版本号与迁移）
 ├── pages/
 │   ├── index.astro          # 头版
-│   ├── about.astro          # 关于本报（隐私模型说明）
+│   ├── about.astro          # 关于本站（定位、出品方、关联网站、隐私模型）
 │   ├── interview.astro      # 面试题库总览（可筛选、可自评）
 │   ├── progress.astro       # 学习进度与复习计划
 │   └── [domain]/            # 领域索引 + 章节页
 └── styles/global.css        # 报纸设计系统
 scripts/normalize-content.mjs  # 内容守卫（见上）
+scripts/clean.mjs              # 清 Astro 内容缓存（改 markdown 管线后必须跑）
+scripts/check-links.mjs        # 外链体检
+scripts/sources.txt            # 「关联网站」清单的原始台账
 public/data/*.csv              # 图解对应的原始数据
 ```
+
+---
+
+## 两个容易踩的坑
+
+### 1. 改 markdown 管线后必须清缓存
+
+Astro 5 会把 markdown 的**渲染结果**缓存到 `.astro/`，缓存键只跟内容文件有关，跟你改的 remark/rehype/shiki 插件**无关**。所以只要动了 `astro.config.mjs` 里的 `markdown` 配置或 `src/lib/code-title.mjs`，就得先清缓存再构建，否则会出现「代码改了、构建也过了、产物一动不动」。
+
+```bash
+npm run clean         # 只清缓存
+npm run build:fresh   # 清缓存 + 构建
+```
+
+### 2. 代码块的文件名栏靠「接力」实现
+
+围栏写成 ```` ```python title="agent_loop.py" ```` 时，文件名不在 Shiki 的常规输出里，需要两步：
+
+1. `src/lib/code-title.mjs` 的 `shikiCodeTitle()` 是 Shiki transformer，从 `this.options.meta.__raw` 里抠出 title 挂到 `<pre data-title>` 上。
+   —— 注意 Shiki 调 `pre()` 时**只传一个参数**，meta 在 `this` 上，所以这个钩子必须是普通方法，不能写成箭头函数。
+2. `rehypeCodeTitleWrapper()` 是 rehype 插件，在最终 hast 上把带 `data-title` 的 `<pre>` 包成 `<div class="code-block"><div class="code-head">…</div><pre/></div>`。
+   —— 它能生效的前提是 Astro 把用户 rehype 插件排在 Shiki **之后**（`@astrojs/markdown-remark` 里确实是这个顺序）。
+
+---
+
+## 外链体检
+
+正文与「关于本站」页里有不少站外链接，失效了构建期发现不了。上线前后跑一次：
+
+```bash
+node scripts/check-links.mjs                     # 扫描 src/ 下全部 http(s) 链接
+node scripts/check-links.mjs --file=scripts/sources.txt
+```
+
+扫描会先剥掉围栏代码块与行内代码，避免把示例里的 `example.com` 当成真链接误报。
+`openai.com` 系域名对非浏览器 UA 返回 403 属正常反爬，不代表链接失效。
 
 ---
 

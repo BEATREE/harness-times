@@ -125,9 +125,8 @@ note: '本章的核心是「口径」二字。建议读完把三张表存下来�
 
 ## 四、动手：三档指标的计算实现
 
-<div class="code-block">
-  <div class="code-head"><span>executable_metrics.py</span><span class="lang">python</span></div>
-  <pre><code>from dataclasses import dataclass
+```python title="executable_metrics.py"
+from dataclasses import dataclass
 from typing import Any
 import re, unicodedata
 def normalize(v: Any, rules: dict) -> Any:
@@ -214,11 +213,12 @@ def evaluate(results: list[dict], rules: dict) -> MetricReport:
 RULES = {
     "case_insensitive": True,                 # 全局：忽略大小写
     "region": {"synonyms": {"华东": "east", "华东区": "east", "East": "east"}},
-    "op": {"synonyms": {"大于": "&gt;", ">": "&gt;", "gt": "&gt;"}},
+    "op": {"synonyms": {"大于": ">", ">": ">", "gt": ">"}},
     "unit": {"synonyms": {"万": "10000", "万元": "10000"}},
 }
-</code></pre>
-</div>
+```
+
+
 
 <div class="box box-warn">
   <span class="box-title">规范化规则必须版本化</span>

@@ -92,9 +92,8 @@ KV Cache 是按**前缀逐位比对**命中的。从序列的第一个 token 开
 
 缓存不是免费的，它占显存。估算公式不长，记住它就能在面试里立刻给出数量级。
 
-<div class="code-block">
-  <div class="code-head"><span>kv_cache_footprint.py</span><span class="lang">python</span></div>
-  <pre><code>def kv_cache_bytes(
+```python title="kv_cache_footprint.py"
+def kv_cache_bytes(
     batch: int,        # 并发请求数
     seq_len: int,      # 序列长度（含历史）
     n_layers: int,     # 层数
@@ -113,8 +112,9 @@ print(f"{total / 1024**3:.1f} GiB")   # 大约 31 GiB —— 仅缓存，不含�
 for s in (8_000, 32_000, 128_000):
     n = kv_cache_bytes(32, s, 80, 8, 128)
     print(f"seq_len={s:>7}: {n/1024**3:6.1f} GiB")
-</code></pre>
-</div>
+```
+
+
 
 三点必须记住：
 
@@ -126,9 +126,8 @@ for s in (8_000, 32_000, 128_000):
 
 下面的脚本可以直接接进你自己的 Harness 里做日常检查。
 
-<div class="code-block">
-  <div class="code-head"><span>prefix_guard.py</span><span class="lang">python</span></div>
-  <pre><code>import json, hashlib
+```python title="prefix_guard.py"
+import json, hashlib
 from typing import Any
 def serialize_stable(obj: Any) -> str:
     """稳定序列化：键排序、分隔符固定、禁用 ascii 转义以保证同一对象字节一致"""
@@ -152,8 +151,9 @@ h2 = h1 + [{"role": "assistant", "content": "正在查询"},
            {"role": "tool", "content": "晴 24℃"}]
 fp2 = prefix_fingerprint(h2, tools)   # 注意这里的「-1」语义：最后一轮的新输入不入指纹
 print(fp1, fp2)   # 这里的差异是因为 history 长度变了，实际检查时应比较「相同长度部分」
-</code></pre>
-</div>
+```
+
+
 
 <div class="box box-practice">
   <span class="box-title">实操任务</span>

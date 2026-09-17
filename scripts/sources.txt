@@ -1,0 +1,51 @@
+# Harness Times 「关联网站」清单
+# 每行一个 URL，# 开头为注释。
+# 用途：跑 `node scripts/check-links.mjs --file=scripts/sources.txt` 验活，
+#       再把确认可用的写进 src/pages/about.astro 的「关联网站」区。
+#
+# 备注（2026-09 校验时的情况）：
+#   · openai.com 系域名会对非浏览器 UA 返回 403，属正常反爬，链接本身有效。
+#   · 少数域名在受限网络下会直接 fetch failed，不代表站点已下线。
+#   · GitHub 上被重命名过的仓库会 301 到新地址，脚本已跟随重定向。
+
+# —— 官方文档与工程手册 ——
+https://www.anthropic.com/engineering
+https://www.anthropic.com/engineering/building-effective-agents
+https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/overview
+https://www.anthropic.com/learn
+https://developers.openai.com/cookbook
+https://platform.openai.com/docs/overview
+https://academy.openai.com/
+https://modelcontextprotocol.io/
+
+# —— 长期更新的工程博客 ——
+https://simonwillison.net/
+https://lilianweng.github.io/
+https://eugeneyan.com/
+https://hamel.dev/
+https://huyenchip.com/blog/
+https://www.philschmid.de/
+
+# —— 评测、基准与前沿 ——
+https://www.swebench.com/
+https://github.com/SWE-bench/SWE-bench
+https://github.com/sierra-research/tau-bench
+https://arxiv.org/list/cs.CL/recent
+
+# —— 框架与工具 ——
+https://python.langchain.com/docs/introduction/
+https://langchain-ai.github.io/langgraph/
+https://microsoft.github.io/autogen/stable/
+https://github.com/openai/openai-agents-python
+https://docs.crewai.com/
+https://e2b.dev/
+
+# —— 中文资源 ——
+https://zh.d2l.ai/
+https://speech.ee.ntu.edu.tw/~hylee/ml/2023-spring.php
+https://github.com/datawhalechina/hugging-llm
+https://baoyu.io/
+
+# —— 本站相关 ——
+https://beatree.cn
+https://beatree.cn/gzh/gzh-qr-card.jpg

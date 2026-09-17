@@ -104,9 +104,8 @@ note: '本章是全站最贴近真实面试考点的一章。如果你只能读�
 
 第 4 章讲了压缩策略，这里讲**怎么把它做成一个自动机制**，因为手动触发在长任务里不现实。
 
-<div class="code-block">
-  <div class="code-head"><span>auto_compact.py</span><span class="lang">python</span></div>
-  <pre><code>import hashlib, json
+```python title="auto_compact.py"
+import hashlib, json
 from dataclasses import dataclass, field
 @dataclass
 class CompactionPolicy:
@@ -131,7 +130,7 @@ def trim_single_observation(obs: str, limit_chars: int) -> str:
     单条超长结果的头尾保留裁剪。
     关键：必须显式标注省略了多少，否则模型会以为这就是全部内容。
     """
-    if len(obs) &lt;= limit_chars:
+    if len(obs) <= limit_chars:
         return obs
     head = obs[: int(limit_chars * 0.6)]
     tail = obs[-int(limit_chars * 0.3):]
@@ -182,8 +181,9 @@ def structured_summary(steps: list[Step], summarize_fn) -> str:
     )
 def fingerprint(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()[:12]
-</code></pre>
-</div>
+```
+
+
 
 <div class="box box-key">
   <span class="box-title">压缩机制里最重要的一步是「钉住」</span>
@@ -208,9 +208,8 @@ def fingerprint(text: str) -> str:
   </table>
 </div>
 
-<div class="code-block">
-  <div class="code-head"><span>checkpoint.py</span><span class="lang">python</span></div>
-  <pre><code>import json, os, time
+```python title="checkpoint.py"
+import json, os, time
 from dataclasses import dataclass, asdict, field
 STATE_DIR = os.environ.get("HT_STATE_DIR", "./.ht_state")
 @dataclass
@@ -266,8 +265,9 @@ def resume(task_id: str, current_tools: set[str]) -> tuple[Checkpoint, list[str]
         if tool not in current_tools:
             problems.append(f"待办步骤依赖的工具 {tool} 已不可用，需重新规划：{step}")
     return cp, problems
-</code></pre>
-</div>
+```
+
+
 
 ## 四、三个常被忽略的稳定性问题
 

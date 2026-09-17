@@ -88,9 +88,8 @@ note: '本章的「外部内容一律视为不可信数据」是本刊认为 Age
 
 安全最容易失败的地方是「靠约定」——文档里写着「外部内容要当数据看」，代码里却只是字符串拼接。更可靠的做法是让类型系统帮忙：
 
-<div class="code-block">
-  <div class="code-head"><span>trust_boundary.py</span><span class="lang">python</span></div>
-  <pre><code>from dataclasses import dataclass
+```python title="trust_boundary.py"
+from dataclasses import dataclass
 from typing import NewType
 import re, unicodedata
 # 用类型区分「可信指令」与「不可信数据」——让误用在代码层面不自然
@@ -166,8 +165,9 @@ def audit_log(event: str, payload: dict) -> None:
     """全量审计：任何时刻都能回答「谁、在什么上下文下、做了什么」"""
     raise NotImplementedError
 def ask_human(prompt: str) -> bool: raise NotImplementedError
-</code></pre>
-</div>
+```
+
+
 
 <div class="box box-warn">
   <span class="box-title">一个容易忽略的攻击面：文件名与元数据</span>

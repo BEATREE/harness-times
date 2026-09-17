@@ -1,9 +1,16 @@
 /* ==========================================================================
    Harness Times — 报纸设计系统
-   字体策略：全部使用系统字体栈，不请求任何第三方字体 CDN。
-   原因：Google Fonts 在中国大陆访问受限且会阻塞首屏渲染；报纸质感主要靠
-   字重、字距、细线分隔与栏线营造，宋体系（Songti/SimSun/Source Han Serif）
-   本身就是最贴近中文报纸的载体。
+   字体策略：只使用系统字体栈，不请求任何第三方字体 CDN（Google Fonts 在国内
+   访问受限，且会阻塞首屏渲染）。
+
+   分工（这是「清晰」的关键）：
+     · 标题  --font-display：拉丁字母走衬线（Playfair/Georgia）保留报纸味，
+       中文交给黑体系（PingFang / 微软雅黑）——中文报纸标题本来就用黑体，
+       而且 Windows 上装不到思源宋体，落到 SimSun 会有一圈毛边。
+     · 正文  --font-body：整段中文以「屏幕易读」为先，全走黑体系。
+       旧的衬线正文在 Windows 上只能落到 SimSun，小字号明显发虚。
+     · 界面  --font-ui：按钮、标签、元信息。
+     · 代码  --font-mono：等宽，且不再混入中文字体。
    ========================================================================== */
 
 :root {
@@ -34,19 +41,24 @@
   --shadow-deep: rgba(26, 24, 22, 0.16);
 
   /* 字体 */
-  --font-display: 'Playfair Display', 'Source Han Serif SC', 'Noto Serif SC',
-    'Songti SC', 'STSong', 'SimSun', Georgia, 'Times New Roman', serif;
-  --font-body: 'Source Serif 4', 'Source Han Serif SC', 'Noto Serif SC',
-    'Songti SC', 'STSong', 'SimSun', Georgia, 'Times New Roman', serif;
+  --font-display: 'Playfair Display', Georgia, 'Times New Roman', 'PingFang SC',
+    'HarmonyOS Sans SC', 'Noto Sans SC', 'Source Han Sans SC', 'Microsoft YaHei',
+    'Hiragino Sans GB', 'Segoe UI', sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'PingFang SC', 'HarmonyOS Sans SC', 'Noto Sans SC',
+    'Source Han Sans SC', 'Microsoft YaHei', 'Hiragino Sans GB', 'Heiti SC',
+    sans-serif;
   --font-ui: 'DM Sans', -apple-system, BlinkMacSystemFont, 'PingFang SC',
-    'HarmonyOS Sans SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI',
-    'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Cascadia Mono', Consolas,
-    'Courier New', 'Songti SC', monospace;
+    'HarmonyOS Sans SC', 'Noto Sans SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'Cascadia Code',
+    'Cascadia Mono', Consolas, 'DejaVu Sans Mono', Menlo, Monaco, 'Courier New',
+    monospace;
 
   /* 度量 */
   --sidebar-w: 268px;
-  --measure: 43rem;
+  /* 中文一行 38~42 字最舒服；43rem 在宽屏上偏长，读久了容易串行 */
+  --measure: 40rem;
   --gap: 32px;
 }
 
@@ -62,8 +74,13 @@
 
 html {
   font-size: 16px;
+  /* canvas 底色直接用纸色：换页时即使还没画出 .main，也不会闪出白底或深底 */
+  background: var(--paper);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* 关掉移动端的字号自动放大，避免同一段落在不同机型上字重不一致 */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   scroll-behavior: smooth;
   scroll-padding-top: 24px;
 }
@@ -71,8 +88,10 @@ html {
 body {
   font-family: var(--font-body);
   color: var(--ink);
-  background: #2c2824;
-  line-height: 1.72;
+  /* 曾经这里是深炭色 #2c2824，页面前后切换时 .main 一淡出就会露出它，
+     整屏发灰发脏——这就是「灰屏过渡」的根源。改成纸色后淡出即融入纸面。 */
+  background: var(--paper);
+  line-height: 1.75;
   min-height: 100vh;
 }
 
@@ -109,7 +128,7 @@ a:hover {
 .app {
   display: flex;
   min-height: 100vh;
-  background: #2c2824;
+  background: var(--paper);
 }
 
 /* --- 侧栏 --- */
@@ -176,14 +195,6 @@ a:hover {
   margin-top: 5px;
 }
 
-.sidebar-masthead .issue {
-  font-family: var(--font-ui);
-  font-size: 0.55rem;
-  color: var(--ink-muted);
-  margin-top: 3px;
-  letter-spacing: 0.08em;
-}
-
 .nav-label {
   font-family: var(--font-ui);
   font-size: 0.55rem;
@@ -202,13 +213,176 @@ a:hover {
   letter-spacing: 0.1em;
 }
 
+/*
+ * 侧栏分组配色：每个领域（大模型原理 / Harness 工程 / 评测工程 / 知识引擎）
+ * 一套自己的强调色和底色，扫一眼就知道自己在哪一版。
+ * 具体色值只在这里定义一次，下面所有分组件样式都只引用 --dc / --dc-bg。
+ */
 .nav-group {
+  --dc: var(--ink-muted);
+  --dc-bg: transparent;
   padding-bottom: 4px;
   border-bottom: 1px solid var(--border-light);
 }
 
+.nav-group[data-domain='llm'] {
+  --dc: var(--blue);
+  --dc-bg: rgba(44, 74, 124, 0.09);
+}
+
+.nav-group[data-domain='harness'] {
+  --dc: var(--red);
+  --dc-bg: rgba(155, 44, 44, 0.09);
+}
+
+.nav-group[data-domain='eval'] {
+  --dc: #8a6a1f;
+  --dc-bg: rgba(184, 148, 75, 0.17);
+}
+
+.nav-group[data-domain='knowledge'] {
+  --dc: var(--teal);
+  --dc-bg: rgba(47, 97, 87, 0.09);
+}
+
 .nav-group:last-of-type {
   border-bottom: 0;
+}
+
+/* 分组头：左半是通往「版首页」的链接，右半是折叠箭头 */
+.nav-group-head {
+  display: flex;
+  align-items: stretch;
+}
+
+.nav-group-head .nav-label {
+  flex: 1;
+  min-width: 0;
+  background: var(--dc-bg);
+  color: var(--dc);
+  font-weight: 700;
+}
+
+.nav-group-head .nav-label:hover {
+  border-bottom: 0;
+}
+
+.nav-caret {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  flex-shrink: 0;
+  border: 0;
+  border-left: 1px solid var(--border-light);
+  background: var(--dc-bg);
+  color: var(--dc);
+  font-family: var(--font-ui);
+  font-size: 0.58rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-caret:hover {
+  filter: brightness(0.93);
+}
+
+.nav-group.collapsed .nav-caret {
+  transform: rotate(-90deg);
+}
+
+/*
+ * 分组主体：用 grid-template-rows 在 0fr / 1fr 之间过渡来做高度动画。
+ * 比 max-height 更准——max-height 得猜一个上限，内容少的组会「先慢后快」。
+ */
+.nav-group-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-group-body > .nav-group-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.nav-group.collapsed .nav-group-body {
+  grid-template-rows: 0fr;
+}
+
+/* 章节条目沿用所属分组的颜色 */
+.nav-group .nav-item:hover {
+  border-left-color: var(--dc);
+  background: var(--dc-bg);
+}
+
+.nav-group .nav-item.active {
+  border-left-color: var(--dc);
+  background: var(--dc-bg);
+}
+
+.nav-group .nav-item.active .label-zh {
+  color: var(--dc);
+}
+
+/* --- 侧栏整体收起 / 展开（桌面端） --- */
+
+.nav-collapse-btn {
+  position: fixed;
+  top: 50%;
+  left: calc(var(--sidebar-w) - 1px);
+  transform: translateY(-50%);
+  z-index: 45;
+  width: 19px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  background: var(--paper-light);
+  border: 1px solid var(--border);
+  border-left: 0;
+  border-radius: 0 3px 3px 0;
+  color: var(--ink-faint);
+  font-family: var(--font-ui);
+  font-size: 0.66rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: left 0.26s cubic-bezier(0.16, 1, 0.3, 1), color 0.18s ease,
+    background 0.18s ease, border-color 0.18s ease;
+}
+
+.nav-collapse-btn:hover {
+  color: var(--red);
+  background: var(--paper);
+  border-color: var(--border-strong);
+}
+
+/* 只有桌面端有「收起侧栏」；窄屏下侧栏本来就是抽屉，走 ☰ */
+@media (min-width: 761px) {
+  .sidebar {
+    transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .main {
+    transition: margin-left 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  body.nav-collapsed .sidebar {
+    transform: translateX(-100%);
+  }
+
+  body.nav-collapsed .main {
+    margin-left: 0;
+  }
+
+  body.nav-collapsed .nav-collapse-btn {
+    left: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .nav-collapse-btn {
+    display: none;
+  }
 }
 
 .nav-item {
@@ -350,37 +524,63 @@ a:hover {
   padding: 40px 56px 72px;
 }
 
+/*
+ * 阅读栏：章节标题、正文、章尾这三块共用同一条栏宽，并且整体居中。
+ *
+ * 之前只有 .prose 有 max-width，且是默认左对齐——在 1120px 的纸面上，
+ * 640px 的正文全挤在左边，右侧空出一大块，左右留白完全不对称。
+ * 现在把三块一起收进 --measure 并 margin:auto 居中，
+ * 计算下来它们在 .main 里的左右留白是相等的（.sheet 本身也是 auto 居中）。
+ *
+ * 注意用 margin-left/right 长写而不是 margin 简写：
+ * .chapter-foot 自带 margin-top，简写会把它冲掉。
+ */
+.chapter-head,
+.prose,
+.chapter-foot {
+  max-width: var(--measure);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/*
+ * 换页过渡：离场让旧页淡出上浮，入场让新页淡入上浮。
+ *
+ * 旧版本是 translateX(±42px) + rotate(±0.9deg) + scale(0.985) 的「翻纸」动作，
+ * 幅度大，而且先把 .main 淡到全透明——底下那层深色背景就整块露出来了，
+ * 观感就是一屏灰。现在收敛到「位移 ≤10px、不带旋转」，底衬本身也已是纸色，
+ * 淡出等同于融进纸面。
+ *
+ * 时长也压短了：MPA 的过渡是「先等旧页演完，再真的跳转」，
+ * 动画时长会实打实叠加成用户的等待，越长越像卡住。
+ */
 body.is-leaving .main {
-  animation: paperExit 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: paperExit 0.18s cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
 body.is-entering .main {
-  animation: paperEnter 0.42s cubic-bezier(0.2, 0, 0.1, 1);
+  animation: paperEnter 0.26s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes paperExit {
   from {
     opacity: 1;
-    transform: none;
+    transform: translateY(0);
   }
   to {
     opacity: 0;
-    transform: translateX(-42px) rotate(-0.9deg) scale(0.985);
+    transform: translateY(-8px);
   }
 }
 
 @keyframes paperEnter {
-  0% {
+  from {
     opacity: 0;
-    transform: translateX(46px) rotate(0.9deg) scale(0.985);
+    transform: translateY(10px);
   }
-  70% {
+  to {
     opacity: 1;
-    transform: translateX(-3px) rotate(-0.25deg);
-  }
-  100% {
-    opacity: 1;
-    transform: none;
+    transform: translateY(0);
   }
 }
 
@@ -469,6 +669,21 @@ body.is-entering .main {
 
 .masthead-bottom .sep {
   color: var(--gold);
+}
+
+/* 报头细条里的出品方链接：这里要「不像链接」——不要红色，也不要下划线 */
+.masthead-top .made-by a {
+  color: var(--ink-soft);
+  border-bottom: 0;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 2px;
+  transition: color 0.18s ease, text-decoration-color 0.18s ease;
+}
+
+.masthead-top .made-by a:hover {
+  color: var(--red);
+  text-decoration-color: var(--red);
 }
 
 /* ============================ 版块标题与细线 ============================ */
@@ -570,10 +785,10 @@ body.is-entering .main {
 }
 
 .prose p {
-  font-size: 1rem;
-  line-height: 1.78;
+  font-size: 1.0625rem;
+  line-height: 1.86;
   color: var(--ink-soft);
-  margin-bottom: 15px;
+  margin-bottom: 16px;
   text-align: justify;
   text-justify: inter-ideograph;
 }
@@ -585,10 +800,10 @@ body.is-entering .main {
 }
 
 .prose li {
-  font-size: 0.98rem;
-  line-height: 1.72;
+  font-size: 1.03rem;
+  line-height: 1.82;
   color: var(--ink-soft);
-  margin-bottom: 7px;
+  margin-bottom: 8px;
   text-align: justify;
 }
 
@@ -601,14 +816,30 @@ body.is-entering .main {
   font-weight: 700;
 }
 
+/* 中文没有真正的斜体字形，浏览器会合成「伪斜体」——笔画被整体拉歪，
+   在小字号下比正体更难认。所以 em 改成「加粗 + 深墨」，
+   这也正是中文排版里表达强调的常规做法。 */
 .prose em {
-  font-style: italic;
+  font-style: normal;
+  font-weight: 600;
   color: var(--ink);
+}
+
+/* 整段就是一句强调（markdown 里独占一行的 *…*）：做成报纸的「社论体」，
+   左侧一道金线，字号略大，用来承接要点。 */
+.prose p > em:only-child {
+  display: block;
+  font-size: 1.09rem;
+  line-height: 1.8;
+  font-weight: 600;
+  color: var(--ink);
+  border-left: 2px solid var(--gold);
+  padding-left: 14px;
 }
 
 .prose code {
   font-family: var(--font-mono);
-  font-size: 0.85em;
+  font-size: 0.88em;
   background: rgba(184, 148, 75, 0.13);
   border: 1px solid rgba(184, 148, 75, 0.24);
   padding: 0.5px 4px;
@@ -627,21 +858,21 @@ body.is-entering .main {
   padding: 2px 0 2px 16px;
   margin: 18px 0;
   color: var(--ink-muted);
-  font-style: italic;
+  /* 不用伪斜体，靠边线与颜色区分引用 */
 }
 
 .prose blockquote p {
-  font-size: 0.95rem;
+  font-size: 1rem;
+  line-height: 1.82;
   margin-bottom: 8px;
 }
 
-/* 导语：斜体大字 */
+/* 导语：字号略大的开篇段 */
 .lead {
   font-family: var(--font-body);
-  font-size: 1.1rem;
-  line-height: 1.66;
-  font-style: italic;
-  color: var(--ink-soft);
+  font-size: 1.13rem;
+  line-height: 1.8;
+  color: var(--ink);
   margin-bottom: 22px;
   text-align: justify;
 }
@@ -1002,11 +1233,14 @@ figure.fig figcaption b {
   font-weight: 700;
 }
 
-.code-block pre {
+.code-block pre,
+.code-block pre.astro-code {
   margin: 0;
   padding: 14px 16px;
   max-width: 100%;
   overflow-x: auto;
+  /* Shiki 把主题底色写成 <pre> 的内联 background-color，纸面风格下要压掉 */
+  background: #fbf8f2 !important;
   font-family: var(--font-mono);
   font-size: 0.78rem;
   line-height: 1.72;
@@ -1038,6 +1272,17 @@ figure.fig figcaption b {
   padding: 0;
   font-size: inherit;
   color: inherit;
+}
+
+/* 带文件名栏的代码块：<pre> 已被 .code-block 包住，
+   上面 .prose pre.astro-code 的 margin / border 要在这里收回去，
+   否则会出现「双边框 + 文件名栏与代码之间多出一段空隙」。
+   选择器多一层 .prose，靠权重稳压上面那条同权重的规则。 */
+.prose .code-block pre.astro-code {
+  margin: 0;
+  border: 0;
+  padding: 14px 16px;
+  background: #fbf8f2 !important;
 }
 
 /* ============================ 面试问答 ============================ */

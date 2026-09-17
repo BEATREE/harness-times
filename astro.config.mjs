@@ -1,4 +1,5 @@
 import { defineConfig } from 'astro/config';
+import { shikiCodeTitle, rehypeCodeTitleWrapper } from './src/lib/code-title.mjs';
 
 // Harness Times — 静态输出，产物在 dist/，可直接交给 Cloudflare Pages
 export default defineConfig({
@@ -11,11 +12,16 @@ export default defineConfig({
     inlineStylesheets: 'auto',
   },
   markdown: {
-    // 报纸风格正文用衬线字体，代码块用浅色主题以贴合纸面
+    // 正文用衬线字体，代码块用浅色主题以贴合纸面
     shikiConfig: {
       theme: 'github-light',
-      wrap: true,
+      // 不折行：代码折行会破坏缩进语义，长行交给 .code-block 横向滚动，
+      // 并用 CSS 的滚动阴影提示「右侧还有内容」。
+      wrap: false,
+      transformers: [shikiCodeTitle()],
     },
+    // 把 ```lang title="文件名" 渲染成带文件名栏的代码块
+    rehypePlugins: [rehypeCodeTitleWrapper],
     smartypants: false,
   },
   vite: {

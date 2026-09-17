@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "private": true,
-  "description": "Harness Times · Harness 与 Agent 工程学习报 — 一份可以逐版读下去的工程学习站",
+  "description": "Harness Times · Harness 与 Agent 工程学习站 — 一份可以按章读下去的中文学习站",
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
@@ -11,6 +11,8 @@
     "content:fix": "node scripts/normalize-content.mjs --fix",
     "prebuild": "npm run content:check",
     "build": "astro build",
+    "clean": "node scripts/clean.mjs",
+    "build:fresh": "npm run clean && astro build",
     "preview": "astro preview",
     "serve": "astro preview --host 0.0.0.0",
     "deploy": "wrangler pages deploy dist --project-name harness-times",
