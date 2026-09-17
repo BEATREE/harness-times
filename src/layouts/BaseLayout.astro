@@ -1,0 +1,127 @@
+---
+import '../styles/global.css';
+import Sidebar from '../components/Sidebar.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  currentChapter?: string;
+  currentDomain?: string;
+  /** 当前章节 id，会写到 body[data-chapter] 供客户端脚本读取 */
+  chapterId?: string;
+  /** 页面副标题，用于 <title> 后缀 */
+  suffix?: string;
+}
+
+const {
+  title,
+  description = 'Harness Times —— 系统学习 Harness 工程、评测工程、知识引擎与大模型原理的中文学习站。包含原理图解、实操代码与面试问答，学习进度保存在本机浏览器。',
+  currentChapter,
+  currentDomain,
+  chapterId,
+} = Astro.props;
+
+const fullTitle = title === 'Harness Times' ? title : `${title} · Harness Times`;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://harness-times.pages.dev').href;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta name="theme-color" content="#f4efe6" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+  </head>
+  <body class="is-entering" data-chapter={chapterId}>
+    <div class="app">
+      <Sidebar currentChapter={currentChapter} currentDomain={currentDomain} />
+      <div class="main paper-texture">
+        <div class="sheet">
+          <slot />
+          <footer class="site-foot">
+            <span>
+              Harness Times · Harness 与 Agent 工程学习报<br />
+              学习进度保存在本机浏览器，不会上传任何数据
+            </span>
+            <span>
+              <a href="/progress/">学习进度</a> ·
+              <a href="/interview/">面试题总览</a> ·
+              <a href="/about/">关于本报</a>
+            </span>
+          </footer>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" data-toast role="status" aria-live="polite"></div>
+
+    <script>
+      import { load } from '../lib/progress';
+
+      // —— 纸张翻页过渡：拦截站内链接，先播离场动画再跳转 ——
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      if (!reduced) {
+        document.body.classList.remove('is-entering');
+        // 入场动画只播一次，避免返回时重复
+        setTimeout(() => document.body.classList.remove('is-entering'), 500);
+
+        document.addEventListener('click', (e) => {
+          if (e.defaultPrevented || e.button !== 0) return;
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+          const a = (e.target as HTMLElement)?.closest?.('a');
+          if (!a) return;
+          const href = a.getAttribute('href');
+          if (!href) return;
+          if (a.target === '_blank' || a.hasAttribute('download')) return;
+          if (href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('http')) return;
+          if (a.hasAttribute('data-no-transition')) return;
+
+          const url = new URL(a.href, location.href);
+          if (url.origin !== location.origin) return;
+          if (url.pathname === location.pathname && url.hash) return;
+
+          e.preventDefault();
+          document.body.classList.add('is-leaving');
+          setTimeout(() => {
+            location.href = url.href;
+          }, 290);
+        });
+      }
+
+      // —— 全局提示条 ——
+      const toastEl = document.querySelector('[data-toast]');
+      let toastTimer: number | undefined;
+      (window as any).htToast = (msg: string) => {
+        if (!toastEl) return;
+        toastEl.textContent = msg;
+        toastEl.classList.add('show');
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => toastEl.classList.remove('show'), 2200);
+      };
+
+      // —— 开启本机存储的说明：首次访问给一次提示 ——
+      try {
+        const seen = window.localStorage.getItem('ht:welcomed');
+        if (!seen) {
+          window.localStorage.setItem('ht:welcomed', '1');
+          setTimeout(() => (window as any).htToast?.('进度会自动保存在本机浏览器'), 900);
+        }
+      } catch {
+        /* 隐私模式下 localStorage 不可用，忽略 */
+      }
+
+      // 预热存储层，让首次写入就建立结构
+      load();
+    </script>
+  </body>
+</html>

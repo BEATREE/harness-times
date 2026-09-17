@@ -1,0 +1,498 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Masthead from '../components/Masthead.astro';
+import { CHAPTERS, TOTALS, levelLabel, levelClass } from '../data/curriculum';
+import { INTERVIEW_TOTAL } from '../data/interview';
+
+const R = 56;
+const C = 2 * Math.PI * R;
+---
+
+<BaseLayout title="学习进度与复习" description="查看学习进度、复习队列与笔记；支持导出与导入 JSON 备份。数据仅保存在本机浏览器。">
+  <Masthead compact kicker="工具版" title="学习进度与复习" en="Progress & Review" />
+
+  <header class="chapter-head" style="border-bottom-width:1px">
+    <div class="kicker-row">
+      <span class="chip chip-domain">本机数据</span>
+      <span class="chip">{TOTALS.chapters} 章 / {INTERVIEW_TOTAL} 面试问答</span>
+      <span class="chip" data-store-state>正在读取存储…</span>
+    </div>
+    <h1>学习进度与复习</h1>
+    <div class="en">
+      Data lives in your browser only — export a JSON backup before switching devices.
+    </div>
+  </header>
+
+  <div class="box box-warn" style="margin-top:0">
+    <span class="box-title">重要提醒 · 数据在你手里</span>
+    <p>
+      所有记录（已学完、停留时长、笔记、自测、自评、复习队列）都存放在这台设备的浏览器里。
+      <b>清理浏览器数据、换设备、换浏览器都会丢失</b>。养成习惯：每周导出一次 JSON 备份，放在你的网盘或笔记里。
+    </p>
+  </div>
+
+  <!-- ============ 总览 ============ -->
+  <div class="section-head">总览 · Overview</div>
+
+  <div class="panel">
+    <div class="ring-row">
+      <div class="ring-wrap">
+        <svg width="132" height="132" viewBox="0 0 132 132" aria-hidden="true">
+          <circle cx="66" cy="66" r={R} fill="none" stroke="#ded4c4" stroke-width="9" />
+          <circle
+            cx="66"
+            cy="66"
+            r={R}
+            fill="none"
+            stroke="#9b2c2c"
+            stroke-width="9"
+            stroke-linecap="butt"
+            stroke-dasharray={String(C)}
+            stroke-dashoffset={String(C)}
+            data-ring
+          />
+        </svg>
+        <div class="ring-center">
+          <div>
+            <span class="pct" data-ring-pct>0%</span>
+            <span class="sub" data-ring-sub>0 / {TOTALS.chapters}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="domain-bars" data-domain-bars></div>
+    </div>
+  </div>
+
+  <div class="stat-row" style="margin-top:0">
+    <div class="s"><span class="n" data-stat-time>0</span><span class="l">累计分钟</span></div>
+    <div class="s"><span class="n" data-stat-streak>0</span><span class="l">连续学习天</span></div>
+    <div class="s"><span class="n" data-stat-active>0</span><span class="l">活跃天数</span></div>
+    <div class="s"><span class="n" data-stat-today>0</span><span class="l">今日分钟</span></div>
+    <div class="s"><span class="n" data-stat-avg>0</span><span class="l">平均自评</span></div>
+  </div>
+
+  <!-- ============ 热力图 ============ -->
+  <div class="section-head">最近 30 天 · Activity</div>
+  <div class="panel">
+    <h3>每日学习时长</h3>
+    <div class="heatmap" data-heatmap></div>
+    <div class="heat-legend">
+      <span>少</span>
+      <span class="sw" style="background:#ded4c4"></span>
+      <span class="sw" style="background:#dfd3bd"></span>
+      <span class="sw" style="background:#cbbb98"></span>
+      <span class="sw" style="background:#b08f52"></span>
+      <span class="sw" style="background:#9b2c2c"></span>
+      <span>多</span>
+      <span style="margin-left:10px;text-transform:none;letter-spacing:0">
+        每格一天；按当天累计停留时长的 1 分钟粒度着色
+      </span>
+    </div>
+  </div>
+
+  <!-- ============ 复习队列 ============ -->
+  <div class="section-head">今日待复习 · Review due</div>
+  <div class="panel">
+    <h3>到期项目（间隔重复：1 → 3 → 7 → 16 → 35 天）</h3>
+    <ul class="review-list" data-review-list></ul>
+  </div>
+
+  <div class="section-head">接下来到期 · Upcoming</div>
+  <div class="panel">
+    <h3>未来复习安排</h3>
+    <ul class="review-list" data-upcoming-list></ul>
+  </div>
+
+  <!-- ============ 重点章节 ============ -->
+  <div class="section-head">我的重点 · Starred</div>
+  <div class="panel">
+    <h3>标记为重点的章节</h3>
+    <ul class="review-list" data-starred-list></ul>
+  </div>
+
+  <!-- ============ 笔记 ============ -->
+  <div class="section-head">我的笔记 · Notes</div>
+  <div class="panel">
+    <h3>全部笔记（按时间倒序）</h3>
+    <ul class="note-list" data-all-notes></ul>
+  </div>
+
+  <!-- ============ 数据管理 ============ -->
+  <div class="section-head">数据管理 · Backup</div>
+
+  <div class="panel">
+    <h3>导出备份</h3>
+    <p style="font-size:.9rem;color:var(--ink-soft);margin-bottom:12px">
+      导出的 JSON 包含全部章节状态、笔记、自测作答、自评与复习计划。建议存进网盘或笔记软件。
+    </p>
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      <button class="btn primary" data-act="export-download">下载 JSON 文件</button>
+      <button class="btn" data-act="export-copy">复制到剪贴板</button>
+      <button class="btn" data-act="export-show">在下方显示</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>导入恢复</h3>
+    <p style="font-size:.9rem;color:var(--ink-soft);margin-bottom:12px">
+      支持完整导出包与裸数据两种格式。<b>默认按合并方式导入</b>：只补全缺失记录，不会覆盖你现有的进度；
+      合并时取更靠前的状态、更长的时长，笔记按内容去重。取消勾选「合并」则整体替换。
+    </p>
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <label style="font-family:var(--font-ui);font-size:.72rem;letter-spacing:.06em;color:var(--ink-soft);display:flex;align-items:center;gap:6px">
+        <input type="checkbox" data-merge checked style="accent-color:var(--red)" /> 合并导入（推荐）
+      </label>
+      <label class="btn" style="cursor:pointer">
+        选择 JSON 文件
+        <input type="file" accept=".json,application/json" data-file hidden />
+      </label>
+      <button class="btn" data-act="import-text">导入下方内容</button>
+    </div>
+    <textarea class="import-area" data-import-area placeholder="把导出的 JSON 粘贴到这里，或点击上方「选择 JSON 文件」"></textarea>
+    <p
+      data-import-msg
+      style="font-family:var(--font-ui);font-size:.72rem;letter-spacing:.06em;color:var(--ink-muted);margin-top:9px;min-height:1.2em"
+    ></p>
+  </div>
+
+  <div class="panel">
+    <h3>清空数据</h3>
+    <p style="font-size:.9rem;color:var(--ink-soft);margin-bottom:12px">
+      这会删除本机上全部学习记录，且无法撤销。<b>请先导出备份。</b>
+    </p>
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      <button class="btn" data-act="clear-notes">只清空笔记</button>
+      <button class="btn" data-act="reset-all" style="border-color:var(--red);color:var(--red)">
+        清空全部学习数据
+      </button>
+    </div>
+  </div>
+
+  <div class="section-head">全部章节勾选表 · Checklist</div>
+  <div class="panel">
+    <h3>逐章确认</h3>
+    <ul class="review-list" data-checklist></ul>
+  </div>
+</BaseLayout>
+
+<script>
+  import {
+    allNotes,
+    buildStats,
+    dueForReview,
+    exportPayload,
+    getChapter,
+    gradeReview,
+    heatmapDays,
+    importPayload,
+    load,
+    resetAll,
+    setStatus,
+    storageAvailable,
+    toggleDone,
+    upcomingReview,
+  } from '../lib/progress';
+  import { CHAPTERS, DOMAINS, pathOf, levelLabel, levelClass } from '../data/curriculum';
+
+  const $ = <T extends Element = Element>(s: string) => document.querySelector(s) as T | null;
+  const toast = (m: string) => (window as any).htToast?.(m);
+  const R = 56;
+  const C = 2 * Math.PI * R;
+  const byId = (id: string) => CHAPTERS.find((c) => c.id === id);
+  const esc = (s: string) =>
+    s.replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string
+    );
+
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+
+  const render = () => {
+    const s = load();
+    const stats = buildStats();
+
+    /* --- 存储状态 --- */
+    const stateEl = $('[data-store-state]');
+    if (stateEl) {
+      stateEl.textContent = storageAvailable() ? '本地存储可用' : '本地存储不可用（隐私模式？）';
+    }
+
+    /* --- 环形进度 --- */
+    const done = stats.doneCount;
+    const pct = Math.round((done / CHAPTERS.length) * 100);
+    const ring = $('[data-ring]') as unknown as SVGCircleElement | null;
+    if (ring) ring.setAttribute('stroke-dashoffset', String(C * (1 - pct / 100)));
+    const rp = $('[data-ring-pct]');
+    if (rp) rp.textContent = `${pct}%`;
+    const rs = $('[data-ring-sub]');
+    if (rs) rs.textContent = `${done} / ${CHAPTERS.length} 章`;
+
+    /* --- 领域进度条 --- */
+    const bars = $('[data-domain-bars]');
+    if (bars) {
+      bars.innerHTML = DOMAINS.map((d) => {
+        const ids = CHAPTERS.filter((c) => c.domain === d.id).map((c) => c.id);
+        const dd = ids.filter((id) => s.chapters[id]?.status === 'done').length;
+        const p = Math.round((dd / ids.length) * 100);
+        return `<div class="domain-bar">
+          <div class="db-top"><span>${d.no} · ${esc(d.name)}</span><span class="cnt">${dd} / ${ids.length} 章 · ${p}%</span></div>
+          <div class="db-track"><div class="db-fill" style="width:${p}%"></div></div>
+        </div>`;
+      }).join('');
+    }
+
+    /* --- 数字卡 --- */
+    const set = (sel: string, v: string) => {
+      const el = $(sel);
+      if (el) el.textContent = v;
+    };
+    set('[data-stat-time]', String(stats.totalMinutes));
+    set('[data-stat-streak]', String(stats.streakDays));
+    set('[data-stat-active]', String(stats.activeDays));
+    set('[data-stat-today]', String(stats.todayMinutes));
+    set('[data-stat-avg]', stats.avgConfidence ? `${stats.avgConfidence}` : '—');
+
+    /* --- 热力图 --- */
+    const hm = $('[data-heatmap]');
+    if (hm) {
+      hm.innerHTML = heatmapDays(30)
+        .map(
+          (d) =>
+            `<div class="heat-cell l${d.level}" title="${d.key} · ${d.minutes} 分钟"></div>`
+        )
+        .join('');
+    }
+
+    /* --- 复习队列 --- */
+    const dueList = $('[data-review-list]');
+    if (dueList) {
+      const due = dueForReview();
+      dueList.innerHTML =
+        due.length === 0
+          ? '<li style="border:0"><span class="empty-note">今天没有到期项目。标记学完后会自动进入复习队列。</span></li>'
+          : due
+              .map((d) => {
+                const c = byId(d.chapterId);
+                if (!c) return '';
+                const st = getChapter(d.chapterId);
+                return `<li>
+                  <span class="rv-main">
+                    <a href="${pathOf(c.id)}">${esc(c.title)}</a>
+                    <span class="rv-meta">第 ${d.stage + 1} 档 · ${d.overdueDays > 0 ? `已逾期 ${d.overdueDays} 天` : '今天到期'} · 自评 ${st.confidence || '—'}/5</span>
+                  </span>
+                  <span class="rv-actions">
+                    <button class="btn on" data-rv="good" data-id="${c.id}">记得</button>
+                    <button class="btn" data-rv="again" data-id="${c.id}">再想想</button>
+                    <a class="btn" href="${pathOf(c.id)}">去复习</a>
+                  </span>
+                </li>`;
+              })
+              .join('');
+    }
+
+    const upList = $('[data-upcoming-list]');
+    if (upList) {
+      const up = upcomingReview(8);
+      upList.innerHTML =
+        up.length === 0
+          ? '<li style="border:0"><span class="empty-note">暂无后续安排。</span></li>'
+          : up
+              .map((d) => {
+                const c = byId(d.chapterId);
+                if (!c) return '';
+                return `<li>
+                  <span class="rv-main">
+                    <a href="${pathOf(c.id)}">${esc(c.title)}</a>
+                    <span class="rv-meta">第 ${d.stage + 1} 档 · ${fmtDate(d.dueAt)} 到期</span>
+                  </span>
+                  <span class="rv-actions"><a class="btn" href="${pathOf(c.id)}">去复习</a></span>
+                </li>`;
+              })
+              .join('');
+    }
+
+    /* --- 重点章节 --- */
+    const starList = $('[data-starred-list]');
+    if (starList) {
+      const starred = Object.entries(s.chapters).filter(([, v]) => v.starred);
+      starList.innerHTML =
+        starred.length === 0
+          ? '<li style="border:0"><span class="empty-note">还没有重点章节。在章节页点「☆ 重点」即可标记。</span></li>'
+          : starred
+              .map(([id, v]) => {
+                const c = byId(id);
+                if (!c) return '';
+                return `<li>
+                  <span class="rv-main">
+                    <a href="${pathOf(c.id)}">${esc(c.title)}</a>
+                    <span class="rv-meta">${v.status === 'done' ? '已学完' : '进行中'} · 自评 ${v.confidence || '—'}/5 · 访问 ${v.visits} 次</span>
+                  </span>
+                  <span class="rv-actions"><a class="btn" href="${pathOf(c.id)}">打开</a></span>
+                </li>`;
+              })
+              .join('');
+    }
+
+    /* --- 全部笔记 --- */
+    const notesEl = $('[data-all-notes]');
+    if (notesEl) {
+      const notes = allNotes();
+      notesEl.innerHTML =
+        notes.length === 0
+          ? '<li style="border:0;color:var(--ink-faint);font-size:.86rem">还没有笔记。在任意章节页底部写下第一条。</li>'
+          : notes
+              .map((n) => {
+                const c = byId(n.chapterId);
+                return `<li>
+                  <span class="nt-time">${new Date(n.at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                  <span class="nt-text">${esc(n.text)}
+                    <br /><a href="${c ? pathOf(c.id) : '/'}" style="font-family:var(--font-ui);font-size:.66rem;letter-spacing:.08em">出自：${esc(c?.title || n.chapterId)}</a>
+                  </span>
+                </li>`;
+              })
+              .join('');
+    }
+
+    /* --- 逐章勾选表 --- */
+    const cl = $('[data-checklist]');
+    if (cl) {
+      cl.innerHTML = CHAPTERS.map((c) => {
+        const st = getChapter(c.id);
+        const isDone = st.status === 'done';
+        return `<li>
+          <span class="rv-main">
+            <a href="${pathOf(c.id)}">${String(c.no).padStart(2, '0')} · ${esc(c.title)}</a>
+            <span class="rv-meta">${levelLabel(c.level)} · ${c.minutes} 分钟 · ${st.seconds ? `${Math.round(st.seconds / 60)} 分钟已投入` : '未开始'}</span>
+          </span>
+          <span class="rv-actions">
+            <button class="btn ${isDone ? 'on' : ''}" data-tick="${c.id}">${isDone ? '✓ 已学完' : '标记学完'}</button>
+            <a class="btn" href="${pathOf(c.id)}">打开</a>
+          </span>
+        </li>`;
+      }).join('');
+    }
+
+    void levelClass;
+  };
+
+  /* ==================== 事件 ==================== */
+
+  document.addEventListener('click', (e) => {
+    const t = e.target as HTMLElement;
+
+    const rv = t.closest('[data-rv]');
+    if (rv) {
+      const id = rv.getAttribute('data-id') || '';
+      const result = rv.getAttribute('data-rv') as 'good' | 'again';
+      gradeReview(id, result);
+      toast(result === 'good' ? '已记录：记得，下次间隔拉长' : '已记录：再想想，10 分钟后再刷一次');
+      render();
+      return;
+    }
+
+    const tick = t.closest('[data-tick]');
+    if (tick) {
+      const id = tick.getAttribute('data-tick') || '';
+      toggleDone(id);
+      render();
+      return;
+    }
+
+    const act = t.closest('[data-act]')?.getAttribute('data-act');
+    if (act === 'export-download') {
+      const blob = new Blob([exportPayload()], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const d = new Date();
+      const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
+      a.download = `harness-times-progress-${stamp}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast('已下载备份文件');
+      return;
+    }
+    if (act === 'export-copy') {
+      navigator.clipboard
+        ?.writeText(exportPayload())
+        .then(() => toast('已复制到剪贴板'))
+        .catch(() => toast('复制失败，请用「在下方显示」手动复制'));
+      return;
+    }
+    if (act === 'export-show') {
+      const area = $<HTMLTextAreaElement>('[data-import-area]');
+      if (area) {
+        area.value = exportPayload();
+        area.focus();
+        toast('已填入下方文本框，可直接全选复制');
+      }
+      return;
+    }
+    if (act === 'import-text') {
+      const area = $<HTMLTextAreaElement>('[data-import-area]');
+      if (!area || !area.value.trim()) {
+        msg('请先粘贴或选择要导入的 JSON', true);
+        return;
+      }
+      doImport(area.value);
+      return;
+    }
+    if (act === 'clear-notes') {
+      if (!confirm('确定清空所有章节的笔记吗？此操作不可撤销。')) return;
+      const st = load();
+      Object.values(st.chapters).forEach((c) => (c.notes = []));
+      // 直接落盘
+      try {
+        window.localStorage.setItem('ht:progress:v1', JSON.stringify(st));
+      } catch {
+        /* ignore */
+      }
+      location.reload();
+      return;
+    }
+    if (act === 'reset-all') {
+      if (!confirm('这会删除本机全部学习记录，无法恢复。确认继续？')) return;
+      if (!confirm('最后确认一次：真的要清空吗？建议先导出备份。')) return;
+      resetAll();
+      render();
+      toast('已清空全部学习数据');
+      return;
+    }
+
+    void setStatus;
+  });
+
+  const msg = (text: string, bad = false) => {
+    const el = $('[data-import-msg]');
+    if (!el) return;
+    el.textContent = text;
+    (el as HTMLElement).style.color = bad ? 'var(--red)' : 'var(--teal)';
+  };
+
+  const doImport = (text: string) => {
+    const merge = ($('[data-merge]') as HTMLInputElement | null)?.checked ?? true;
+    const res = importPayload(text, merge);
+    msg(res.message, !res.ok);
+    if (res.ok) {
+      toast(res.message);
+      render();
+    }
+  };
+
+  const fileInput = $<HTMLInputElement>('[data-file]');
+  fileInput?.addEventListener('change', () => {
+    const f = fileInput.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || '');
+      const area = $<HTMLTextAreaElement>('[data-import-area]');
+      if (area) area.value = text;
+      doImport(text);
+    };
+    reader.readAsText(f);
+  });
+
+  window.addEventListener('ht:progress', render);
+  render();
+</script>

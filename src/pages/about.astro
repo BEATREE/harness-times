@@ -1,0 +1,249 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Masthead from '../components/Masthead.astro';
+import { DOMAINS, TOTALS, chaptersByDomain } from '../data/curriculum';
+import { INTERVIEW_TOTAL } from '../data/interview';
+import { STORAGE_KEY, REVIEW_INTERVALS } from '../lib/progress';
+---
+
+<BaseLayout
+  title="关于本报"
+  description="Harness Times 的定位、版块结构、隐私说明与使用方式。所有学习记录只保存在本机浏览器，可通过 JSON 导出与恢复。"
+  currentDomain=""
+>
+  <Masthead kicker="版权页 · 说明" title="关于本报" en="About This Paper" />
+
+  <section class="lead-col">
+    <p class="lead" style="margin-bottom:16px">
+      《Harness Times》是一份针对 <b>Harness 工程 / Agent 开发</b>方向的中文学习刊。它不追求信息量的广度，
+      而是按「由浅入深、原理到实操」的顺序，把四个版块共 {TOTALS.chapters} 章内容排成一条可执行的阅读路径。
+      每一章都包含原理讲解、SVG 图解、可动手的代码、以及「面试官会怎么问」。
+    </p>
+    <p style="font-family:var(--font-ui);font-size:.84rem;line-height:1.85;color:var(--ink-muted)">
+      内容的写法遵循一条原则：<b>先给判据，再给结论</b>。所以你会看到大量「判据是……」「红线是……」
+      「如果答不出代价和边界，就说明还没掌握」这类表述——因为可迁移的是判断方法，不是结论本身。
+    </p>
+  </section>
+
+  <div class="stat-row">
+    <div class="s"><span class="n">{TOTALS.domains}</span><span class="l">知识版块</span></div>
+    <div class="s"><span class="n">{TOTALS.chapters}</span><span class="l">正文章节</span></div>
+    <div class="s"><span class="n">{INTERVIEW_TOTAL}</span><span class="l">面试问答</span></div>
+    <div class="s"><span class="n">{Math.round(TOTALS.minutes / 60)}</span><span class="l">小时总阅读量</span></div>
+  </div>
+
+  <div class="section-head">版块结构与阅读顺序</div>
+
+  <div class="tbl-wrap">
+    <table class="news">
+      <thead>
+        <tr><th>序</th><th>版块</th><th>章节数</th><th>定位</th><th>建议</th></tr>
+      </thead>
+      <tbody>
+        {
+          DOMAINS.map((d) => (
+            <tr>
+              <td>{d.no}</td>
+              <td>
+                <b>{d.name}</b>
+                <span style="color:var(--ink-faint);font-size:.72rem">　{d.en}</span>
+              </td>
+              <td>{chaptersByDomain(d.id).length}</td>
+              <td style="font-size:.76rem">{d.tagline}</td>
+              <td style="font-size:.76rem;color:var(--ink-muted)">
+                {d.order === 1
+                  ? '先读，建立成本与复杂度直觉'
+                  : d.order === 2
+                    ? '主干，篇幅最长，建议精读'
+                    : d.order === 3
+                      ? '差异化能力，体现系统思维'
+                      : '回答「凭什么相信」的问题'}
+              </td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="box box-key">
+    <span class="box-title">推荐的阅读路径（不要按目录顺序机械地读）</span>
+    <ul>
+      <li><b>第一遍（建立地图）：</b>II-01 Harness 是什么 → II-02 循环与终止 → II-08 长任务与失败恢复。先知道全貌与最痛的地方，后面读起来才有挂靠点。</li>
+      <li><b>第二遍（补底层）：</b>I 版块五章。成本、上下文、前缀稳定性这些概念都建立在模型原理上，回头读会比先读更顺。</li>
+      <li><b>第三遍（精读主干）：</b>II-03 到 II-07，工具、上下文、记忆、编排、安全五章。</li>
+      <li><b>第四遍（差异化）：</b>III 评测工程 → IV 知识引擎。这两块是多数人做得最糙、也最能体现实力的部分。</li>
+      <li><b>随时可读：</b>每章末尾的面试问答与自测题，建议在面试前一周集中过一遍。</li>
+    </ul>
+  </div>
+
+  <div class="section-head">你的数据在哪里</div>
+
+  <section class="privacy">
+    <p>
+      <b>所有学习记录只保存在你自己的浏览器里，不会上传到任何服务器。</b>
+      本站是纯静态站点，没有任何后端接口、没有账号体系、没有埋点上报。
+      你在页面上产生的每一个动作——标记学完、给掌握度打分、写笔记、答自测题、加入复习队列——
+      都写进浏览器的 localStorage，键名为 <code>{STORAGE_KEY}</code>。
+    </p>
+    <div class="tbl-wrap">
+      <table class="news">
+        <thead><tr><th>你会产生的数据</th><th>存在哪</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td>章节状态（未读 / 阅读中 / 学完）</td><td>本机浏览器</td><td>进度总览、领域完成度环形图</td></tr>
+          <tr><td>停留时长、访问次数、滚动完成度</td><td>本机浏览器</td><td>30 天热力图、累计学习分钟</td></tr>
+          <tr><td>掌握度自评（1-5 分）</td><td>本机浏览器</td><td>平均自评、低于 3 分提示加入复习</td></tr>
+          <tr><td>个人笔记</td><td>本机浏览器</td><td>章节页回看、进度页笔记汇总</td></tr>
+          <tr><td>自测题作答记录</td><td>本机浏览器</td><td>自测正确率统计</td></tr>
+          <tr><td>面试题「已能答出」自评</td><td>本机浏览器（独立键 <code>ht:interview:v1</code>）</td><td>面试题库进度</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="warn-note">
+      <b>请注意：</b>因为是本地存储，清除浏览器数据、换浏览器、换设备、使用无痕模式，都会导致记录丢失。
+      建议定期在「学习进度」页做一次 <b>导出 JSON</b> 备份。
+    </p>
+  </section>
+
+  <div class="section-head">怎么用这份刊</div>
+
+  <div class="grid-2">
+    <div class="how">
+      <h4>章节页</h4>
+      <ul>
+        <li>顶部工具条：<b>标记学完</b>会自动把该章加入复习队列；<b>☆ 重点</b>用于标记需要反复看的内容。</li>
+        <li>右侧阅读进度条随滚动更新；页面停留时长会自动累计（切到后台会暂停计时）。</li>
+        <li>读完后做两件事：点一下<b>掌握度自评</b>、写一条<b>笔记</b>（Ctrl / ⌘ + Enter 保存）。</li>
+        <li>自测题每节 3 道，作答后会给出解析；答错的题目所在章节建议重新加复习。</li>
+      </ul>
+    </div>
+    <div class="how">
+      <h4>学习进度页</h4>
+      <ul>
+        <li>顶部看总完成度、累计分钟、连续学习天数、平均自评。</li>
+        <li>按版块看完成度分解，快速发现哪个版块被落下了。</li>
+        <li><b>今日待复习</b>：按间隔重复排出的到期章节，优先清空这一栏。</li>
+        <li>底部有<b>导出 JSON / 导入恢复 / 重置</b>三个操作，并可汇总查看全部笔记。</li>
+      </ul>
+    </div>
+    <div class="how">
+      <h4>面试题总览页</h4>
+      <ul>
+        <li>按版块与章节列出全部 {INTERVIEW_TOTAL} 道问答，含参考答案、追问链与加分点。</li>
+        <li>可以只看<b>高频</b>题，或隐藏已经掌握的题目。</li>
+        <li>每题下方有「已能答出」自评按钮；顶部的随机抽题按钮用于模拟被提问。</li>
+        <li>建议用法：先只看问题心里答一遍，再展开对照；答不出「代价和边界」的就算没掌握。</li>
+      </ul>
+    </div>
+    <div class="how">
+      <h4>复习机制</h4>
+      <ul>
+        <li>标记学完的章节会按 <b>{REVIEW_INTERVALS.join(' / ')} 天</b>的间隔进入复习队列。</li>
+        <li>复习时在进度页选择「记住了」或「没记住」：记住则进入下一档间隔，没记住则退回第一档。</li>
+        <li>掌握度自评低于 3 分的章节，页面会提示加入复习队列。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section-head">内容说明与边界</div>
+
+  <div class="box box-warn">
+    <span class="box-title">请把这份刊当作「判断框架」，而不是「标准答案」</span>
+    <ul>
+      <li>其中的工程做法来自公开资料与通用工程实践的整理，<b>不是任何一家公司的内部规范</b>。不同团队的技术选型差异很大，遇到具体问题请以你自己的测量结果为准。</li>
+      <li>面试问答的参考答案旨在展示<b>答题结构与思维层次</b>，不是可供背诵的话术。真正的加分点永远来自你在真实系统里踩过的坑。</li>
+      <li>代码片段为了可读性做了简化（省略了异常处理、日志、并发安全等），<b>请勿直接用于生产环境</b>。</li>
+      <li>涉及具体模型与产品的性能数字仅用于建立数量级直觉，实际表现随版本与部署方式变化，请以官方文档为准。</li>
+    </ul>
+  </div>
+
+  <div class="box box-practice">
+    <span class="box-title">写笔记这件事，比读第二遍有用得多</span>
+    <p>
+      每一章末尾都留了笔记区。最有价值的三类笔记是：
+      <b>①「我原以为是 X，其实是 Y」</b>的认知修正；
+      <b>② 我在自己项目里对应的哪个位置</b>（把抽象原则锚定到具体代码）；
+      <b>③ 面试时我准备怎么讲这件事</b>（一句话版本）。
+      这三类笔记合起来，就是你自己的面试答案库。
+    </p>
+  </div>
+
+  <div class="site-meta">
+    <span>本书共 {TOTALS.chapters} 章 · 约 {TOTALS.minutes} 分钟 · {INTERVIEW_TOTAL} 道面试问答</span>
+    <span>纯静态站点 · 无后端 · 无追踪 · 数据只在本机</span>
+  </div>
+</BaseLayout>
+
+<style>
+  .lead-col {
+    max-width: 66ch;
+  }
+  .privacy p {
+    font-size: 0.92rem;
+    line-height: 1.8;
+    color: var(--ink-soft);
+    text-align: justify;
+    margin-bottom: 12px;
+  }
+  .warn-note {
+    border-left: 3px solid var(--red-soft);
+    background: #fbf1f1;
+    padding: 11px 15px;
+    font-size: 0.86rem !important;
+    line-height: 1.75 !important;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+  .warn-note b {
+    color: var(--red);
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+  }
+  .how {
+    border-top: 1px solid var(--ink);
+    padding-top: 12px;
+  }
+  .how h4 {
+    font-family: var(--font-ui);
+    font-size: 0.66rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--red);
+    margin: 0 0 9px;
+  }
+  .how ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .how li {
+    position: relative;
+    padding-left: 16px;
+    font-size: 0.84rem;
+    line-height: 1.72;
+    color: var(--ink-muted);
+    margin-bottom: 7px;
+  }
+  .how li::before {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: var(--gold);
+  }
+  .site-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    justify-content: space-between;
+    margin-top: 40px;
+    padding-top: 14px;
+    border-top: 3px double var(--ink);
+    font-family: var(--font-ui);
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+  }
+</style>

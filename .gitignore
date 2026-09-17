@@ -1,0 +1,25 @@
+# 依赖与产物
+node_modules/
+dist/
+.astro/
+
+# 环境
+.env
+.env.production
+.env.local
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 日志
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Cloudflare / Wrangler
+.wrangler/
+.dev.vars

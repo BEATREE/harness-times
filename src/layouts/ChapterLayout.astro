@@ -1,0 +1,424 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import Masthead from '../components/Masthead.astro';
+import {
+  type Chapter,
+  type Domain,
+  neighbors,
+  pathOf,
+  levelLabel,
+  levelClass,
+} from '../data/curriculum';
+
+interface Props {
+  chapter: Chapter;
+  domain: Domain;
+  /** 来自内容 frontmatter 的导语，允许少量内联 HTML */
+  lead: string;
+  /** 可选的编辑注（本版修订说明） */
+  note?: string;
+}
+
+const { chapter, domain, lead, note } = Astro.props;
+const { prev, next } = neighbors(chapter.id);
+const totalMin = chapter.minutes;
+---
+
+<BaseLayout
+  title={chapter.title}
+  description={chapter.desc}
+  currentChapter={chapter.id}
+  currentDomain={domain.id}
+  chapterId={chapter.id}
+>
+  <Masthead
+    compact
+    kicker={`${domain.no} 版 · ${domain.name}`}
+    title={`第 ${String(chapter.no).padStart(2, '0')} 章`}
+    en={chapter.en}
+  />
+
+  <div class="chapter-toolbar" data-toolbar>
+    <div class="reading-track" title="本页阅读进度">
+      <div class="reading-fill" data-reading-fill></div>
+    </div>
+    <button class="btn" data-act="star" title="加入重点（在进度页可筛出）">☆ 重点</button>
+    <button class="btn" data-act="review" title="手动加入复习队列">↻ 复习</button>
+    <button class="btn primary" data-act="done" title="标记本章已学完">
+      ✓ 标记学完
+    </button>
+  </div>
+
+  <header class="chapter-head">
+    <div class="kicker-row">
+      <span class="chip chip-domain">{domain.no} · {domain.name}</span>
+      <span class="chip">{String(chapter.no).padStart(2, '0')} / 22</span>
+      <span class="chip">{levelLabel(chapter.level)}</span>
+    </div>
+    <h1>{chapter.title}</h1>
+    <div class="en">{chapter.en}</div>
+
+    <div class="meta-strip">
+      <div class="m">
+        <span class="k">预计阅读</span>
+        <span class="v">{totalMin} 分钟</span>
+      </div>
+      <div class="m">
+        <span class="k">难度</span>
+        <span class="v"><span class={`badge ${levelClass(chapter.level)}`}>{levelLabel(chapter.level)}</span></span>
+      </div>
+      <div class="m">
+        <span class="k">关键词</span>
+        <span class="v">{chapter.tags.slice(0, 2).join(' · ')}</span>
+      </div>
+      <div class="m">
+        <span class="k">本机状态</span>
+        <span class="v" data-status-label>未读</span>
+      </div>
+    </div>
+  </header>
+
+  <article class="prose" data-prose>
+    <p class="lead" set:html={lead}></p>
+    {
+      note ? (
+        <p class="note-inline">
+          <b>编辑部注</b> · <span set:html={note} />
+        </p>
+      ) : null
+    }
+    <slot />
+  </article>
+
+  <section class="chapter-foot">
+    <div class="section-head">本章收尾 · Wrap up</div>
+
+    <div class="self-rate">
+      <span>掌握度自评</span>
+      <div class="stars" data-stars>
+        {
+          [1, 2, 3, 4, 5].map((n) => (
+            <button class="star" data-star={n} aria-label={`自评 ${n} 分`}>
+              {n}
+            </button>
+          ))
+        }
+      </div>
+      <span data-rate-hint style="text-transform:none;letter-spacing:0">
+        点一下给自己打分；低于 3 分建议加入复习队列
+      </span>
+    </div>
+
+    <div class="section-head">个人笔记 · Notes</div>
+    <textarea
+      class="note-area"
+      data-note-input
+      placeholder="写下你的理解、踩过的坑、面试时想说的话……（⌘/Ctrl + Enter 保存，只存在本机）"
+    ></textarea>
+    <div style="margin-top:9px;display:flex;gap:9px;flex-wrap:wrap">
+      <button class="btn primary" data-act="note-save">保存笔记</button>
+      <button class="btn" data-act="note-clear">清空输入</button>
+    </div>
+    <ul class="note-list" data-note-list></ul>
+
+    <nav class="pager">
+      {
+        prev ? (
+          <a href={pathOf(prev.id)}>
+            <span class="pg-k">◀ 上一章</span>
+            <span class="pg-t">{prev.title}</span>
+          </a>
+        ) : (
+          <span class="spacer" />
+        )
+      }
+      {
+        next ? (
+          <a class="next" href={pathOf(next.id)}>
+            <span class="pg-k">下一章 ▶</span>
+            <span class="pg-t">{next.title}</span>
+          </a>
+        ) : (
+          <a class="next" href="/progress/">
+            <span class="pg-k">全部读完 ▶</span>
+            <span class="pg-t">去看学习进度与复习计划</span>
+          </a>
+        )
+      }
+    </nav>
+  </section>
+</BaseLayout>
+
+<script>
+  import {
+    addNote,
+    addSeconds,
+    dueForReview,
+    getChapter,
+    recordQuiz,
+    recordVisit,
+    removeNote,
+    setConfidence,
+    setScroll,
+    setStatus,
+    toggleDone,
+    toggleStar,
+    storageAvailable,
+  } from '../lib/progress';
+
+  const toast = (m: string) => (window as any).htToast?.(m);
+  const $ = <T extends Element = Element>(sel: string) => document.querySelector(sel) as T | null;
+
+  /** 由 BaseLayout 写在 body 上 */
+  const CHAPTER = document.body.getAttribute('data-chapter') || '';
+
+  if (!storageAvailable()) {
+    toast('浏览器禁用了本地存储，进度将不会被保存');
+  }
+
+  /* ---------- 状态渲染 ---------- */
+  const renderState = () => {
+    if (!CHAPTER) return;
+    const st = getChapter(CHAPTER);
+
+    const label = $('[data-status-label]');
+    if (label) {
+      label.textContent =
+        st.status === 'done'
+          ? `已学完${st.confidence ? ` · 自评 ${st.confidence}/5` : ''}`
+          : st.status === 'reading'
+            ? '阅读中'
+            : '未读';
+    }
+
+    const doneBtn = $('[data-act="done"]');
+    if (doneBtn) {
+      const on = st.status === 'done';
+      doneBtn.classList.toggle('primary', !on);
+      doneBtn.classList.toggle('on', on);
+      doneBtn.textContent = on ? '✓ 已学完（点此撤销）' : '✓ 标记学完';
+    }
+
+    const starBtn = $('[data-act="star"]');
+    if (starBtn) {
+      starBtn.classList.toggle('on', st.starred);
+      starBtn.textContent = st.starred ? '★ 重点' : '☆ 重点';
+    }
+
+    document.querySelectorAll<HTMLButtonElement>('[data-star]').forEach((b) => {
+      const n = Number(b.getAttribute('data-star'));
+      b.classList.toggle('on', n <= st.confidence);
+    });
+
+    const hint = $('[data-rate-hint]');
+    if (hint) {
+      if (st.confidence === 0) {
+        hint.textContent = '点一下给自己打分；低于 3 分建议加入复习队列';
+      } else if (st.confidence <= 2) {
+        hint.textContent = `已评 ${st.confidence}/5 —— 偏弱，建议加入复习队列`;
+      } else if (st.confidence === 3) {
+        hint.textContent = '已评 3/5 —— 基本掌握，一周后回顾一次';
+      } else {
+        hint.textContent = `已评 ${st.confidence}/5 —— 掌握良好`;
+      }
+    }
+
+    // 笔记列表
+    const list = $('[data-note-list]');
+    if (list) {
+      if (st.notes.length === 0) {
+        list.innerHTML = '<li style="border:0;color:var(--ink-faint);font-size:.84rem">还没有笔记。写下一条，面试前回看会很值。</li>';
+      } else {
+        list.innerHTML = st.notes
+          .map(
+            (n) => `<li data-note="${n.id}">
+              <span class="nt-time">${new Date(n.at).toLocaleString('zh-CN', {
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}</span>
+              <span class="nt-text">${escapeHtml(n.text)}</span>
+              <button class="nt-del" data-note-del="${n.id}">删除</button>
+            </li>`
+          )
+          .join('');
+      }
+    }
+  };
+
+  const escapeHtml = (s: string) =>
+    s.replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string
+    );
+
+  /* ---------- 交互 ---------- */
+  document.addEventListener('click', (e) => {
+    const t = e.target as HTMLElement;
+
+    const act = t.closest('[data-act]')?.getAttribute('data-act');
+    if (act && CHAPTER) {
+      if (act === 'done') {
+        const st = toggleDone(CHAPTER);
+        toast(st.status === 'done' ? '已标记学完，已加入复习队列' : '已取消学完标记');
+      }
+      if (act === 'star') {
+        const st = toggleStar(CHAPTER);
+        toast(st.starred ? '已加入重点' : '已移出重点');
+      }
+      if (act === 'review') {
+        const st = getChapter(CHAPTER);
+        if (!st.review) {
+          setStatus(CHAPTER, st.status === 'done' ? 'done' : 'reading');
+          toast('已加入复习队列，明天首次提醒');
+        } else {
+          const due = new Date(st.review.dueAt);
+          toast(
+            `已在复习队列中 · 第 ${st.review.stage + 1} 档 · 到期 ${due.toLocaleDateString('zh-CN')}`
+          );
+        }
+      }
+      if (act === 'note-save') {
+        const ta = $<HTMLTextAreaElement>('[data-note-input]');
+        if (ta && ta.value.trim()) {
+          addNote(CHAPTER, ta.value);
+          ta.value = '';
+          toast('笔记已保存到本机');
+        } else {
+          toast('笔记是空的');
+        }
+      }
+      if (act === 'note-clear') {
+        const ta = $<HTMLTextAreaElement>('[data-note-input]');
+        if (ta) ta.value = '';
+      }
+      renderState();
+      return;
+    }
+
+    const star = t.closest('[data-star]');
+    if (star && CHAPTER) {
+      const n = Number(star.getAttribute('data-star'));
+      const cur = getChapter(CHAPTER).confidence;
+      setConfidence(CHAPTER, cur === n ? 0 : n);
+      renderState();
+      return;
+    }
+
+    const del = t.closest('[data-note-del]');
+    if (del && CHAPTER) {
+      removeNote(CHAPTER, del.getAttribute('data-note-del') || '');
+      renderState();
+      toast('已删除该条笔记');
+      return;
+    }
+
+    // 自测题
+    const opt = t.closest<HTMLButtonElement>('.quiz .opt');
+    if (opt) {
+      const item = opt.closest('.q-item');
+      const quiz = opt.closest('.quiz');
+      if (!item || item.hasAttribute('data-answered')) return;
+      const qid = item.getAttribute('data-qid') || '';
+      const answer = Number(item.getAttribute('data-answer'));
+      const chosen = Number(opt.getAttribute('data-i'));
+      item.setAttribute('data-answered', '1');
+
+      item.querySelectorAll<HTMLButtonElement>('.opt').forEach((b) => {
+        const i = Number(b.getAttribute('data-i'));
+        b.disabled = true;
+        if (i === answer) b.classList.add('correct');
+        else if (i === chosen) b.classList.add('wrong');
+      });
+
+      const ex = item.querySelector('.explain');
+      if (ex) ex.classList.add('show');
+
+      if (CHAPTER && qid) recordQuiz(CHAPTER, qid, chosen, chosen === answer);
+
+      // 全部答完后给个总评
+      if (quiz) {
+        const items = quiz.querySelectorAll('.q-item');
+        const answered = quiz.querySelectorAll('.q-item[data-answered]');
+        if (items.length === answered.length) {
+          let right = 0;
+          quiz.querySelectorAll('.q-item').forEach((it) => {
+            if (it.querySelector('.opt.correct') && !it.querySelector('.opt.wrong')) right += 1;
+          });
+          setTimeout(
+            () => toast(`本节自测完成：答对 ${right}/${items.length} 题`),
+            320
+          );
+        }
+      }
+    }
+  });
+
+  // ⌘/Ctrl + Enter 保存笔记
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      const ta = document.activeElement as HTMLElement;
+      if (ta?.matches?.('[data-note-input]')) {
+        e.preventDefault();
+        ($('[data-act="note-save"]') as HTMLElement)?.click();
+      }
+    }
+  });
+
+  window.addEventListener('ht:progress', renderState);
+
+  /* ---------- 进入记录与停留时长 ---------- */
+  if (CHAPTER) {
+    recordVisit(CHAPTER);
+
+    const TIMER = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      addSeconds(CHAPTER, 15);
+    }, 15000);
+
+    window.addEventListener('beforeunload', () => window.clearInterval(TIMER));
+  }
+
+  /* ---------- 阅读进度（滚动 + 阅读条） ---------- */
+  let rafPending = false;
+  const updateReading = () => {
+    rafPending = false;
+    const prose = $('[data-prose]');
+    if (!prose) return;
+    const rect = prose.getBoundingClientRect();
+    const total = rect.height - window.innerHeight * 0.6;
+    const passed = -rect.top + window.innerHeight * 0.25;
+    const pct = total <= 0 ? 100 : Math.max(0, Math.min(100, (passed / total) * 100));
+
+    const fill = $<HTMLElement>('[data-reading-fill]');
+    if (fill) fill.style.width = `${pct}%`;
+    if (CHAPTER && pct > 4) setScroll(CHAPTER, pct);
+  };
+
+  window.addEventListener(
+    'scroll',
+    () => {
+      if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(updateReading);
+      }
+    },
+    { passive: true }
+  );
+  window.addEventListener('resize', updateReading);
+
+  // ---------- 初始化 ----------
+  // 章节 id 写进 body，供上面的逻辑读取
+  renderState();
+  updateReading();
+
+  // 复习到期提示
+  if (CHAPTER) {
+    const due = dueForReview();
+    const st = getChapter(CHAPTER);
+    if (due.some((d) => d.chapterId === CHAPTER) && st.status !== 'done') {
+      setTimeout(() => toast('这一章有到期的复习提醒'), 1400);
+    }
+  }
+</script>
+

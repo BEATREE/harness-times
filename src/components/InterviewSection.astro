@@ -1,0 +1,41 @@
+---
+import QA from './QA.astro';
+import { INTERVIEW } from '../data/interview';
+
+interface Props {
+  chapterId: string;
+}
+
+const { chapterId } = Astro.props;
+const items = INTERVIEW[chapterId] ?? [];
+const highCount = items.filter((i) => i.freq === 'high').length;
+---
+
+{
+  items.length > 0 && (
+    <section class="chapter-qa">
+      <h2
+        style="font-family:var(--font-display);font-size:1.5rem;font-weight:700;margin:44px 0 6px;padding-top:14px;border-top:3px double var(--ink)"
+      >
+        <span style="color:var(--gold);font-size:.9rem;margin-right:8px;vertical-align:.24em">◇</span>
+        面试官会怎么问
+      </h2>
+      <p
+        style="font-family:var(--font-ui);font-size:.68rem;letter-spacing:.08em;color:var(--ink-muted);margin-bottom:18px"
+      >
+        共 {items.length} 条{highCount > 0 && ` · 其中 ${highCount} 条高频`}　·　先自己答一遍，再展开对照
+      </p>
+
+      {items.map((it) => <QA {...it} />)}
+
+      <div class="box box-key" style="margin-top:26px">
+        <span class="box-title">答这类题的通用结构</span>
+        <p>
+          <b>结论先行</b>（一句话给出取舍）→ <b>机制</b>（为什么是这样，涉及哪条链路）→
+          <b>代价或边界</b>（这么做放弃了什么）→ <b>你的实践或数字</b>（真实场景里怎么落地）。
+          只讲机制不讲代价，是背题；只讲取舍没有数字，是空谈。
+        </p>
+      </div>
+    </section>
+  )
+}

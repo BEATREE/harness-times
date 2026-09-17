@@ -1,0 +1,121 @@
+---
+import { DOMAINS, chaptersByDomain, pathOf, TOTALS } from '../data/curriculum';
+
+interface Props {
+  /** 当前激活的章节 id，用于高亮 */
+  currentChapter?: string;
+  /** 当前激活的领域 id */
+  currentDomain?: string;
+}
+
+const { currentChapter, currentDomain } = Astro.props;
+---
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-scroll">
+    <div class="sidebar-masthead">
+      <a class="logo" href="/">Harness<br />Times</a>
+      <div class="subtitle">Agent 工程学习报</div>
+      <div class="issue" data-issue-side>第 1 期</div>
+    </div>
+
+    <div class="nav-label">
+      <span>目录 · Contents</span>
+      <span class="part-no">{TOTALS.chapters} 章</span>
+    </div>
+
+    {
+      DOMAINS.map((d) => (
+        <div class="nav-group">
+          <a
+            class="nav-label"
+            href={`/${d.id}/`}
+            style={currentDomain === d.id ? 'color:var(--red)' : ''}
+          >
+            <span>
+              {d.no} · {d.name}
+            </span>
+            <span class="part-no">{chaptersByDomain(d.id).length}</span>
+          </a>
+
+          {chaptersByDomain(d.id).map((c) => (
+            <a
+              class:list={['nav-item', currentChapter === c.id && 'active']}
+              href={pathOf(c.id)}
+              data-nav-chapter={c.id}
+            >
+              <span class="num">{String(c.no).padStart(2, '0')}</span>
+              <span class="label-zh">{c.title}</span>
+              <span class="mark" aria-hidden="true" />
+            </a>
+          ))}
+        </div>
+      ))
+    }
+
+    <div class="nav-label">
+      <span>工具 · Tools</span>
+    </div>
+    <a class="nav-item" href="/progress/" data-nav-page="progress">
+      <span class="num">◉</span>
+      <span class="label-zh">学习进度与复习</span>
+    </a>
+    <a class="nav-item" href="/interview/" data-nav-page="interview">
+      <span class="num">◆</span>
+      <span class="label-zh">面试题总览</span>
+    </a>
+    <a class="nav-item" href="/about/" data-nav-page="about">
+      <span class="num">?</span>
+      <span class="label-zh">关于本报</span>
+    </a>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="mini-progress">
+      <span>总进度</span>
+      <span data-mini-pct>0%</span>
+    </div>
+    <div class="mini-track"><div class="mini-fill" data-mini-fill></div></div>
+    <div class="credit">
+      进度保存在本机浏览器<br />
+      可在「学习进度」页导出备份
+    </div>
+  </div>
+</aside>
+
+<div class="scrim" data-scrim></div>
+<button class="menu-toggle" data-menu-toggle aria-label="打开目录">☰</button>
+
+<script>
+  import { load } from '../lib/progress';
+  import { CHAPTERS } from '../data/curriculum';
+
+  const render = () => {
+    const s = load();
+    let done = 0;
+    CHAPTERS.forEach((c) => {
+      const st = s.chapters[c.id];
+      const isDone = st?.status === 'done';
+      if (isDone) done += 1;
+      document.querySelectorAll(`[data-nav-chapter="${c.id}"]`).forEach((el) => {
+        el.classList.toggle('done', isDone);
+      });
+    });
+    const pct = Math.round((done / CHAPTERS.length) * 100);
+    const fill = document.querySelector('[data-mini-fill]') as HTMLElement | null;
+    const label = document.querySelector('[data-mini-pct]');
+    if (fill) fill.style.width = `${pct}%`;
+    if (label) label.textContent = `${pct}%`;
+  };
+
+  render();
+  window.addEventListener('ht:progress', render);
+
+  // 移动端抽屉
+  const toggle = document.querySelector('[data-menu-toggle]');
+  const scrim = document.querySelector('[data-scrim]');
+  const close = () => document.body.classList.remove('nav-open');
+  toggle?.addEventListener('click', () => document.body.classList.toggle('nav-open'));
+  scrim?.addEventListener('click', close);
+  document.querySelectorAll('.sidebar a').forEach((a) => a.addEventListener('click', close));
+</script>

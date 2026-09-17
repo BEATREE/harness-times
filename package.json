@@ -1,0 +1,23 @@
+{
+  "name": "harness-times",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Harness Times · Harness 与 Agent 工程学习报 — 一份可以逐版读下去的工程学习站",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "content:check": "node scripts/normalize-content.mjs --check",
+    "content:fix": "node scripts/normalize-content.mjs --fix",
+    "prebuild": "npm run content:check",
+    "build": "astro build",
+    "preview": "astro preview",
+    "serve": "astro preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "astro": "^5.14.1"
+  },
+  "engines": {
+    "node": ">=18.17.1"
+  }
+}

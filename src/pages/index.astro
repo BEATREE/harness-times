@@ -1,0 +1,283 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Masthead from '../components/Masthead.astro';
+import {
+  DOMAINS,
+  CHAPTERS,
+  chaptersByDomain,
+  pathOf,
+  levelLabel,
+  levelClass,
+  TOTALS,
+} from '../data/curriculum';
+import { INTERVIEW_TOTAL } from '../data/interview';
+
+const hours = Math.round(TOTALS.minutes / 60);
+const totalQ = INTERVIEW_TOTAL;
+---
+
+<BaseLayout title="Harness Times" currentDomain="">
+  <Masthead />
+
+  <!-- ============ 头条区 ============ -->
+  <section class="front-top">
+    <div class="lead-col">
+      <span class="kicker">本期头条 · Lead Story</span>
+      <h2
+        style="font-family:var(--font-display);font-size:2rem;font-weight:900;line-height:1.2;margin-bottom:10px"
+      >
+        Model + Harness = Agent
+      </h2>
+      <p class="lead">
+        模型之外的所有工作，都属于 Harness。这份学习报把那些工作拆成 4 个版块、{TOTALS.chapters}
+        章，从注意力机制一直讲到回归门禁——每一章都有原理图解、可运行的代码，以及面试官真正会追问的那几个问题。
+      </p>
+
+      <div class="columns-2">
+        <p class="dropcap">
+          如果你正在准备 Agent 方向的面试，大概率已经见过这句话。它出自一份真实招聘需求里对
+          Harness 团队的定义：「我们正在把前沿模型能力转化为领先的 Agent
+          产品，这其中除模型本身以外的所有工作，都属于 Harness 的范畴。」
+        </p>
+        <p>
+          这句话看起来像一句口号，实际划出的是一块极大的地。它包含执行链路、工具契约、上下文预算、记忆系统、多智能体编排、权限与沙箱、长任务可靠性，以及一整套让改动可以安全上线的评测与回滚机制。
+        </p>
+        <p>
+          其中绝大多数问题都<b>不是模型问题，而是系统问题</b>。模型没坏，是系统没兜住——这正是这份报纸想讲清楚的事。
+        </p>
+        <p>
+          全部内容按「由浅入深」排列。每章结构固定：<b>导读 → 原理正文 → SVG 图解 → 动手实操 → 面试问答 → 自测题</b>。
+          学习进度、笔记与复习计划都保存在你自己的浏览器里，不上传任何数据。
+        </p>
+      </div>
+    </div>
+
+    <div class="side-col">
+      <div class="section-head" style="margin-top:0">本报速览</div>
+      <ul class="brief-list">
+        <li>
+          <b>版块</b>
+          {TOTALS.domains} 个：大模型原理 / Harness 工程 / 评测工程 / 知识引擎
+        </li>
+        <li>
+          <b>正文章节</b>
+          {TOTALS.chapters} 章，约 {hours} 小时连续阅读量
+        </li>
+        <li>
+          <b>面试问答</b>
+          {totalQ} 组，含追问链与加分点
+        </li>
+        <li>
+          <b>进度保存</b>
+          浏览器本地，可导出 JSON 备份与恢复
+        </li>
+      </ul>
+
+      <div class="section-head">建议读法</div>
+      <div class="box box-abstract" style="margin-top:0">
+        <p>
+          <b>想尽快上手：</b>直接读 II 版 Harness 工程，遇到原理卡点再回 I 版查。<br />
+          <b>准备面试：</b>按 I → II → III → IV 顺序，每章读完把「面试官会怎么问」全部口头答一遍。<br />
+          <b>已经在做：</b>跳到 III 评测工程与 IV 知识引擎，这两块是多数团队最薄弱的地方。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 进度数字 ============ -->
+  <div class="stat-row">
+    <div class="s">
+      <span class="n">{TOTALS.domains}</span>
+      <span class="l">知识版块</span>
+    </div>
+    <div class="s">
+      <span class="n">{TOTALS.chapters}</span>
+      <span class="l">正文章节</span>
+    </div>
+    <div class="s">
+      <span class="n">{totalQ}</span>
+      <span class="l">面试问答</span>
+    </div>
+    <div class="s">
+      <span class="n" data-front-pct>0%</span>
+      <span class="l">你的完成度</span>
+    </div>
+  </div>
+
+  <!-- ============ 能力地图 ============ -->
+  <figure class="fig">
+    <div class="fig-frame">
+      <svg viewBox="0 0 680 400" width="100%" role="img" xmlns="http://www.w3.org/2000/svg">
+        <title>Harness 能力地图：模型之外的七层</title>
+        <desc>
+          从下往上依次是模型本体，以及 Harness 的执行层、能力层、上下文层、编排层、治理层、质量层、适配层。
+        </desc>
+
+        <text x="88" y="50" font-family="sans-serif" font-size="12" letter-spacing="1.6"
+          fill="#8a8580">① HARNESS　模型之外的一切 · 可工程化的部分</text>
+        <text x="640" y="50" text-anchor="end" font-family="sans-serif" font-size="11.5"
+          letter-spacing="0.6" fill="#9b2c2c">Agent = Model + Harness</text>
+
+        <g>
+          <rect x="88" y="66" width="412" height="30" rx="3" fill="#eef1f7" stroke="#2c4a7c" stroke-width="0.5" />
+          <text x="102" y="81" font-family="sans-serif" font-size="13" font-weight="500" fill="#1a1816" dominant-baseline="central">适配层</text>
+          <text x="176" y="81" font-family="sans-serif" font-size="11.5" fill="#5b6472" dominant-baseline="central">多模型网关 · 路由降级 · 参数 profile</text>
+        </g>
+        <g>
+          <rect x="88" y="102" width="412" height="30" rx="3" fill="#fbf7ea" stroke="#b8944b" stroke-width="0.5" />
+          <text x="102" y="117" font-family="sans-serif" font-size="13" font-weight="500" fill="#1a1816" dominant-baseline="central">质量层</text>
+          <text x="176" y="117" font-family="sans-serif" font-size="11.5" fill="#5b6472" dominant-baseline="central">评测集 · Trace / Replay · 回归门禁</text>
+        </g>
+        <g>
+          <rect x="88" y="138" width="412" height="30" rx="3" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="0.5" />
+          <text x="102" y="153" font-family="sans-serif" font-size="13" font-weight="500" fill="#1a1816" dominant-baseline="central">治理层</text>
+          <text x="176" y="153" font-family="sans-serif" font-size="11.5" fill="#5b6472" dominant-baseline="central">最小权限 · 审计留痕 · 注入防御</text>
+        </g>
+        <g>
+          <rect x="88" y="174" width="412" height="30" rx="3" fill="#f4f2fc" stroke="#5a4a9c" stroke-width="0.5" />
+          <text x="102" y="189" font-family="sans-serif" font-size="13" font-weight="500" fill="#1a1816" dominant-baseline="central">编排层</text>
+          <text x="176" y="189" font-family="sans-serif" font-size="11.5" fill="#5b6472" dominant-baseline="central">Planning · Subagent · 多 Agent 通信</text>
+        </g>
+        <g>
+          <rect x="88" y="210" width="412" height="30" rx="3" fill="#f1f7f4" stroke="#2f6157" stroke-width="0.5" />
+          <text x="102" y="225" font-family="sans-serif" font-size="13" font-weight="500" fill="#1a1816" dominant-baseline="central">上下文层</text>
+          <text x="176" y="225" font-family="sans-serif" font-size="11.5" fill="#5b6472" dominant-baseline="central">预算分配 · 压缩 · 记忆 · 前缀缓存</text>
+        </g>
+        <g>
+          <rect x="88" y="246" width="412" height="30" rx="3" fill="#f7f4ee" stroke="#8a7a5c" stroke-width="0.5" />
+          <text x="102" y="261" font-family="sans-serif" font-size="13" font-weight="500" fill="#1a1816" dominant-baseline="central">能力层</text>
+          <text x="176" y="261" font-family="sans-serif" font-size="11.5" fill="#5b6472" dominant-baseline="central">工具契约 · MCP 接入 · 沙箱执行</text>
+        </g>
+        <g>
+          <rect x="88" y="282" width="412" height="30" rx="3" fill="#fdf3ef" stroke="#b5713f" stroke-width="0.5" />
+          <text x="102" y="297" font-family="sans-serif" font-size="13" font-weight="500" fill="#1a1816" dominant-baseline="central">执行层</text>
+          <text x="176" y="297" font-family="sans-serif" font-size="11.5" fill="#5b6472" dominant-baseline="central">Agent Loop · 终止条件 · 任务状态机</text>
+        </g>
+
+        <rect x="88" y="324" width="412" height="44" rx="3" fill="#e8e0d4" stroke="#1a1816" stroke-width="0.8" />
+        <text x="102" y="340" font-family="sans-serif" font-size="13" font-weight="500" fill="#1a1816" dominant-baseline="central">MODEL　模型本体</text>
+        <text x="102" y="357" font-family="sans-serif" font-size="11.5" fill="#5b6472" dominant-baseline="central">注意力 · KV Cache · 稀疏激活 · 采样解码</text>
+
+        <text x="88" y="388" font-family="sans-serif" font-size="12" letter-spacing="1.6"
+          fill="#8a8580">② MODEL　模型本体 · 不可改造，只能适配与评测</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b>图 0　Harness 能力地图。</b>
+      下面一层是模型本体——它的特性（注意力复杂度、缓存机制、稀疏激活、采样随机性）决定了所有上层设计的约束；
+      上面七层是 Harness，也就是这份报纸主要讲的部分。越靠上的层越接近"工程治理"，越靠下越接近"执行正确性"。
+      本图数据同时提供 <a href="/data/harness-layers.csv" download>CSV 版本</a>，方便自己改成别的可视化。
+    </figcaption>
+  </figure>
+
+  <!-- ============ 版块导航 ============ -->
+  <div class="section-head">四大版块 · Sections</div>
+
+  <div class="card-grid">
+    {
+      DOMAINS.map((d) => {
+        const list = chaptersByDomain(d.id);
+        const mins = list.reduce((s, c) => s + c.minutes, 0);
+        return (
+          <a class="card" href={`/${d.id}/`} data-card-domain={d.id}>
+            <div class="c-top">
+              <span class="c-num">第 {d.no} 版</span>
+              <span>{list.length} 章 · {mins} 分钟</span>
+            </div>
+            <h3>{d.name}</h3>
+            <div class="c-en">{d.en}</div>
+            <div class="c-desc">{d.desc}</div>
+            <div class="c-foot">
+              <span class="c-status">
+                <span class="c-dot" />
+                <span data-domain-status={d.id}>未开始</span>
+              </span>
+              <span>{d.tagline}</span>
+            </div>
+          </a>
+        );
+      })
+    }
+  </div>
+
+  <!-- ============ 全部章节 ============ -->
+  <div class="section-head">全部章节 · All chapters</div>
+
+  <div class="card-grid">
+    {
+      CHAPTERS.map((c) => (
+        <a class="card" href={pathOf(c.id)} data-card-chapter={c.id}>
+          <div class="c-top">
+            <span class="c-num">{String(c.no).padStart(2, '0')}</span>
+            <span class={`badge ${levelClass(c.level)}`}>{levelLabel(c.level)}</span>
+          </div>
+          <h3>{c.title}</h3>
+          <div class="c-en">{c.en}</div>
+          <div class="c-desc">{c.desc}</div>
+          <div class="c-foot">
+            <span class="c-status">
+              <span class="c-dot" />
+              <span data-card-status={c.id}>未读</span>
+            </span>
+            <span>{c.minutes} 分钟</span>
+          </div>
+        </a>
+      ))
+    }
+  </div>
+
+  <div class="box box-key" style="margin-top:28px">
+    <span class="box-title">关于进度与数据</span>
+    <p>
+      所有学习记录——已学完章节、停留时长、笔记、自测作答、掌握度自评、复习队列——都保存在
+      <b>你自己浏览器的 localStorage</b> 里，不会发送到任何服务器。换设备或清理浏览器数据前，请到
+      <a href="/progress/">学习进度</a> 页导出 JSON 备份，之后可以随时导入恢复。
+    </p>
+  </div>
+</BaseLayout>
+
+<script>
+  import { load } from '../lib/progress';
+  import { CHAPTERS, DOMAINS } from '../data/curriculum';
+
+  const render = () => {
+    const s = load();
+
+    let done = 0;
+    document.querySelectorAll<HTMLElement>('[data-card-chapter]').forEach((card) => {
+      const id = card.getAttribute('data-card-chapter') || '';
+      const st = s.chapters[id];
+      const isDone = st?.status === 'done';
+      if (isDone) done += 1;
+      card.classList.toggle('done', isDone);
+      card.classList.toggle('starred', !!st?.starred);
+      const label = card.querySelector(`[data-card-status="${id}"]`);
+      if (label) {
+        label.textContent = isDone
+          ? `已学完${st?.confidence ? ` · ${st.confidence}/5` : ''}`
+          : st?.status === 'reading'
+            ? '阅读中'
+            : '未读';
+      }
+    });
+
+    // 版块聚合
+    DOMAINS.forEach((d) => {
+      const ids = CHAPTERS.filter((c) => c.domain === d.id).map((c) => c.id);
+      const dDone = ids.filter((id) => s.chapters[id]?.status === 'done').length;
+      const el = document.querySelector(`[data-domain-status="${d.id}"]`);
+      if (el) {
+        el.textContent = dDone === 0 ? `未开始` : `${dDone} / ${ids.length} 章`;
+      }
+      const card = document.querySelector(`[data-card-domain="${d.id}"]`);
+      if (card) card.classList.toggle('done', dDone === ids.length);
+    });
+
+    const pct = Math.round((done / CHAPTERS.length) * 100);
+    const pctEl = document.querySelector('[data-front-pct]');
+    if (pctEl) pctEl.textContent = `${pct}%`;
+  };
+
+  render();
+  window.addEventListener('ht:progress', render);
+</script>

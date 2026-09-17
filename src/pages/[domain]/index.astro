@@ -1,0 +1,125 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Masthead from '../../components/Masthead.astro';
+import { DOMAINS, chaptersByDomain, pathOf, levelLabel, levelClass, TOTALS } from '../../data/curriculum';
+
+export async function getStaticPaths() {
+  return DOMAINS.map((d) => ({ params: { domain: d.id }, props: { domain: d } }));
+}
+
+const { domain } = Astro.props;
+const chapters = chaptersByDomain(domain.id);
+const minutes = chapters.reduce((s, c) => s + c.minutes, 0);
+const idx = DOMAINS.findIndex((d) => d.id === domain.id);
+const otherDomains = DOMAINS.filter((d) => d.id !== domain.id);
+---
+
+<BaseLayout
+  title={`${domain.no} · ${domain.name}`}
+  description={domain.desc}
+  currentDomain={domain.id}
+>
+  <Masthead compact kicker={`${domain.no} 版`} title={domain.name} en={domain.en} />
+
+  <header class="chapter-head">
+    <div class="kicker-row">
+      <span class="chip chip-domain">第 {domain.no} 版</span>
+      <span class="chip">{chapters.length} 章</span>
+      <span class="chip">约 {minutes} 分钟</span>
+      <span class="chip">建议顺序 第 {idx + 1} 位</span>
+    </div>
+    <h1>{domain.no} · {domain.name}</h1>
+    <div class="en">{domain.en} — {domain.tagline}</div>
+    <div class="meta-strip">
+      <div class="m">
+        <span class="k">本版进度</span>
+        <span class="v" data-domain-progress>0 / {chapters.length}</span>
+      </div>
+      <div class="m">
+        <span class="k">难度跨度</span>
+        <span class="v">{levelLabel(Math.min(...chapters.map((c) => c.level)) as 1)} → {levelLabel(Math.max(...chapters.map((c) => c.level)) as 3)}</span>
+      </div>
+      <div class="m">
+        <span class="k">全站总章数</span>
+        <span class="v">{TOTALS.chapters} 章</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="box box-abstract">
+    <span class="box-title">本版导读 · Why this section</span>
+    <p>{domain.desc}</p>
+  </div>
+
+  <div class="section-head">目录 · In this section</div>
+
+  <div class="card-grid">
+    {
+      chapters.map((c) => (
+        <a class="card" href={pathOf(c.id)} data-card-chapter={c.id}>
+          <div class="c-top">
+            <span class="c-num">{String(c.no).padStart(2, '0')}</span>
+            <span class={`badge ${levelClass(c.level)}`}>{levelLabel(c.level)}</span>
+          </div>
+          <h3>{c.title}</h3>
+          <div class="c-en">{c.en}</div>
+          <div class="c-desc">{c.desc}</div>
+          <div class="c-foot">
+            <span class="c-status">
+              <span class="c-dot" />
+              <span data-card-status={c.id}>未读</span>
+            </span>
+            <span>{c.minutes} 分钟</span>
+          </div>
+        </a>
+      ))
+    }
+  </div>
+
+  <div class="section-head">其他版块 · Other sections</div>
+  <div class="brief-list">
+    <ul class="brief-list">
+      {
+        otherDomains.map((d) => (
+          <li>
+            <b>{d.no} 版 · {d.en}</b>
+            <a href={`/${d.id}/`}>{d.name}</a> —— {d.tagline}（{chaptersByDomain(d.id).length} 章）
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</BaseLayout>
+
+<script>
+  import { load } from '../../lib/progress';
+  import { chapterById } from '../../data/curriculum';
+
+  const cards = document.querySelectorAll<HTMLElement>('[data-card-chapter]');
+  const render = () => {
+    const s = load();
+    let done = 0;
+    cards.forEach((card) => {
+      const id = card.getAttribute('data-card-chapter') || '';
+      const st = s.chapters[id];
+      const isDone = st?.status === 'done';
+      if (isDone) done += 1;
+      card.classList.toggle('done', isDone);
+      card.classList.toggle('starred', !!st?.starred);
+      const label = card.querySelector(`[data-card-status="${id}"]`);
+      if (label) {
+        label.textContent = isDone
+          ? `已学完${st?.confidence ? ` · ${st.confidence}/5` : ''}`
+          : st?.status === 'reading'
+            ? '阅读中'
+            : '未读';
+      }
+    });
+    const el = document.querySelector('[data-domain-progress]');
+    if (el) el.textContent = `${done} / ${cards.length}`;
+  };
+
+  render();
+  window.addEventListener('ht:progress', render);
+  void chapterById;
+</script>

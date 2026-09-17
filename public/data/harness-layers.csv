@@ -1,0 +1,9 @@
+﻿层序,层名,英文,核心构成,要解决的工程问题,对应章节
+1,执行层,Execution,Agent Loop / 终止条件 / 任务状态机,让循环能开始也能停下来,harness-02-agent-loop
+2,能力层,Capability,工具契约 / MCP 接入 / 沙箱执行,把能力安全地交给模型,harness-03-tool-use
+3,上下文层,Context,预算分配 / 压缩 / 记忆 / 前缀缓存,决定模型看到什么以及花多少钱,harness-04-context-engineering
+4,编排层,Orchestration,Planning / Subagent / 多 Agent 通信,把复杂任务拆开并隔离上下文,harness-06-multi-agent
+5,治理层,Governance,最小权限 / 审计留痕 / 注入防御,守住能力边界与被诱导的风险,harness-07-sandbox-security
+6,质量层,Quality,评测集 / Trace-Replay / 回归门禁,让每次改动可评可回滚,eval-01-first-principles
+7,适配层,Adaptation,多模型网关 / 路由降级 / 参数 profile,让 Harness 与模型共同进化,harness-01-what-is-harness
+0,模型本体,Model,注意力 / KV Cache / 稀疏激活 / 采样解码,不可改造只能适配与评测,llm-01-transformer

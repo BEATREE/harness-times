@@ -1,0 +1,39 @@
+---
+import { getCollection, render } from 'astro:content';
+import ChapterLayout from '../../layouts/ChapterLayout.astro';
+import InterviewSection from '../../components/InterviewSection.astro';
+import { DOMAINS, chapterById, domainOf } from '../../data/curriculum';
+
+export async function getStaticPaths() {
+  const entries = await getCollection('chapters');
+  const known = new Set(DOMAINS.map((d) => d.id));
+
+  return entries.map((entry) => {
+    const chapter = chapterById(entry.id);
+    if (!chapter) {
+      // 内容文件与 curriculum.ts 失同步时，直接让构建失败，而不是产出一个空页面
+      throw new Error(
+        `[content] src/content/chapters/${entry.id}.md 在 curriculum.ts 中没有对应章节，` +
+          `请先在 CHAPTERS 中登记或改正文件名。`
+      );
+    }
+    if (!known.has(chapter.domain)) {
+      throw new Error(`[content] ${entry.id} 引用了未知领域 ${chapter.domain}`);
+    }
+    return {
+      params: { domain: chapter.domain, slug: chapter.id },
+      props: { chapter, entry },
+    };
+  });
+}
+
+const { chapter, entry } = Astro.props;
+const { Content } = await render(entry);
+const domain = domainOf(chapter.domain);
+---
+
+<ChapterLayout chapter={chapter} domain={domain} lead={entry.data.lead} note={entry.data.note}>
+  <Content />
+
+  <InterviewSection chapterId={chapter.id} />
+</ChapterLayout>

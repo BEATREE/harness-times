@@ -1,0 +1,382 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Masthead from '../components/Masthead.astro';
+import QA from '../components/QA.astro';
+import { CHAPTERS, DOMAINS, chaptersByDomain, domainOf } from '../data/curriculum';
+import { INTERVIEW, INTERVIEW_TOTAL } from '../data/interview';
+
+const highTotal = Object.values(INTERVIEW)
+  .flat()
+  .filter((i) => i.freq === 'high').length;
+
+const chaptersWithQA = CHAPTERS.filter((c) => (INTERVIEW[c.id]?.length ?? 0) > 0).length;
+
+/** 按领域分组，方便一次性扫描某个方向的全部问题 */
+const groups = DOMAINS.map((d) => ({
+  domain: d,
+  chapters: chaptersByDomain(d.id)
+    .map((c) => ({ chapter: c, items: INTERVIEW[c.id] ?? [] }))
+    .filter((x) => x.items.length > 0),
+}));
+---
+
+<BaseLayout
+  title="面试题库总览"
+  description={`${INTERVIEW_TOTAL} 道 Harness / Agent 岗位面试问题，按四大领域与 22 章分组，含参考答案、追问链与加分点。可标记「已能答出」，状态保存在本机。支持只看高频题。`}
+  currentDomain=""
+>
+  <Masthead
+    kicker="特刊 · 面试问答"
+    title="面试题库总览"
+    en="The Question Bank"
+  />
+
+  <section class="lead-col" style="margin-bottom:30px">
+    <p class="lead" style="margin-bottom:14px">
+      这里是全站 {INTERVIEW_TOTAL} 道面试问题的总入口。它们不是「常见题汇总」，而是按
+      <b>面试官的真实提问顺序</b>反推出来的：先问机制，再问代价，最后问你有没有在真实场景里撞过墙。
+      每道题都配了参考答案、<b>追问链</b>（答对之后会往哪追）和<b>加分点</b>（哪句话能证明你真做过）。
+    </p>
+    <p style="font-family:var(--font-ui);font-size:.82rem;line-height:1.8;color:var(--ink-muted)">
+      建议用法：先只看问题，心里答一遍，再展开对照。凡是答不出「代价和边界」的，就是还没掌握。
+      自评「已能答出」的记录只存在你这台机器的浏览器里，不会上传。
+    </p>
+  </section>
+
+  <div class="stat-row" style="margin-bottom:26px">
+    <div class="s"><span class="n">{INTERVIEW_TOTAL}</span><span class="l">问题总数</span></div>
+    <div class="s"><span class="n">{highTotal}</span><span class="l">高频标记</span></div>
+    <div class="s"><span class="n">{chaptersWithQA}</span><span class="l">覆盖章节</span></div>
+    <div class="s"><span class="n">{DOMAINS.length}</span><span class="l">知识领域</span></div>
+  </div>
+
+  <div class="toolbar-row" data-toolbar-row>
+    <div class="filters" data-domain-filters>
+      <button class="btn on" data-filter="all">全部领域</button>
+      {
+        DOMAINS.map((d) => (
+          <button class="btn" data-filter={d.id}>
+            {d.no} · {d.name}
+          </button>
+        ))
+      }
+    </div>
+    <div class="filters">
+      <button class="btn" data-toggle="high" title="只看带「高频」标记的问题">仅高频</button>
+      <button class="btn" data-toggle="hideKnown" title="隐藏已标记为「已能答出」的问题">
+        隐藏已掌握
+      </button>
+    </div>
+  </div>
+
+  <div class="known-bar">
+    <div class="mini-track"><div class="mini-fill" data-known-fill></div></div>
+    <span class="mini-progress" data-known-label>已掌握 0 / {INTERVIEW_TOTAL}</span>
+    <button class="btn" data-act="panic" title="随机抽一道高频题模拟被问">🎲 随机抽题</button>
+    <button class="btn" data-act="clear-known">清空自评</button>
+  </div>
+
+  {
+    groups.map((g) => (
+      <section class="domain-block" data-domain-block={g.domain.id}>
+        <div class="section-head">
+          {g.domain.no} · {g.domain.name}
+          <span class="section-sub">{g.domain.en}</span>
+        </div>
+        {g.chapters.map(({ chapter, items }) => (
+          <section class="iv-group" data-chapter-group={chapter.id}>
+            <h3 class="iv-chapter">
+              <span class="iv-no">{String(chapter.no).padStart(2, '0')}</span>
+              <a href={`/${chapter.domain}/${chapter.id}/`}>{chapter.title}</a>
+              <span class="iv-count">{items.length} 问</span>
+            </h3>
+            {items.map((it, i) => (
+              <div class="iv-item" data-qid={`${chapter.id}#${i}`} data-high={it.freq === 'high' ? '1' : '0'}>
+                <QA {...it} />
+                <button class="known-toggle" data-known-btn title="标记「已能答出」">
+                  <span class="kt-box">□</span>
+                  <span class="kt-text">已能答出</span>
+                </button>
+              </div>
+            ))}
+          </section>
+        ))}
+      </section>
+    ))
+  }
+
+  <section class="box box-key" style="margin-top:34px">
+    <span class="box-title">答这类题的通用结构</span>
+    <p>
+      <b>结论先行</b>（一句话给出取舍）→ <b>机制</b>（为什么是这样，涉及哪条链路）→
+      <b>代价或边界</b>（这么做放弃了什么）→ <b>你的实践或数字</b>（真实场景里怎么落地）。
+      这套结构之所以有效，是因为它天然把「研究问题」和「工程问题」分开了：只有工程问题才配得上第三条和第四条。
+    </p>
+  </section>
+</BaseLayout>
+
+<style>
+  .toolbar-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 14px;
+  }
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .known-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 30px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .known-bar .mini-track {
+    flex: 1;
+    min-width: 140px;
+  }
+  .section-sub {
+    font-family: var(--font-ui);
+    font-size: 0.6rem;
+    letter-spacing: 0.14em;
+    color: var(--ink-faint);
+    margin-left: 9px;
+    text-transform: uppercase;
+  }
+  .iv-chapter {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-family: var(--font-display);
+    font-size: 1.12rem;
+    font-weight: 700;
+    padding: 18px 0 9px;
+    margin: 0 0 4px;
+    border-top: 1px solid var(--ink);
+  }
+  .iv-no {
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    color: var(--red);
+    letter-spacing: 0.1em;
+  }
+  .iv-chapter a {
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+  .iv-chapter a:hover {
+    border-bottom-color: var(--red);
+    color: var(--red);
+  }
+  .iv-count {
+    margin-left: auto;
+    font-family: var(--font-ui);
+    font-size: 0.66rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.1em;
+  }
+  .iv-item {
+    position: relative;
+    padding-bottom: 4px;
+  }
+  .known-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-ui);
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+    color: var(--ink-muted);
+    background: none;
+    border: 1px dashed var(--border-strong);
+    padding: 3px 9px;
+    cursor: pointer;
+    margin: -14px 0 18px;
+  }
+  .known-toggle:hover {
+    border-color: var(--teal);
+    color: var(--teal);
+  }
+  .known-toggle.on {
+    border-style: solid;
+    border-color: var(--teal);
+    color: var(--teal);
+    background: #eef6f2;
+  }
+  .known-toggle.on .kt-box {
+    color: var(--teal);
+  }
+  .domain-block.hide,
+  .iv-group.hide {
+    display: none;
+  }
+  .iv-item.hide {
+    display: none;
+  }
+  @media (max-width: 780px) {
+    .iv-count {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  /* 面试页的自评记录使用独立 key，避免污染章节练习统计 */
+  const KEY = 'ht:interview:v1';
+
+  const state = (): Record<string, 1> => {
+    try {
+      return JSON.parse(localStorage.getItem(KEY) || '{}') as Record<string, 1>;
+    } catch {
+      return {};
+    }
+  };
+  const persist = (s: Record<string, 1>) => {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(s));
+    } catch {
+      /* 隐私模式下静默失败 */
+    }
+  };
+
+  let known = state();
+  const filterDomain = { v: 'all' };
+  const toggle = { high: false, hideKnown: false };
+
+  const items = () => Array.from(document.querySelectorAll<HTMLElement>('.iv-item'));
+  const TOTAL = items().length;
+
+  const render = () => {
+    let shown = 0;
+    let knownCount = 0;
+
+    items().forEach((el) => {
+      const qid = el.getAttribute('data-qid') || '';
+      const isKnown = !!known[qid];
+      if (isKnown) knownCount += 1;
+
+      const btn = el.querySelector<HTMLElement>('[data-known-btn]');
+      if (btn) {
+        btn.classList.toggle('on', isKnown);
+        const box = btn.querySelector('.kt-box');
+        if (box) box.textContent = isKnown ? '☑' : '□';
+      }
+
+      const group = el.closest<HTMLElement>('[data-chapter-group]');
+      const chapterId = group?.getAttribute('data-chapter-group') || '';
+      const domain = chapterId.split('-')[0];
+
+      const matchDomain = filterDomain.v === 'all' || domain === filterDomain.v;
+      const matchHigh = !toggle.high || el.getAttribute('data-high') === '1';
+      const matchKnown = !toggle.hideKnown || !isKnown;
+
+      const vis = matchDomain && matchHigh && matchKnown;
+      el.classList.toggle('hide', !vis);
+      if (vis) shown += 1;
+    });
+
+    /* 章节与领域：整组都隐藏时收起标题 */
+    document.querySelectorAll<HTMLElement>('[data-chapter-group]').forEach((g) => {
+      const any = Array.from(g.querySelectorAll<HTMLElement>('.iv-item')).some(
+        (el) => !el.classList.contains('hide')
+      );
+      g.classList.toggle('hide', !any);
+    });
+    document.querySelectorAll<HTMLElement>('[data-domain-block]').forEach((b) => {
+      const any = Array.from(b.querySelectorAll<HTMLElement>('.iv-group')).some(
+        (g) => !g.classList.contains('hide')
+      );
+      b.classList.toggle('hide', !any);
+    });
+
+    const fill = document.querySelector<HTMLElement>('[data-known-fill]');
+    if (fill) fill.style.width = TOTAL ? `${(knownCount / TOTAL) * 100}%` : '0%';
+    const label = document.querySelector<HTMLElement>('[data-known-label]');
+    if (label) {
+      label.textContent = `已掌握 ${knownCount} / ${TOTAL}　·　当前显示 ${shown} 题`;
+    }
+
+    document.querySelectorAll<HTMLElement>('[data-toggle]').forEach((b) => {
+      const k = b.getAttribute('data-toggle') as 'high' | 'hideKnown';
+      b.classList.toggle('on', toggle[k]);
+    });
+  };
+
+  document.addEventListener('click', (e) => {
+    const t = e.target as HTMLElement;
+
+    const f = t.closest<HTMLElement>('[data-filter]');
+    if (f) {
+      filterDomain.v = f.getAttribute('data-filter') || 'all';
+      document
+        .querySelectorAll<HTMLElement>('[data-domain-filters] [data-filter]')
+        .forEach((b) => b.classList.toggle('on', b === f));
+      render();
+      return;
+    }
+
+    const tg = t.closest<HTMLElement>('[data-toggle]');
+    if (tg) {
+      const k = tg.getAttribute('data-toggle') as 'high' | 'hideKnown';
+      toggle[k] = !toggle[k];
+      render();
+      return;
+    }
+
+    const kb = t.closest<HTMLElement>('[data-known-btn]');
+    if (kb) {
+      const el = kb.closest<HTMLElement>('.iv-item');
+      const qid = el?.getAttribute('data-qid') || '';
+      if (qid) {
+        if (known[qid]) delete known[qid];
+        else known[qid] = 1;
+        persist(known);
+        render();
+      }
+      return;
+    }
+
+    const act = t.closest<HTMLElement>('[data-act]')?.getAttribute('data-act');
+    if (act === 'panic') {
+      const pool = items().filter(
+        (el) => el.getAttribute('data-high') === '1' && !el.classList.contains('hide')
+      );
+      const all = pool.length ? pool : items().filter((el) => !el.classList.contains('hide'));
+      const pick = all[Math.floor(Math.random() * all.length)];
+      if (pick) {
+        pick.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        const summary = pick.querySelector('summary');
+        pick.querySelector('details')?.removeAttribute('open');
+        summary?.animate(
+          [
+            { background: 'rgba(184,148,75,0)' },
+            { background: 'rgba(184,148,75,.22)' },
+            { background: 'rgba(184,148,75,0)' },
+          ],
+          { duration: 1400, times: [0, 0.25, 1] }
+        );
+      }
+      return;
+    }
+
+    if (act === 'clear-known') {
+      if (confirm('清空所有「已能答出」的自评记录？此操作只影响本机且不可恢复。')) {
+        known = {};
+        persist(known);
+        render();
+      }
+    }
+  });
+
+  render();
+</script>
