@@ -12,12 +12,23 @@
     "prebuild": "npm run content:check",
     "build": "astro build",
     "preview": "astro preview",
-    "serve": "astro preview --host 0.0.0.0"
+    "serve": "astro preview --host 0.0.0.0",
+    "deploy": "wrangler pages deploy dist --project-name harness-times",
+    "cf:whoami": "wrangler whoami",
+    "cf:login": "wrangler login",
+    "verify": "node tools/verify.mjs",
+    "verify:live": "node tools/verify.mjs --base=https://harness-times.pages.dev",
+    "audit": "node tools/audit.mjs",
+    "probe": "node tools/probe.mjs",
+    "bisect": "node tools/bisect.mjs"
   },
   "dependencies": {
     "astro": "^5.14.1"
   },
   "engines": {
     "node": ">=18.17.1"
+  },
+  "devDependencies": {
+    "wrangler": "^4.133.0"
   }
 }
