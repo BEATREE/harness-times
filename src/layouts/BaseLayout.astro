@@ -22,7 +22,9 @@ const {
 } = Astro.props;
 
 const fullTitle = title === 'Harness Times' ? title : `${title} · Harness Times`;
-const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://harness-times.pages.dev').href;
+/* 兜底值与 astro.config.mjs 的 site 保持一致：canonical 必须是「对外主张的地址」，
+ * 否则两个域名各被收录一份，权重被摊薄。 */
+const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://harness.beatree.cn').href;
 ---
 
 <!doctype html>

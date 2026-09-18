@@ -199,10 +199,13 @@ npx wrangler pages deploy dist --project-name harness-times
 
 | 地址 | 说明 |
 | --- | --- |
-| https://harness-times.pages.dev | Pages 默认域名（项目 `harness-times`） |
-| https://harness.beatree.cn | 自定义域名（**需手工建 DNS，见下**） |
+| **https://harness.beatree.cn** | **主地址（canonical 指向它）** |
+| https://harness-times.pages.dev | Pages 默认域名（项目 `harness-times`），同样可用 |
 
-### 自定义域名：为什么需要手工加一条 CNAME
+`astro.config.mjs` 的 `site` 是 `https://harness.beatree.cn`——
+canonical / og:url 都基于它。改这里等于改「对外主张的地址」，别随手动。
+
+### 自定义域名怎么挂上去的（复盘）
 
 wrangler v4 **去掉了** `wrangler pages domain` 子命令，所以域名相关操作走
 `scripts/cf-domain.mjs`（内部走 Cloudflare REST API）：
@@ -223,7 +226,11 @@ zone 跨账号时 Cloudflare 不会自动创建 DNS 记录，必须去持有 zon
 
 不加这条记录，域名会一直停在 `status=pending / validation=pending/http`——
 HTTP 校验要求能真的访问到域名，而 DNS 没解析就访问不到，证书自然签不出来（鸡生蛋）。
-加完等 1–5 分钟，用 `npm run cf:domain` 确认转为 `active`。
+
+> ✅ **2026-09-18 已解决**：手工补上 CNAME 后，Cloudflare 自动签发了
+> `CN=harness.beatree.cn` 证书（有效期至 2026-12-17），
+> `npm run cf:domain` 显示 `status=active / HTTP 校验 active`，
+> `node tools/verify.mjs --base=https://harness.beatree.cn` 53 项全过。
 
 > ⚠️ wrangler 的本机 OAuth 凭据只有 `pages:write` / `zone:read`，**没有 DNS 写权限**。
 > 要做到「一条命令连 DNS 一起加」，需要额外提供 `Zone → DNS → Edit` 权限的

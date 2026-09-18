@@ -109,7 +109,7 @@ node scripts/wiki-facts.mjs --md     # 输出可直接粘进 index.md 的表格�
 | 命令 | 查什么 | 什么时候跑 |
 | --- | --- | --- |
 | `npm run content:check` | HTML 块里有没有空行（图会不会被截断） | 改完正文，已挂在 `prebuild` |
-| `node scripts/verify-build.mjs` | 产物结构：**64 项**断言（代码块、大翻页区、正文与工具栏同宽、图解动效…） | 每次构建后 |
+| `node scripts/verify-build.mjs` | 产物结构：**67 项**断言（代码块、大翻页区、正文与工具栏同宽、图解动效…） | 每次构建后 |
 | `node scripts/wiki-lint.mjs` | 本目录的统计与实际内容是否一致（27 项） | 改完正文/题库后 |
 | `node scripts/check-links.mjs` | 站外链接是否还活着 | 上线前后 |
 | `node tools/verify.mjs` | 活页面交互（**53 项**，需起 preview；含真键盘事件的翻页与「不抢键」守卫） | 动过 JS/交互后 |
@@ -152,6 +152,9 @@ node scripts/wiki-facts.mjs --md     # 输出可直接粘进 index.md 的表格�
 11. **键盘 ← / → 的三道「不抢键」守卫不能删**（输入框内、带修饰键、焦点元素可横向滚动）。
     删掉第一条最严重：本章页面里就有笔记输入框，在输入框里按 ← 会直接跳走一章。
 12. **`tools/verify.mjs` 等脚本的服务地址必须是 `localhost` 而不是 `127.0.0.1`**（见第三节的警告）。
+13. **canonical 必须指向 `https://harness.beatree.cn`**（`astro.config.mjs` 的 `site`）。
+    `harness-times.pages.dev` 只是分发通道，两个域名都能访问，
+    所以 canonical 退回 `pages.dev` 时站是好的、页面也不报错 —— 只有断言能拦住。`
 
 ---
 

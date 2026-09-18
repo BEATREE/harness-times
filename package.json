@@ -20,7 +20,7 @@
     "cf:login": "wrangler login",
     "cf:domain": "node scripts/cf-domain.mjs status",
     "verify": "node tools/verify.mjs",
-    "verify:live": "node tools/verify.mjs --base=https://harness-times.pages.dev",
+    "verify:live": "node tools/verify.mjs --base=https://harness.beatree.cn",
     "verify:build": "node scripts/verify-build.mjs",
     "wiki:facts": "node scripts/wiki-facts.mjs",
     "wiki:lint": "node scripts/wiki-lint.mjs",

@@ -86,6 +86,22 @@ check('不再出现 CSV 下载入口', !/\.csv/i.test(allHtml));
 const publicData = join(root, 'public', 'data');
 check('public/data 目录已移除', !existsSync(publicData));
 
+/* ---------- 2b. canonical 必须指向自定义域名 ----------
+ *
+ * 自定义域名 harness.beatree.cn 是「对外主张的地址」，Pages 默认域名只是分发通道。
+ * 两个域名都能访问，所以 canonical 一旦退回 pages.dev，站是好的、页面也不报错，
+ * 但搜索引擎会把同一份内容按两个域名各收一份 —— 这类退化只有断言拦得住。
+ */
+const canonicals = [...pages.values()]
+  .flatMap((h) => [...h.matchAll(/<link rel="canonical" href="([^"]+)"/g)].map((m) => m[1]));
+check('每个页面都有 canonical', canonicals.length === pages.size, `实际 ${canonicals.length} / ${pages.size}`);
+check(
+  'canonical 全部指向 harness.beatree.cn',
+  canonicals.length > 0 && canonicals.every((u) => u.startsWith('https://harness.beatree.cn/')),
+  canonicals.find((u) => !u.startsWith('https://harness.beatree.cn/')) ?? ''
+);
+check('canonical 里不再出现 pages.dev', !canonicals.some((u) => u.includes('pages.dev')));
+
 /* ---------- 3. 侧栏：领域配色 / 分组折叠 / 整体收起 ---------- */
 const sample = pages.get('index.html') ?? '';
 for (const d of ['llm', 'harness', 'eval', 'knowledge']) {

@@ -6,7 +6,7 @@
 > 全部实现集中在 `src/styles/global.css`（3,005 行，按 23 个分节组织），
 > 组件级样式在各自的 `.astro` 文件里（Astro 会自动 scoped）。
 >
-> 版本：2026-09 · 对应当前线上 `https://harness-times.pages.dev`
+> 版本：2026-09 · 对应当前线上 `https://harness.beatree.cn`（Pages 默认域名 `harness-times.pages.dev` 同样可用）
 
 ---
 

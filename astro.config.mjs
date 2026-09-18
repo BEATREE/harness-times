@@ -4,7 +4,13 @@ import { rehypeDiagramMotion } from './src/lib/diagram-motion.mjs';
 
 // Harness Times — 静态输出，产物在 dist/，可直接交给 Cloudflare Pages
 export default defineConfig({
-  site: 'https://harness-times.pages.dev',
+  /*
+   * canonical / og:url 的基准，必须是**对外主张的那个地址**。
+   * 自定义域名 harness.beatree.cn 已签发证书并可直接访问（2026-09-18 起 active），
+   * 所以基准指向它而不是 Pages 默认域名 —— 否则搜索引擎会把两个域名各收一份，
+   * 权重被摊薄，而作品集要的恰恰是「一个稳定的公开地址」。
+   */
+  site: 'https://harness.beatree.cn',
   output: 'static',
   trailingSlash: 'ignore',
   build: {

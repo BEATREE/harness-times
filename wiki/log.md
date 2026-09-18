@@ -19,6 +19,37 @@
 
 ---
 
+## 2026-09-18 · harness.beatree.cn 转 active —— canonical 随之切到自定义域名
+
+- **类型**：部署 + 工程
+- **改了什么**：
+  - `astro.config.mjs` 的 `site` 从 `https://harness-times.pages.dev`
+    改为 **`https://harness.beatree.cn`**；`BaseLayout.astro` 里的兜底值同步。
+    `package.json` 的 `verify:live` 也跟着切到自定义域名。
+  - 自定义域名真的生效了：CNAME 补上后 Cloudflare 自动签发
+    `CN=harness.beatree.cn`（有效期至 2026-12-17），
+    `node scripts/cf-domain.mjs status` → `status=active / HTTP 校验 active`。
+    上一节里那条「停在 pending」的待办**已闭环**。
+- **为什么**：两个域名都能访问 → canonical 一旦退回 `pages.dev`，
+  站还是好的、页面也不报错，但搜索引擎会把同一份内容按两个域名各收一份，
+  权重被摊薄。而本站的定位是「一个稳定的公开地址」，这正是作品集需要的东西。
+  **这类退化只有断言拦得住**，所以新增 3 条：
+  - `每个页面都有 canonical`（30 / 30）
+  - `canonical 全部指向 harness.beatree.cn`
+  - `canonical 里不再出现 pages.dev`
+- **连带改动**：`README.md` 的「线上地址」表把自定义域名提为主地址，
+  并把「为什么需要手工加 CNAME」改写成「怎么挂上去的（复盘）」+ 已解决的结论。
+  `design.md` 版本行同步。
+- **验证**：
+  - `node scripts/verify-build.mjs` → **67/67**（64 → 67）
+  - 负向测试：把 `site` 改回 `pages.dev` 重构建 → 上述两条断言**确实报红**
+    （`← https://harness-times.pages.dev/about/`），改回后恢复绿
+  - `node tools/verify.mjs --base=https://harness.beatree.cn` → **53/53**
+  - `node tools/verify.mjs` → 53/53 ·`scripts/measure.mjs` → 异常 0 项
+  - `node tools/audit.mjs` → 全视口无横向溢出 ·`scripts/wiki-lint.mjs` → 27/27
+
+---
+
 ## 2026-09-18 · 正文加宽到与工具栏同宽 + 两侧大翻页区（替换 34px 小书签）
 
 - **类型**：版式 + 工程
@@ -50,7 +81,7 @@
   （= 侧栏宽 / 2）。收起侧栏时 `--sidebar-hold` 归零，正文自然回到正中央。
 - **连带改动**（这几处必须一起改，否则静默出错）：
   - `src/styles/global.css`·`src/layouts/BaseLayout.astro`（新增 `rail-prev` / `rail-next` 具名 slot）·`src/layouts/ChapterLayout.astro`
-  - `scripts/verify-build.mjs`（50 → **64 项**）·`tools/verify.mjs`（36 → **53 项**）·`scripts/measure.mjs`
+  - `scripts/verify-build.mjs`（50 → **67 项**）·`tools/verify.mjs`（36 → **53 项**）·`scripts/measure.mjs`
   - `design.md`（新增 5.2 取舍一节，第八节整节重写为 `.page-rail`）
   - `wiki/index.md`·`wiki/schema.md`·`wiki/sources.md`·`wiki/README.md`·根 `README.md`
 - **顺手修掉的坑**：`tools/verify.mjs` / `tools/audit.mjs` / `scripts/measure.mjs` / `scripts/shoot.mjs`
