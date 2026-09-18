@@ -230,7 +230,8 @@ HTTP 校验要求能真的访问到域名，而 DNS 没解析就访问不到，�
 > ✅ **2026-09-18 已解决**：手工补上 CNAME 后，Cloudflare 自动签发了
 > `CN=harness.beatree.cn` 证书（有效期至 2026-12-17），
 > `npm run cf:domain` 显示 `status=active / HTTP 校验 active`，
-> `node tools/verify.mjs --base=https://harness.beatree.cn` 53 项全过。
+> `node tools/verify.mjs --base=https://harness.beatree.cn` 全过（当时 53 项；
+> 用例集仍在增长 —— 以实际输出为准，别把这里的数字当契约）。
 
 > ⚠️ wrangler 的本机 OAuth 凭据只有 `pages:write` / `zone:read`，**没有 DNS 写权限**。
 > 要做到「一条命令连 DNS 一起加」，需要额外提供 `Zone → DNS → Edit` 权限的

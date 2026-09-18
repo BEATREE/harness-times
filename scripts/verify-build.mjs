@@ -286,6 +286,33 @@ check('关于页出口区是两块主推卡（主站最宽）', /grid-template-c
 check('出口区窄屏降单栏', /max-width:\s*620px\)[\s\S]{0,600}\.cta-row[\s\S]{0,140}grid-template-columns:\s*1fr/.test(css));
 check('源码入口是整宽横条（.cta-slim 走 flex 而非 block）', /\.cta-slim[\s\S]{0,200}?display:\s*flex/.test(css));
 
+/* 左边缘悬停唤出目录（peek）—— 这几条是「实现方式」的锁，不是「功能存在」的锁。
+ *
+ * 功能本身由 tools/verify.mjs 用真实鼠标事件验（含「弹出来时正文不许位移」）；
+ * 这里锁的是三件静态的事，它们错了页面照样能跑，只是会变得难用或违反自家规范：
+ *   1) 唤出必须只做 transform —— 一旦改成动 `--sidebar-hold`，整页会随鼠标重排；
+ *   2) 唤出期间收起书签必须让位（它 z-index 45 压在侧栏 40 之上，不藏就是个挡路的「›」）；
+ *   3) 必须有 prefers-reduced-motion 分支（「不要做」清单第 10 条）。
+ */
+check('CSS 有左边缘唤出规则（只做 transform 复位）',
+  /body\.nav-collapsed\.nav-peek\s+\.sidebar\s*\{[\s\S]{0,160}?transform:\s*none/.test(css));
+check('唤出期间收起书签让位（opacity:0 + pointer-events:none）',
+  /body\.nav-collapsed\.nav-peek\s+\.nav-collapse-btn\s*\{[\s\S]{0,160}?opacity:\s*0[\s\S]{0,80}?pointer-events:\s*none/.test(css));
+check('唤出态有 prefers-reduced-motion 降级',
+  /prefers-reduced-motion[\s\S]{0,200}?\.nav-collapse-btn[\s\S]{0,120}?transition:\s*none/.test(css));
+check('窄屏悬停唤出不带遮罩',
+  /body\.nav-open\.nav-peek\s+\.scrim\s*\{\s*display:\s*none/.test(css));
+
+/* 交互逻辑在打包出来的 JS 里，只能读产物。
+ * 断言用「行为标志」而不是变量名：压缩器会重命名变量，但字符串字面量不会变。 */
+const jsFiles = walk(dist).filter((f) => f.endsWith('.js'));
+const js = jsFiles.map((f) => readFileSync(f, 'utf8')).join('\n');
+check('JS 里挂了悬停唤出（nav-peek + 真实指针事件）',
+  js.includes('nav-peek') && js.includes('pointermove'));
+check('JS 里只用 hover-capable 设备启用（不吃触屏的 pointermove）',
+  /\(hover:\s*hover\)/.test(js));
+check('JS 里有停留判定与「离开边带才解除拉黑」的阈值', js.includes('clientX'));
+
 /* ---------- 输出 ---------- */
 let failed = 0;
 for (const r of results) {

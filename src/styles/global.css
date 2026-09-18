@@ -413,6 +413,62 @@ a:hover {
   }
 }
 
+/* --- 左边缘悬停唤出目录（peek） ---
+ *
+ * 把鼠标移到视口最左侧就临时把目录弹出来，离开就收回。
+ *
+ * 三条不能动的约束：
+ *  1. **只做 transform 复位，绝不碰 `--sidebar-hold`。**
+ *     收起侧栏本身是靠把 `--sidebar-hold` 归零让正文重排实现的；
+ *     唤出如果沿用同一招，鼠标每划到左边一次，整页正文就会重排一次 ——
+ *     看起来像页面在抖。侧栏是 `position: fixed` + `z-index: 40`，
+ *     本来就浮在正文之上，所以单纯 translateX 回来就够了。
+ *  2. **唤出期间不能显示收起按钮。** 按钮在收起态是 `left: 0`（就是那条 19px 的窄书签），
+ *     z-index 45 压在侧栏（40）之上 —— 不藏起来的话，会有一个「›」挂在侧栏左沿上，
+ *     既挡内容又语义矛盾（此刻侧栏明明是可见的）。
+ *     藏掉它意味着「唤出态不能一键钉住」，这是有意的取舍：临时看一眼目录
+ *     不应该改变持久状态。想钉住就移开鼠标、再点左沿那条书签。
+ *  3. **必须有 prefers-reduced-motion 分支**（见文件下方同名区块）——
+ *     这是「不要做」清单第 10 条。
+ */
+
+@media (min-width: 761px) {
+  body.nav-collapsed.nav-peek .sidebar {
+    transform: none;
+    /* 唤出期间没有遮罩，靠阴影把「这是一层浮层」讲清楚 */
+    box-shadow: 6px 0 26px var(--shadow-deep);
+  }
+
+  body.nav-collapsed.nav-peek .nav-collapse-btn {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* 按钮要比侧栏早一点淡出，别出现「浮层已经盖上来、书签还挂在外面」的一帧 */
+  .nav-collapse-btn {
+    transition: left 0.26s cubic-bezier(0.16, 1, 0.3, 1), color 0.18s ease,
+      background 0.18s ease, border-color 0.18s ease, opacity 0.16s ease;
+  }
+}
+
+/* 窄屏的唤出复用抽屉那套（`nav-open`），但**不要遮罩**：
+ * 悬停唤出是「顺手瞄一眼」，把整页压暗会让正在读的段落突然变重，
+ * 而且遮罩会盖住指针路径，让「移开就收回」变得难以预期。
+ * 点 ☰ 打开的真正抽屉仍然保留遮罩 —— 那种状态下你应该先关掉它再继续读。 */
+@media (max-width: 760px) {
+  body.nav-open.nav-peek .scrim {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .main,
+  .nav-collapse-btn {
+    transition: none;
+  }
+}
+
 .nav-item {
   display: flex;
   align-items: flex-start;

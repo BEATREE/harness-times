@@ -119,6 +119,15 @@ const SHOTS = [
   // 只看 1440px 的广角图是发现不了的。
   { name: '24-about-cta-1100', path: '/about/', w: 1100, h: 720, js: 'document.querySelector(".cta-row")?.scrollIntoView({block:"start"})' },
   { name: '25-about-cta-620', path: '/about/', w: 620, h: 900, js: 'document.querySelector(".cta-row")?.scrollIntoView({block:"start"})' },
+  // 左边缘悬停唤出：先收起目录（走那条书签的真路径），再把指针从远处移到视口最左边。
+  // 和 05-sidebar-collapsed 并排看，就是「收起 → 贴近左边缘 → 弹回来」这一串动作的三帧。
+  {
+    name: '26-nav-peek',
+    path: '/harness/harness-02-agent-loop/',
+    js: 'document.querySelector("[data-nav-collapse]")?.click()',
+    wait: 520,
+    hoverAt: [[760, 430], [8, 430]],
+  },
 ];
 
 if (!existsSync(CHROME)) {
@@ -250,6 +259,27 @@ for (const shot of shots) {
       await sleep(shot.wait ?? 420);
     } else {
       console.warn(` warn ${shot.name}: 找不到 ${shot.hoverSel}（可能是视口太窄，按钮被隐藏）`);
+    }
+  }
+
+  /*
+   * 按坐标悬浮（`hoverAt: [x, y]`，或传一串点 `[[x,y], [x,y], …]` 依次移动）。
+   * 和 hoverSel 分开是因为有些特性根本不对应某个元素 ——
+   * 「左边缘悬停唤出目录」的触发条件是「指针贴近视口左边」，不是「悬停谁」，
+   * 没有元素中心可以取。而且 peek 有 110ms 的停留判定，
+   * 所以这里必须真的等够时间，不能发完事件立刻截图。
+   *
+   * 为什么要支持一串点：唤出逻辑会把「手动收起后的边带」拉黑，
+   * 要等指针真的退到边带之外才解除。`js` 步骤里的 `.click()` 是 DOM 调用、
+   * 不产生指针移动，而新开的无头浏览器指针停在 (0,0) —— 恰好就在触发带里。
+   * 于是「收起 → 直接挪到 x=8」会被正确地拉黑，截出来是一张空的。
+   * 必须显式先绕远（x 远大于边带）再回来，才是真实用户的路径。
+   */
+  if (shot.hoverAt) {
+    const pts = Array.isArray(shot.hoverAt[0]) ? shot.hoverAt : [shot.hoverAt];
+    for (const [x, y] of pts) {
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, buttons: 0 });
+      await sleep(shot.wait ?? 460);
     }
   }
 

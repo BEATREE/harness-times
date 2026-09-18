@@ -590,8 +590,157 @@ try {
 
   await cdp.send('Emulation.clearDeviceMetricsOverride');
 
-  /* ============ 10. 无 JS 报错 ============ */
-  console.log('\n[10] 运行期异常');
+  /* ============ 10. 左边缘悬停唤出目录（peek） ============
+   *
+   * 为什么必须走 Input.dispatchMouseEvent 而不是页面内 `el.dispatchEvent(new PointerEvent(...))`：
+   *  - 这个特性读 `matchMedia('(hover: hover)')` 并逐事件判 `e.pointerType`，
+   *    合成事件里 pointerType 是自己填的，等于自己给自己发通行证；
+   *  - 阈值判断依赖真实的 clientX 与真实的事件频率，
+   *    页面内合成的事件可以瞬间连发一串，测不出「停留 110ms」这类时间语义。
+   * 用 CDP 派发的是**可信事件**（isTrusted=true），跑的是真正的产品代码路径。
+   *
+   * 这里最要紧的一条断言不是「弹出来了」，而是「弹出来时正文一格都没动」。
+   * 侧栏收起是靠把 --sidebar-hold 归零让正文重排实现的；
+   * 唤出如果顺手也去改这个变量，鼠标每划到左边一次整页就会重排一次 ——
+   * 那种抖动只有量正文左边界才发现得了。
+   */
+  console.log('\n[10] 左边缘悬停唤出目录');
+
+  const mouseTo = (x, y = 420) =>
+    cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, buttons: 0 });
+  const clickAt = async (x, y = 420) => {
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, buttons: 0 });
+    await cdp.send('Input.dispatchMouseEvent', {
+      type: 'mousePressed', x, y, button: 'left', clickCount: 1, buttons: 1,
+    });
+    await cdp.send('Input.dispatchMouseEvent', {
+      type: 'mouseReleased', x, y, button: 'left', clickCount: 1, buttons: 0,
+    });
+  };
+  /** 一次把这项特性所有可观测状态抓齐 */
+  const peekState = () => cdp.evaluate(`(() => {
+    const sb = document.getElementById('sidebar');
+    const btn = document.querySelector('[data-nav-collapse]');
+    const scrim = document.querySelector('[data-scrim]');
+    const prose = document.querySelector('.prose');
+    const t = getComputedStyle(sb).transform;
+    return {
+      hoverCapable: matchMedia('(hover: hover)').matches,
+      peek: document.body.classList.contains('nav-peek'),
+      collapsed: document.body.classList.contains('nav-collapsed'),
+      open: document.body.classList.contains('nav-open'),
+      tx: t === 'none' ? 0 : Math.round(new DOMMatrixReadOnly(t).m41),
+      hold: getComputedStyle(document.querySelector('.main')).getPropertyValue('--sidebar-hold').trim(),
+      proseLeft: prose ? Math.round(prose.getBoundingClientRect().left) : -1,
+      btnOpacity: btn ? getComputedStyle(btn).opacity : 'n/a',
+      btnPointer: btn ? getComputedStyle(btn).pointerEvents : 'n/a',
+      scrimShown: scrim ? getComputedStyle(scrim).display !== 'none' : false,
+      btnRect: btn ? (({ x, y, width, height }) => ({ x, y, width, height }))(btn.getBoundingClientRect()) : null,
+    };
+  })()`);
+
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 1440, height: 900, deviceScaleFactor: 1, mobile: false,
+  });
+  await cdp.goto(`${BASE}/harness/harness-02-agent-loop/`, 700);
+
+  const peekStart = await peekState();
+  check('桌面端默认目录是展开的（本次改动不动默认状态）',
+    peekStart.collapsed === false && peekStart.tx === 0 && peekStart.hoverCapable,
+    `collapsed=${peekStart.collapsed} tx=${peekStart.tx} hover=${peekStart.hoverCapable}`);
+
+  // 收起目录（真实点击那条书签）
+  await clickAt(peekStart.btnRect.x + peekStart.btnRect.width / 2,
+    peekStart.btnRect.y + peekStart.btnRect.height / 2);
+  await sleep(420);
+  const peekCollapsed = await peekState();
+  check('点书签能收起目录，收起后侧栏移出视口',
+    peekCollapsed.collapsed === true && peekCollapsed.tx <= -200,
+    `collapsed=${peekCollapsed.collapsed} tx=${peekCollapsed.tx}`);
+
+  // 停留不足 → 不弹（「鼠标路过」不该被拦下来）
+  await mouseTo(8);
+  await mouseTo(300);
+  await sleep(320);
+  const peekPass = await peekState();
+  check('指针只从边缘路过（停留 <110ms）不弹目录',
+    peekPass.peek === false && peekPass.tx <= -200,
+    `peek=${peekPass.peek} tx=${peekPass.tx}`);
+
+  // 停留足够 → 弹出，且正文一格没动
+  await mouseTo(8);
+  await sleep(360);
+  const peekOpen = await peekState();
+  check('鼠标抵住左边缘即弹出目录', peekOpen.peek === true && peekOpen.tx === 0,
+    `peek=${peekOpen.peek} tx=${peekOpen.tx}`);
+  check('唤出期间正文左边界与收起时完全一致（不重排）',
+    peekOpen.proseLeft === peekCollapsed.proseLeft && peekOpen.hold === peekCollapsed.hold,
+    `收起 ${peekCollapsed.proseLeft}/${peekCollapsed.hold} → 唤出 ${peekOpen.proseLeft}/${peekOpen.hold}`);
+  check('唤出期间收起书签已让位（不挂在浮层外面）',
+    peekOpen.btnOpacity === '0' && peekOpen.btnPointer === 'none',
+    `opacity=${peekOpen.btnOpacity} pointer-events=${peekOpen.btnPointer}`);
+
+  // 指针离开侧栏 → 收回
+  await mouseTo(700);
+  await sleep(340);
+  const peekClosed = await peekState();
+  check('指针移开后目录自动收回', peekClosed.peek === false && peekClosed.tx <= -200,
+    `peek=${peekClosed.peek} tx=${peekClosed.tx}`);
+  check('收回后正文左边界仍与收起时一致（来回都不抖）',
+    peekClosed.proseLeft === peekCollapsed.proseLeft,
+    `${peekCollapsed.proseLeft} → ${peekClosed.proseLeft}`);
+
+  /* 窄屏：复用抽屉（nav-open），但悬停唤出不该带遮罩，
+   * 且刚用 ☰ 关掉的抽屉不许在指针还贴着左边时自己弹回来。 */
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 420, height: 844, deviceScaleFactor: 1, mobile: false,
+  });
+  await cdp.goto(`${BASE}/harness/harness-02-agent-loop/`, 700);
+  const mBtn = await cdp.evaluate(`(() => {
+    const b = document.querySelector('[data-menu-toggle]');
+    const r = b.getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2,
+             hoverCapable: matchMedia('(hover: hover)').matches };
+  })()`);
+
+  if (mBtn.hoverCapable) {
+    // 点 ☰ 开、再点 ☰ 关 —— 关掉时指针仍停在按钮附近（边带内），应被拉黑
+    await clickAt(mBtn.x, mBtn.y);
+    await sleep(320);
+    await clickAt(mBtn.x, mBtn.y);
+    await sleep(320);
+    await mouseTo(8);
+    await sleep(360);
+    const mSuppressed = await peekState();
+    check('窄屏用 ☰ 关掉抽屉后，指针还贴着左边缘不许自动弹回',
+      mSuppressed.open === false && mSuppressed.peek === false,
+      `nav-open=${mSuppressed.open} peek=${mSuppressed.peek}`);
+
+    // 指针真正离开边带 → 拉黑解除，此时再贴左边缘应弹出，且不带遮罩
+    await mouseTo(240);
+    await sleep(120);
+    await mouseTo(8);
+    await sleep(360);
+    const mPeek = await peekState();
+    check('窄屏贴左边缘也能唤出抽屉，且不带遮罩',
+      mPeek.open === true && mPeek.peek === true && mPeek.scrimShown === false,
+      `nav-open=${mPeek.open} peek=${mPeek.peek} 遮罩=${mPeek.scrimShown}`);
+
+    // 指针移开浮层才收回。窄屏侧栏宽 288px，所以要挪到它右沿之外 ——
+    // 写个固定值很容易落在浮层里面，变成「测了个寂寞」。
+    const pastSidebar = await cdp.evaluate(
+      `Math.round(document.getElementById('sidebar').getBoundingClientRect().right) + 60`
+    );
+    await mouseTo(pastSidebar);
+    await sleep(340);
+    const mClosed = await peekState();
+    check('窄屏指针移开后抽屉收回', mClosed.open === false && mClosed.peek === false,
+      `nav-open=${mClosed.open} peek=${mClosed.peek}（挪到 x=${pastSidebar}）`);
+  }
+  await cdp.send('Emulation.clearDeviceMetricsOverride');
+
+  /* ============ 11. 无 JS 报错 ============ */
+  console.log('\n[11] 运行期异常');
   check('页面无未捕获异常', pageErrors.length === 0,
     pageErrors.slice(0, 3).join(' | ') || '无');
 

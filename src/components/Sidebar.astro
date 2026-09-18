@@ -247,4 +247,124 @@ const { currentChapter, currentDomain } = Astro.props;
   toggle?.addEventListener('click', () => document.body.classList.toggle('nav-open'));
   scrim?.addEventListener('click', close);
   document.querySelectorAll('.sidebar a').forEach((a) => a.addEventListener('click', close));
+
+  /* ---- 左边缘悬停唤出目录 ----
+   *
+   * 状态只有两个：`body.nav-peek`（这一层是悬停临时弹出来的）
+   * 和 `peekAddedOpen`（窄屏下 `nav-open` 是我加的还是人点的）。
+   * 分开记是必须的 —— 收回时得判断「这次的可见到底是谁打开的」：
+   * 悬停打开的自动画收回去，人自己按出来的（收起书签 / ☰）绝不能自动收回。
+   *
+   * 手动收起后要「拉黑」边带一小段时间。这一条是对窄屏 ☰ 说的：
+   * 它落在 left:14 的 40px 见方里，左半边就压在触发带上，点完它把抽屉关掉、
+   * 指针还停在附近，不拉黑的话抽屉会立刻自己弹回来。解除条件只有一个 ——
+   * 指针真的退到边带之外。
+   * （桌面端的收起书签不涉及这个问题：展开态它在侧栏右沿 x≈267，
+   *   收起态它在 x:0 而那时候点它只会「展开」，不会是「收起」。）
+   *
+   * 只读 `hover: hover`：触屏设备没有「鼠标移过去」这回事，
+   * 挂上去只会让 pointermove 在手指拖动时乱触发。
+   */
+  const EDGE_PX = 16;        // 触发带宽度（要能完整盖住收起态那条 19px 宽的书签）
+  const RELEASE_PX = 34;     // 指针要退到这么远才算「真的离开边带」
+  const PEEK_DELAY_MS = 110; // 停留这么久才弹，过滤掉「鼠标路过」
+
+  const sidebarEl = document.getElementById('sidebar');
+  const canHover = window.matchMedia('(hover: hover)').matches;
+
+  if (canHover && sidebarEl) {
+    const bodyEl = document.body;
+    const narrow = () => window.matchMedia('(max-width: 760px)').matches;
+    const peekedNow = () => bodyEl.classList.contains('nav-peek');
+    /** 目录此刻是不是「可见的」（含悬停唤出这一层） */
+    const visible = () =>
+      narrow() ? bodyEl.classList.contains('nav-open') : !bodyEl.classList.contains('nav-collapsed');
+
+    let peekTimer = 0;
+    let suppress = false;
+    let inZone = false;
+    let peekAddedOpen = false;
+
+    const cancelTimer = () => {
+      if (peekTimer) {
+        clearTimeout(peekTimer);
+        peekTimer = 0;
+      }
+    };
+
+    const reveal = () => {
+      if (visible()) return;
+      peekAddedOpen = narrow();
+      bodyEl.classList.add('nav-peek');
+      if (peekAddedOpen) bodyEl.classList.add('nav-open');
+    };
+
+    const retract = () => {
+      cancelTimer();
+      if (!peekedNow()) return;
+      bodyEl.classList.remove('nav-peek');
+      if (peekAddedOpen) bodyEl.classList.remove('nav-open');
+      peekAddedOpen = false;
+    };
+
+    window.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      // 正在拖拽（选文字、拖滚动条）时不弹，否则拖到左边缘会突然盖上来
+      if (e.buttons & 1) return;
+
+      const x = e.clientX;
+
+      if (x > EDGE_PX + RELEASE_PX) suppress = false;
+
+      if (x <= EDGE_PX) {
+        inZone = true;
+        if (!suppress && !visible() && !peekTimer) {
+          peekTimer = window.setTimeout(() => {
+            peekTimer = 0;
+            if (inZone) reveal();
+          }, PEEK_DELAY_MS);
+        }
+        return;
+      }
+
+      inZone = false;
+      cancelTimer();
+
+      // 已经弹出：指针跑到侧栏外面就收回
+      if (peekedNow() && !sidebarEl.contains(e.target as Node)) retract();
+    });
+
+    // 指针移出窗口 / 切走标签页 / 跨断点改窗口大小 —— 都不能留着那层浮层
+    document.addEventListener('mouseleave', retract);
+    window.addEventListener('blur', retract);
+    window.addEventListener('resize', retract);
+
+    /*
+     * 手动开合之后拉黑边带。注册顺序很重要：收起书签的处理器在
+     * Sidebar.astro 的 is:inline 脚本里、☰ 的在上面，都比这里早注册，
+     * 所以事件触发时它们的 toggle 已经跑完，这里读到的是**新**状态。
+     */
+    const armIfHidden = () => {
+      cancelTimer();
+      const hidden = narrow()
+        ? !bodyEl.classList.contains('nav-open')
+        : bodyEl.classList.contains('nav-collapsed');
+      if (hidden) suppress = true;
+    };
+    document.querySelector('[data-nav-collapse]')?.addEventListener('click', armIfHidden);
+    document.querySelector('[data-menu-toggle]')?.addEventListener('click', armIfHidden);
+
+    // 走「点遮罩 / 点链接」这两条已有的关闭路径时，顺手把悬停层也清掉，
+    // 否则 nav-peek 会留在 body 上，让 visible() 一直误报「还开着」。
+    const hardClose = () => {
+      cancelTimer();
+      peekAddedOpen = false;
+      bodyEl.classList.remove('nav-peek');
+    };
+    scrim?.addEventListener('click', () => {
+      hardClose();
+      suppress = true;
+    });
+    document.querySelectorAll('.sidebar a').forEach((a) => a.addEventListener('click', hardClose));
+  }
 </script>
