@@ -44,7 +44,6 @@ https://e2b.dev/
 https://zh.d2l.ai/
 https://speech.ee.ntu.edu.tw/~hylee/ml/2023-spring.php
 https://github.com/datawhalechina/hugging-llm
-https://baoyu.io/
 
 # —— 本站相关 ——
 https://beatree.cn

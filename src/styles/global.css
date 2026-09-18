@@ -57,6 +57,14 @@
 
   /* 度量 */
   --sidebar-w: 268px;
+  /*
+   * 版面为左侧目录预留的横向留白。
+   *
+   * 它同时作用在 .main 的左边和右边，两份相等之后 .main 的内容盒本身就相对
+   * 「视口」居中，正文再在内容盒里居中，中点才会落在视口中线上。
+   * 侧栏收起时置 0（见 body.nav-collapsed），两侧同时归零，正文位置不变。
+   */
+  --sidebar-hold: var(--sidebar-w);
   /* 中文一行 38~42 字最舒服；43rem 在宽屏上偏长，读久了容易串行 */
   --measure: 40rem;
   --gap: 32px;
@@ -363,15 +371,20 @@ a:hover {
   }
 
   .main {
-    transition: margin-left 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+    /* 两边一起动，收起 / 展开时正文始终居中，只有两侧留白在收放 */
+    transition: margin-left 0.26s cubic-bezier(0.16, 1, 0.3, 1),
+      padding-right 0.26s cubic-bezier(0.16, 1, 0.3, 1);
   }
-
   body.nav-collapsed .sidebar {
     transform: translateX(-100%);
   }
 
-  body.nav-collapsed .main {
-    margin-left: 0;
+  /*
+   * 收起侧栏 = 两侧留白同时归零。因为 .main 的左右留白本来就相等，
+   * 归零后内容盒依旧以视口中线为中心，正文一格都不会挪动。
+   */
+  body.nav-collapsed {
+    --sidebar-hold: 0px;
   }
 
   body.nav-collapsed .nav-collapse-btn {
@@ -452,6 +465,27 @@ a:hover {
   border-color: var(--teal);
 }
 
+/* 目录里的站外链接：用金色底托 + 虚线下边框，和站内条目区分开 */
+.nav-item.nav-ext {
+  margin-top: 6px;
+  border-top: 1px dotted var(--border);
+  background: rgba(184, 148, 75, 0.07);
+}
+
+.nav-item.nav-ext .num {
+  color: var(--gold);
+  font-size: 0.7rem;
+}
+
+.nav-item.nav-ext .label-zh {
+  color: #7d6428;
+}
+
+.nav-item.nav-ext:hover {
+  background: rgba(184, 148, 75, 0.16);
+  border-left-color: var(--gold);
+}
+
 .sidebar-footer {
   border-top: 1px solid var(--border);
   padding: 12px 20px 14px;
@@ -503,7 +537,24 @@ a:hover {
    * 的 overflow-x:auto 自己滚动。
    */
   min-width: 0;
-  margin-left: var(--sidebar-w);
+  /*
+   * 左右各留一份留白。左边那份是「给目录让位」（侧栏是 fixed，不占流内空间），
+   * 右边那份是镜像留白 —— 两边相等时，.main 的内容盒本身就以视口中线为中心，
+   * 正文再在内容盒里居中，中点才落在屏幕上。
+   *
+   * 但镜像留白不能无条件留满：
+   *   侧栏 268 + 右边镜像 268 = 536px 是白送出去的，视口不够宽时，
+   *   正文栏会被挤到没法读 —— 768px 的平板上只剩 185px，一行不到 11 个字。
+   * 所以右边那份取 min(镜像, 剩余空间)：以保证正文栏不小于 480px（约 30 字）为界，
+   * 空间不够时优先牺牲「居中」，而不是牺牲「能读」。
+   *
+   * 算下来视口 ≥ 1128px 时镜像留白能留满，正文栏正好落在视口中线上；
+   * 更窄时镜像留白线性收缩，正文栏稳定在 464~480px，整体向右漂移，
+   * 最多漂 134px（= 侧栏宽的一半，也就是「完全不镜像」的极限）。
+   * 这个式子在这两个区间里是连续的，所以缩放窗口不会看到跳变。
+   */
+  margin-left: var(--sidebar-hold);
+  padding-right: min(var(--sidebar-hold), max(0px, calc(100% - 860px)));
   background: var(--paper);
   min-height: 100vh;
   position: relative;
@@ -671,19 +722,38 @@ body.is-entering .main {
   color: var(--gold);
 }
 
-/* 报头细条里的出品方链接：这里要「不像链接」——不要红色，也不要下划线 */
-.masthead-top .made-by a {
-  color: var(--ink-soft);
-  border-bottom: 0;
-  text-decoration: underline;
-  text-decoration-color: var(--border-strong);
-  text-underline-offset: 2px;
-  transition: color 0.18s ease, text-decoration-color 0.18s ease;
+/*
+ * 报头里的主站入口。
+ *
+ * 报头是每一页都会出现的位置，用它来做「回主站」是最省事的曝光位，
+ * 所以这里不做成不起眼的下划线文字，而是做成一颗描边胶囊：
+ * 有边界、有颜色、有 hover 反馈，一眼看见、一眼知道能点。
+ */
+.masthead-top .made-by {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.masthead-top .made-by a:hover {
+.masthead-top .made-by .site-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 10px 4px;
+  border: 1px solid var(--red);
+  border-radius: 999px;
+  background: rgba(155, 44, 44, 0.055);
   color: var(--red);
-  text-decoration-color: var(--red);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.masthead-top .made-by .site-link:hover {
+  background: var(--red);
+  border-color: var(--red);
+  color: var(--paper-light);
 }
 
 /* ============================ 版块标题与细线 ============================ */
@@ -1187,6 +1257,193 @@ figure.fig .fig-frame {
 figure.fig svg {
   margin: 0 auto;
   height: auto;
+}
+
+/* --- 图解的动效与小屏可读性 ---
+ *
+ * 三个变量由 src/lib/diagram-motion.mjs 在构建期写到元素上：
+ *   --vbw   图的 viewBox 宽度（用户单位），用来算窄屏最小宽度
+ *   --i     图元在文档里的序号，用来做递增延迟
+ *   --len   某条箭头连线的长度，流光动画的一个周期就是 长度 + 9
+ */
+
+/* 1. 逐个落版：图元按顺序淡入并轻微上浮。
+ *    纯 CSS，无 JS —— 在首帧就参与样式计算，不会出现「先画全、再重播」的闪跳。
+ *    延迟设了上限，元素多的图不会拖到最后才出现。 */
+.dm-n,
+.dm-plate,
+.dm-t {
+  animation: dm-in 0.46s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: min(calc(var(--i, 0) * 22ms), 760ms);
+}
+
+.dm-t {
+  animation-duration: 0.6s;
+}
+
+@keyframes dm-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 1b. 有描边的节点额外跑一道很慢的扫描波：描边依次加粗再还原。
+ *
+ *     没有箭头连线的图（22 张里有 14 张是这种，属于分层图 / 流水线图）靠它
+ *     表达推进顺序 —— 波峰沿着文档顺序走一遍，看起来就是「流程在往前走」。
+ *     幅度刻意压得很小（1.35 倍）且周期长（7 秒），一个周期里 85% 的时间
+ *     是完全静止的，所以不会干扰阅读。
+ *
+ *     还原值取 --sw（图元原本的 stroke-width，由 diagram-motion.mjs 写在行内），
+ *     不能写死 —— 写死会把原设计的粗细层次抹平。 */
+.dm-n {
+  animation:
+    dm-in 0.46s cubic-bezier(0.16, 1, 0.3, 1) both,
+    dm-sweep 7s linear infinite;
+  animation-delay: min(calc(var(--i, 0) * 22ms), 760ms),
+    calc(1.6s + min(var(--i, 0) * 40ms, 1200ms));
+}
+
+@keyframes dm-sweep {
+  0% {
+    stroke-width: calc(var(--sw, 1) * 1.35 * 1px);
+  }
+  14%,
+  100% {
+    stroke-width: calc(var(--sw, 1) * 1px);
+  }
+}
+
+/* 2. 流向：箭头上覆一小段高亮，沿着连线方向反复流过。
+ *    dasharray 的「实线段 9 + 空白 长度」让同一时刻只有一个亮点，
+ *    dashoffset 从 0 走到 -(9 + 长度) 正好是一个整周期，所以循环无接缝。 */
+.dm-go {
+  fill: none;
+  stroke: var(--red);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-dasharray: 9px calc(var(--len, 40) * 1px);
+  opacity: 0.85;
+  animation: dm-travel 2.4s linear infinite;
+  animation-delay: calc(var(--d, 0) * 1s);
+}
+
+@keyframes dm-travel {
+  from {
+    stroke-dashoffset: 0px;
+  }
+  to {
+    stroke-dashoffset: calc((var(--len, 40) + 9) * -1px);
+  }
+}
+
+/* 3. 窄栏 / 小屏：图不能跟着缩。
+ *
+ *    这 22 张图是按 660px 宽、最小字号 9.4px 画的，而正文栏最宽也只有 640px，
+ *    也就是说桌面端本来就是 0.92~0.97 倍，勉强可读。
+ *    再窄下去就不行了：768px 的平板上正文栏 464px，图被压到 0.7 倍；
+ *    手机上只剩 0.5 倍 —— 9.4px 的注释字变成 4.5px，等于没写。
+ *
+ *    所以 1128px 以下换一种做法：不缩，改横向滚动。
+ *    1.35 倍之后最小字号回到 12.7px，比原始设计还清楚；
+ *    代价是要左右滑，但「滑一下能看清」远好于「一眼看全但看不清」。
+ *
+ *    1128px 这个界正好是正文栏刚刚装得下 0.92 倍图的地方，
+ *    往上不再需要滚动，往下滚动量迅速变大，切换点在物理上是连续的。 */
+@media (max-width: 1128px) {
+  figure.fig svg {
+    min-width: calc(var(--vbw, 660) * 1.35px);
+  }
+
+  /* 图解右缘的渐隐，提示「右边还有内容」 */
+  figure.fig .fig-frame {
+    background-image: linear-gradient(
+      to left,
+      rgba(26, 24, 22, 0.1),
+      rgba(26, 24, 22, 0) 32px
+    );
+    background-repeat: no-repeat;
+    background-position: right center;
+    background-size: 32px 100%;
+    background-attachment: local;
+  }
+}
+
+/*
+ * 4. 为什么不给图解做「出血」（让它比正文栏更宽）：
+ *
+ * 试过在宽屏上让图按 -48 ~ -180px 出血，字确实能大一圈，但它会一路铺到
+ * 正文两侧的空白里 —— 而那里正是「上一章 / 下一章」按钮的位置，
+ * 截图里按钮直接压在状态机的 DONE 框上。正文两侧的空白只有 125px（左）
+ * 和 392px（右），容不下「更宽的图」和「悬浮按钮」两样东西同时存在。
+ *
+ * 取舍：按钮是导航，图是内容，两个都不能少，于是让图老老实实待在正文栏里，
+ * 靠上面那条 1:1 下限保证字号不被压小 —— 代价只有最多 30px 的横向滚动，
+ * 而且被裁掉的几乎全是图右侧的留白，不是图上的字。
+ */
+
+/* 触屏设备上「图解可以左右滑」需要一个明说 */
+@media (max-width: 1128px) and (hover: none) {
+  figure.fig figcaption::before {
+    content: '↔ 图解可左右滑动　';
+    color: var(--gold);
+    font-weight: 700;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dm-n,
+  .dm-plate,
+  .dm-t {
+    animation: none;
+  }
+  .dm-go {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/*
+ * 首页的能力地图是直接写在 index.astro 里的，不走 markdown 管线，
+ * 所以拿不到 diagram-motion.mjs 在构建期写下的 --i。
+ * 它的结构与章节图解不同（是 7 个 <g> 图层），这里用 nth-of-type
+ * 直接给出一串递增延迟，效果一样：从上到下逐个落位。
+ */
+.fig-layers svg > g {
+  animation: dm-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.fig-layers svg > g:nth-of-type(1) {
+  animation-delay: 0.06s;
+}
+.fig-layers svg > g:nth-of-type(2) {
+  animation-delay: 0.14s;
+}
+.fig-layers svg > g:nth-of-type(3) {
+  animation-delay: 0.22s;
+}
+.fig-layers svg > g:nth-of-type(4) {
+  animation-delay: 0.3s;
+}
+.fig-layers svg > g:nth-of-type(5) {
+  animation-delay: 0.38s;
+}
+.fig-layers svg > g:nth-of-type(6) {
+  animation-delay: 0.46s;
+}
+.fig-layers svg > g:nth-of-type(7) {
+  animation-delay: 0.54s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fig-layers svg > g {
+    animation: none;
+  }
 }
 
 figure.fig figcaption {
@@ -1829,6 +2086,190 @@ figure.fig figcaption b {
   flex: 1;
 }
 
+/* ==================== 正文两侧的「上一节 / 下一节」 ====================
+ *
+ * 定位基准刻意选「视口」而不是正文栏：
+ * 正文栏以视口中线为中心、宽度 --measure，所以栏的左右边缘就落在
+ * 50% ∓ --measure / 2 处，再往外让 14px 加大 34px 的按钮宽度，
+ * 就是离屏幕边缘 calc(50% - --measure/2 - 48px) 的位置。
+ * 这样侧栏开合时按钮紧贴正文栏，不会跟着版面漂。
+ *
+ * 断点定在 1340px 是算出来的，不是拍的：
+ * 左侧留给「收起目录」按钮 + 本节按钮的那条空白只有
+ * (100vw - measure) / 2 - sidebar-w - 18px（按钮凸出量）宽，
+ * 1340px 时刚好 48px，够放一个 34px 的按钮加 14px 间隙。
+ * 再窄就会和「收起目录」按钮叠在一起，所以宁可不显示。
+ */
+.side-pager {
+  display: none;
+}
+
+.sp {
+  position: fixed;
+  top: 50%;
+  z-index: 38;
+  transform: translateY(-50%);
+  border: 0;
+  color: inherit;
+}
+
+.sp-prev {
+  left: calc(50% - (var(--measure) / 2) - 48px);
+}
+
+.sp-next {
+  right: calc(50% - (var(--measure) / 2) - 48px);
+}
+
+.sp[data-domain='llm'] {
+  --dc: var(--blue);
+}
+.sp[data-domain='harness'] {
+  --dc: var(--red);
+}
+.sp[data-domain='eval'] {
+  --dc: #8a6a1f;
+}
+.sp[data-domain='knowledge'] {
+  --dc: var(--teal);
+}
+
+/* --- 竖排小标签：默认只占 34px --- */
+.sp-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 34px;
+  padding: 11px 0 13px;
+  background: var(--paper-light);
+  border: 1px solid var(--border);
+  color: var(--ink-muted);
+  font-family: var(--font-ui);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.sp-prev .sp-tab {
+  border-left: 3px solid var(--dc, var(--red));
+  border-radius: 3px 0 0 3px;
+  border-right-color: var(--border);
+}
+
+.sp-next .sp-tab {
+  border-right: 3px solid var(--dc, var(--red));
+  border-radius: 0 3px 3px 0;
+}
+
+.sp-chev {
+  font-size: 0.7rem;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.sp-lab {
+  writing-mode: vertical-rl;
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  line-height: 1;
+}
+
+.sp:hover .sp-tab {
+  background: var(--paper);
+  color: var(--dc, var(--red));
+  border-color: var(--border-strong);
+}
+
+.sp:hover .sp-chev {
+  transform: translateX(-1px);
+}
+
+.sp-next:hover .sp-chev {
+  transform: translateX(1px);
+}
+
+/* --- 悬浮卡片：绝对定位，不参与 .sp 的盒子，
+ *     所以按钮的点击热区就是那 34px，不会在正文上盖一层看不见的挡板 --- */
+.sp-card {
+  position: absolute;
+  top: 50%;
+  width: 300px;
+  padding: 14px 16px 13px;
+  background: var(--paper-light);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--dc, var(--red));
+  box-shadow: 0 8px 26px var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.sp-prev .sp-card {
+  left: calc(100% + 2px);
+  transform: translateY(-50%) translateX(-8px);
+}
+
+.sp-next .sp-card {
+  right: calc(100% + 2px);
+  border-left: 1px solid var(--border);
+  border-right: 3px solid var(--dc, var(--red));
+  transform: translateY(-50%) translateX(8px);
+}
+
+.sp:hover .sp-card,
+.sp:focus-visible .sp-card {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%) translateX(0);
+}
+
+.sp-card .sp-k {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  color: var(--ink-faint);
+  margin-bottom: 6px;
+}
+
+.sp-card .sp-title {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--ink);
+  margin-bottom: 7px;
+}
+
+.sp-card .sp-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.76rem;
+  line-height: 1.66;
+  color: var(--ink-muted);
+  text-align: left;
+}
+
+.sp-card .sp-meta {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 0.56rem;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-light);
+}
+
+@media (min-width: 1340px) {
+  .side-pager {
+    display: block;
+  }
+}
+
 /* ============================ 目录 / 卡片 ============================ */
 
 .card-grid {
@@ -2376,7 +2817,8 @@ figure.fig figcaption b {
     transform: none;
   }
   .main {
-    margin-left: 0;
+    /* 窄屏的目录是覆盖式抽屉，不占版面，两侧留白一起归零 */
+    --sidebar-hold: 0px;
   }
   .sheet {
     padding: 66px 20px 54px;
@@ -2427,11 +2869,12 @@ figure.fig figcaption b {
   .chapter-toolbar,
   .menu-toggle,
   .scrim,
+  .side-pager,
   .site-foot {
     display: none !important;
   }
   .main {
-    margin-left: 0;
+    --sidebar-hold: 0px;
   }
   .sheet {
     padding: 0;

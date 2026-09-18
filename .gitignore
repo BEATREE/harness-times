@@ -20,9 +20,10 @@ yarn-error.log*
 pnpm-debug.log*
 *.log
 
-# 本地排查用的临时产物（截图 / 探针输出）
+# 本地排查用的临时产物（截图 / 探针输出 / 预览日志）
 .shots/
 .probe-out.txt
+.preview-log.txt
 
 # Cloudflare / Wrangler
 .wrangler/

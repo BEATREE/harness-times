@@ -10,8 +10,8 @@
  *
  * 为什么需要它：
  *   代码块的文件名栏是靠 Shiki transformer + rehype 插件「接力」做出来的，
- *   中间任何一环失效都不会让构建报错——只是产出悄悄退化。
- *   这类「静默退化」只能靠断言拦住。
+ *   图解动效是靠构建期改写裸 SVG 字符串做出来的——中间任何一环失效都不会让构建报错，
+ *   只是产出悄悄退化（最惨的一次是整张 SVG 静默消失）。这类「静默退化」只能靠断言拦住。
  *
  * 用法：node scripts/verify-build.mjs
  */
@@ -88,11 +88,67 @@ check('分组内容有折叠容器', count(sample, 'nav-group-inner') === 4, `�
 const about = pages.get('about/index.html') ?? '';
 check('关于页有公众号二维码图', about.includes('beatree.cn/gzh/gzh-qr-card.jpg'));
 check('关于页指向 beatree.cn 主站', about.includes('https://beatree.cn'));
-check('关于页有 28 个关联网站', count(about, 'class="rel-item"') === 28, `实际 ${count(about, 'class="rel-item"')}`);
+check('关于页有 27 个关联网站', count(about, 'class="rel-item"') === 27, `实际 ${count(about, 'class="rel-item"')}`);
+check('关于页已移除 宝玉 / baoyu.io', !/baoyu\.io|宝玉/.test(about));
 check('关于页标题为「关于本站」', about.includes('关于本站'));
 check('关于页声明不是每日报刊', about.includes('不是一份每天更新的报刊'));
+check('关于页有主站 CTA 区块', about.includes('class="cta cta-main"') && about.includes('class="cta-row"'));
+check('主站 CTA 是外链且带 rel=noopener', /class="cta cta-main"[^>]*target="_blank"[^>]*rel="noopener"/.test(about));
 
-/* ---------- 5. 字体：不再回落到 SimSun 宋体 ---------- */
+/* ---------- 5. 主站入口的另外两处（不只是关于页） ---------- */
+check('报头有 beatree.cn 主站入口', sample.includes('class="site-link"') && sample.includes('https://beatree.cn'));
+check('侧栏有 beatree.cn 外链项', sample.includes('nav-item nav-ext'));
+
+/* ---------- 6. 正文页：左右「上一节 / 下一节」 ---------- */
+const firstChapter = pages.get('llm/llm-01-transformer/index.html') ?? '';
+const lastChapterKey = [...pages.keys()]
+  .filter((p) => /^[a-z]+\/[a-z0-9-]+\/index\.html$/.test(p))
+  .sort()
+  .pop();
+const lastChapter = pages.get(lastChapterKey) ?? '';
+
+let pagerPages = 0;
+let prevPages = 0;
+let nextPages = 0;
+let pagerBeforeMasthead = 0;
+for (const [, html] of chapterPages) {
+  if (html.includes('class="side-pager"')) pagerPages += 1;
+  if (html.includes('sp-prev')) prevPages += 1;
+  if (html.includes('sp-next')) nextPages += 1;
+  // 侧边翻页必须落在 <body> 之内（曾经因为插在 Masthead 前而跑到 <!doctype> 前面）
+  const bodyAt = html.indexOf('<body');
+  const pagerAt = html.indexOf('class="side-pager"');
+  if (bodyAt === -1 || pagerAt === -1 || pagerAt < bodyAt) pagerBeforeMasthead += 1;
+}
+check('22 个正文页都有侧边翻页容器', pagerPages === 22, `实际 ${pagerPages}`);
+check('侧边翻页都在 <body> 内', pagerBeforeMasthead === 0, `越界 ${pagerBeforeMasthead}`);
+check('最后一章也有「下一节」（指向进度页）', lastChapter.includes('sp-next'));
+check('首章无「上一节」（确实是第一篇）', !firstChapter.includes('sp-prev'));
+check('除首章外的 21 章都有「上一节」', prevPages === 21, `实际 ${prevPages}`);
+check('侧边翻页的标题是对可读文本（非 aria-hidden）', /class="sp-card"[\s\S]{0,2000}?<span class="sp-title">/.test(firstChapter));
+check('侧边翻页带 aria-label 供读屏使用', firstChapter.includes('aria-label="章节切换"'));
+
+/* ---------- 7. 图解：构建期动效标注 ---------- */
+let dmSvg = 0;
+let dmGo = 0;
+let dmT = 0;
+let dmN = 0;
+let vbwMissing = 0;
+for (const [, html] of chapterPages) {
+  dmSvg += count(html, 'dm-svg');
+  dmGo += count(html, 'dm-go');
+  dmT += count(html, 'dm-t');
+  dmN += count(html, 'dm-n');
+  // 每个被标注的 svg 都要带 --vbw（否则动效层算不出尺寸）
+  vbwMissing += count(html, 'class="dm-svg"') - count(html, 'dm-svg" style="--vbw:');
+}
+check('图解均已标注 dm-svg', dmSvg === 22, `实际 ${dmSvg}`);
+check('每个图解都带 --vbw 设计宽', vbwMissing === 0, `缺 ${vbwMissing}`);
+check('箭头均有流向彗星层 dm-go', dmGo === 28, `实际 ${dmGo}`);
+check('图示文字均参与入场（dm-t）', dmT >= 400, `实际 ${dmT}`);
+check('图示节点参与描边扫读（dm-n）', dmN >= 80, `实际 ${dmN}`);
+
+/* ---------- 8. 字体与配色 ---------- */
 const cssFiles = walk(dist).filter((f) => f.endsWith('.css'));
 const css = cssFiles.map((f) => readFileSync(f, 'utf8')).join('\n');
 check('CSS 里已无 SimSun 回退', !/SimSun/i.test(css));
@@ -100,6 +156,18 @@ check('CSS 正文栈含 PingFang SC', /PingFang SC/.test(css));
 check('CSS 正文栈含 Microsoft YaHei', /Microsoft YaHei/.test(css));
 check('CSS 去掉了纸面深色底（旧灰屏成因）', !css.includes('#2c2824'));
 check('CSS 含侧栏收起状态', css.includes('nav-collapsed'));
+
+/* ---------- 9. 正文「距屏幕边缘等距」的实现 ---------- */
+check('CSS 引入 --sidebar-hold 占位变量', /--sidebar-hold/.test(css));
+check('正文左右两侧镜像让位（margin-left + padding-right）', /margin-left:\s*var\(--sidebar-hold\)/.test(css));
+check('窄屏自适应收窄让位（避免正文被压到不可读）', /padding-right:\s*min\(var\(--sidebar-hold\)/.test(css));
+
+/* ---------- 10. 动效样式确实下发到浏览器 ---------- */
+check('CSS 有图解入场动画', css.includes('dm-in'));
+check('CSS 有描边扫读动画', css.includes('dm-sweep'));
+check('CSS 有流向彗星动画', css.includes('dm-travel'));
+check('CSS 有 prefers-reduced-motion 降级', /prefers-reduced-motion/.test(css));
+check('CSS 有侧边翻页卡片样式', css.includes('sp-card'));
 
 /* ---------- 输出 ---------- */
 let failed = 0;

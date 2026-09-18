@@ -4,6 +4,7 @@ import Masthead from '../components/Masthead.astro';
 import {
   type Chapter,
   type Domain,
+  domainOf,
   neighbors,
   pathOf,
   levelLabel,
@@ -22,6 +23,30 @@ interface Props {
 const { chapter, domain, lead, note } = Astro.props;
 const { prev, next } = neighbors(chapter.id);
 const totalMin = chapter.minutes;
+
+/** 两侧悬浮卡片的公共结构：竖排标签 + 悬浮展开的详情 */
+const sideCard = (c: Chapter, dir: 'prev' | 'next') => {
+  const d = domainOf(c.domain);
+  return {
+    href: pathOf(c.id),
+    domain: c.domain,
+    label: dir === 'prev' ? '上一章' : '下一章',
+    chev: dir === 'prev' ? '‹' : '›',
+    kicker: `${d.no} · ${d.name} · 第 ${String(c.no).padStart(2, '0')} 章`,
+    title: c.title,
+    desc: c.desc,
+    meta: `${levelLabel(c.level)} · 约 ${c.minutes} 分钟 · ${c.en}`,
+  };
+};
+
+/*
+ * 正文两侧的悬浮切换按钮。
+ * 走 <BaseLayout> 的 slot 而不是放在组件外面 —— 组件外的标记会被渲染到
+ * <!doctype html> 之前，那不是合法的 HTML。放在报头之后即可，
+ * 它是 position:fixed，源码位置不影响视觉。
+ */
+const pagerPrev = prev ? sideCard(prev, 'prev') : null;
+const pagerNext = next ? sideCard(next, 'next') : null;
 ---
 
 <BaseLayout
@@ -37,6 +62,76 @@ const totalMin = chapter.minutes;
     title={`第 ${String(chapter.no).padStart(2, '0')} 章`}
     en={chapter.en}
   />
+
+  <!--
+    正文两侧的「上一章 / 下一章」。只有 ≥1340px 才显示（见 global.css 里的注释），
+    窄屏请走章尾的翻页条。
+    卡片里那份文本对读屏是重复信息，所以标了 aria-hidden，链接名由 aria-label 提供。
+  -->
+  <nav class="side-pager" aria-label="章节切换">
+    {
+      pagerPrev && (
+        <a
+          class="sp sp-prev"
+          href={pagerPrev.href}
+          data-domain={pagerPrev.domain}
+          aria-label={`上一章：${pagerPrev.title}`}
+        >
+          <span class="sp-tab" aria-hidden="true">
+            <span class="sp-chev">‹</span>
+            <span class="sp-lab">上一章</span>
+          </span>
+          <span class="sp-card" aria-hidden="true">
+            <span class="sp-k">{pagerPrev.kicker}</span>
+            <span class="sp-title">{pagerPrev.title}</span>
+            <span class="sp-desc">{pagerPrev.desc}</span>
+            <span class="sp-meta">{pagerPrev.meta}</span>
+          </span>
+        </a>
+      )
+    }
+    {
+      pagerNext ? (
+        <a
+          class="sp sp-next"
+          href={pagerNext.href}
+          data-domain={pagerNext.domain}
+          aria-label={`下一章：${pagerNext.title}`}
+        >
+          <span class="sp-tab" aria-hidden="true">
+            <span class="sp-chev">›</span>
+            <span class="sp-lab">下一章</span>
+          </span>
+          <span class="sp-card" aria-hidden="true">
+            <span class="sp-k">{pagerNext.kicker}</span>
+            <span class="sp-title">{pagerNext.title}</span>
+            <span class="sp-desc">{pagerNext.desc}</span>
+            <span class="sp-meta">{pagerNext.meta}</span>
+          </span>
+        </a>
+      ) : (
+        <a
+          class="sp sp-next"
+          href="/progress/"
+          data-domain="eval"
+          aria-label="全书读完，去看学习进度与复习计划"
+        >
+          <span class="sp-tab" aria-hidden="true">
+            <span class="sp-chev">›</span>
+            <span class="sp-lab">全部读完</span>
+          </span>
+          <span class="sp-card" aria-hidden="true">
+            <span class="sp-k">全书终点</span>
+            <span class="sp-title">去看学习进度与复习计划</span>
+            <span class="sp-desc">
+              总完成度、到期复习队列、全部笔记汇总，以及导出 JSON 备份，都在这一页。
+            </span>
+            <span class="sp-meta">复习队列 · 笔记汇总 · 导出备份</span>
+          </span>
+        </a>
+      )
+    }
+  </nav>
 
   <div class="chapter-toolbar" data-toolbar>
     <div class="reading-track" title="本页阅读进度">

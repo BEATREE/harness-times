@@ -177,11 +177,6 @@ const RELATED = [
         url: 'https://github.com/datawhalechina/hugging-llm',
         desc: '中文大模型系统性教程，从原理一路到微调与部署。',
       },
-      {
-        name: '宝玉',
-        url: 'https://baoyu.io/',
-        desc: '长期翻译与解读大模型一手资料的中文专栏。',
-      },
     ],
   },
 ];
@@ -228,9 +223,6 @@ const RELATED = [
         内容全部免费、无需登录。如果你觉得有用，欢迎关注微信公众号「做棵大树」——
         新章节和修订会在那里先说一声，也方便你直接留言指出写错的地方。
       </p>
-      <p class="maker-links">
-        <a class="btn" href="https://beatree.cn" target="_blank" rel="noopener">访问主站 beatree.cn</a>
-      </p>
     </div>
 
     <figure class="qr">
@@ -244,6 +236,32 @@ const RELATED = [
       />
       <figcaption>微信扫码关注「做棵大树」</figcaption>
     </figure>
+  </div>
+
+  <!-- 主站入口：这是全页最想让人点出去的地方，所以单独做成一块大按钮，
+       而不是埋在正文里的一行小链接。 -->
+  <div class="cta-row">
+    <a class="cta cta-main" href="https://beatree.cn" target="_blank" rel="noopener">
+      <span class="cta-k">主站 · 更多零散笔记与工具折腾记录</span>
+      <span class="cta-t">
+        beatree.cn
+        <span class="cta-arrow" aria-hidden="true">↗</span>
+      </span>
+      <span class="cta-d">想看没被整理成章节的日常记录，从这里进去。</span>
+    </a>
+    <a
+      class="cta cta-sub"
+      href="https://beatree.cn/gzh/gzh-qr-card.jpg"
+      target="_blank"
+      rel="noopener"
+    >
+      <span class="cta-k">公众号</span>
+      <span class="cta-t">
+        关注「做棵大树」
+        <span class="cta-arrow" aria-hidden="true">↗</span>
+      </span>
+      <span class="cta-d">新章节与修订会先在那里说一声。</span>
+    </a>
   </div>
 
   <div class="section-head">关联网站</div>
@@ -460,9 +478,69 @@ const RELATED = [
     text-align: justify;
     margin-bottom: 12px;
   }
-  .maker-links {
-    margin-top: 14px !important;
+
+  /* --- 主站入口：全页最想让人点出去的两块 --- */
+  .cta-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 16px;
+    margin-top: 24px;
   }
+  .cta {
+    display: block;
+    padding: 16px 18px 15px;
+    background: var(--paper-light);
+    border: 1px solid var(--border-strong);
+    border-left: 4px solid var(--red);
+    color: inherit;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+  .cta:hover {
+    background: #fdfaf4;
+    border-color: var(--red);
+    transform: translateY(-2px);
+    box-shadow: 0 7px 22px var(--shadow);
+  }
+  .cta-k {
+    display: block;
+    font-family: var(--font-ui);
+    font-size: 0.57rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 8px;
+  }
+  .cta-t {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 1.28rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    color: var(--ink);
+  }
+  .cta-sub .cta-t {
+    font-family: var(--font-body);
+    font-size: 1.04rem;
+  }
+  .cta-arrow {
+    display: inline-block;
+    font-size: 0.78em;
+    color: var(--red);
+    transition: transform 0.2s ease;
+  }
+  .cta:hover .cta-arrow {
+    transform: translate(3px, -3px);
+  }
+  .cta-d {
+    display: block;
+    font-size: 0.79rem;
+    line-height: 1.7;
+    color: var(--ink-muted);
+    margin-top: 9px;
+  }
+
   .qr {
     margin: 0;
     text-align: center;
@@ -638,6 +716,9 @@ const RELATED = [
     }
     .qr {
       justify-self: start;
+    }
+    .cta-row {
+      grid-template-columns: 1fr;
     }
   }
 </style>

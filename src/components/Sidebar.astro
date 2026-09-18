@@ -79,6 +79,21 @@ const { currentChapter, currentDomain } = Astro.props;
       <span class="num">?</span>
       <span class="label-zh">关于本站</span>
     </a>
+
+    <!--
+      外链回主站：和上面几个站内入口在视觉上分开（换一种底色 + ↗），
+      避免有人点了才发现跳到站外。
+    -->
+    <a
+      class="nav-item nav-ext"
+      href="https://beatree.cn"
+      target="_blank"
+      rel="noopener"
+      data-nav-ext="beatree"
+    >
+      <span class="num">↗</span>
+      <span class="label-zh">做棵大树 · 主站</span>
+    </a>
   </div>
 
   <div class="sidebar-footer">

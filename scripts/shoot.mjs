@@ -66,6 +66,46 @@ const SHOTS = [
     js: 'document.body.classList.add("is-leaving")',
     wait: 95,
   },
+  // 正文两侧的切换按钮：hover 展开卡片这一步只能靠真实的鼠标移动触发
+  // （CSS 里就是 :hover），所以走 CDP 的 Input.dispatchMouseEvent。
+  { name: '15-sidepager-prev', path: '/harness/harness-02-agent-loop/', hoverSel: '.sp-prev' },
+  { name: '16-sidepager-next', path: '/harness/harness-02-agent-loop/', hoverSel: '.sp-next' },
+  // 图解的流向动效：必须开着动效抓，否则只能看到静止的图。
+  // wait 要足够长：入场动画是「按序号递增延迟」的，元素多的图要 1.3s 才走完，
+  // 这时候抓到的图才是最后静止的样子（不然拍到的是一张半空的纸）。
+  {
+    name: '17-diagram-flow',
+    path: '/harness/harness-08-long-horizon/',
+    reducedMotion: false,
+    js: 'document.querySelector("figure.fig")?.scrollIntoView({block:"center"})',
+    wait: 2400,
+  },
+  {
+    name: '18-mobile-diagram',
+    path: '/harness/harness-08-long-horizon/',
+    w: 390,
+    h: 844,
+    reducedMotion: false,
+    js: 'document.querySelector("figure.fig")?.scrollIntoView({block:"center"})',
+    wait: 2400,
+  },
+  // 故意在入场动画进行到一半时抓一帧，用来证明「逐个落版」真的在跑
+  {
+    name: '21-diagram-entrance-mid',
+    path: '/harness/harness-08-long-horizon/',
+    reducedMotion: false,
+    js: 'document.querySelector("figure.fig")?.scrollIntoView({block:"center",behavior:"instant"})',
+    wait: 420,
+  },
+  // 同一张图、关掉动效的对照帧：判断「图本身是不是空的」全靠它，
+  // 否则很容易把「动画没跑完」误判成「图解被写坏了」。
+  {
+    name: '22-diagram-static',
+    path: '/harness/harness-08-long-horizon/',
+    js: 'document.querySelector("figure.fig")?.scrollIntoView({block:"center",behavior:"instant"})',
+  },
+  { name: '19-about-cta', path: '/about/', js: 'document.querySelector(".cta-row")?.scrollIntoView({block:"start"})' },
+  { name: '20-chapter-1440', path: '/harness/harness-02-agent-loop/', w: 1440, h: 900 },
 ];
 
 if (!existsSync(CHROME)) {
@@ -177,6 +217,27 @@ for (const shot of shots) {
   if (shot.js) {
     await send('Runtime.evaluate', { expression: shot.js, awaitPromise: false });
     await sleep(shot.wait ?? 420); // 留出折叠/收起的过渡时间
+  }
+
+  // 悬浮态：把鼠标真的移过去。CSS 的 :hover 没法用 JS 触发，
+  // 只有真的发一次 mouseMoved 才会进入悬浮态。
+  if (shot.hoverSel) {
+    const box = await send('Runtime.evaluate', {
+      expression: `(() => {
+        const el = document.querySelector(${JSON.stringify(shot.hoverSel)});
+        if (!el) return '';
+        const r = el.getBoundingClientRect();
+        return JSON.stringify({ x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) });
+      })()`,
+      returnByValue: true,
+    });
+    if (box.result?.value) {
+      const { x, y } = JSON.parse(box.result.value);
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, buttons: 0 });
+      await sleep(shot.wait ?? 420);
+    } else {
+      console.warn(` warn ${shot.name}: 找不到 ${shot.hoverSel}（可能是视口太窄，按钮被隐藏）`);
+    }
   }
 
   const res = await send('Page.captureScreenshot', {

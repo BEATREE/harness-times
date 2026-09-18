@@ -32,6 +32,7 @@ const PAGES = [
   { name: '章节页·分组折叠', path: '/harness/harness-02-agent-loop/', w: 1440, js: 'document.querySelectorAll(".nav-group").forEach(function(g){g.classList.add("collapsed")})' },
   { name: '首页', path: '/', w: 1440 },
   { name: '关于页', path: '/about/', w: 1440 },
+  { name: '图解移动端', path: '/harness/harness-08-long-horizon/', w: 390 },
 ];
 
 if (!existsSync(CHROME)) {
@@ -132,17 +133,60 @@ const EXPR = `(() => {
         itemsHeight: Math.round(g.querySelector('.nav-group-body')?.getBoundingClientRect().height ?? -1),
       };
     }),
-    // 正文左边界与右边界相对「可读区」的留白
+    // 正文左边界 / 右边界到「屏幕边缘」的留白。
+    //
+    // 基准刻意是视口而不是 .main：本站的排版要求是「正文在屏幕视野里居中」，
+    // 侧栏在左侧占掉一块之后，相对 .main 去量必然一头宽一头窄 ——
+    // 那是拿错了尺子（早期版本就是这么量的，于是「对称」这个结论本身是假的）。
     gap: (() => {
-      const m = document.querySelector('.main')?.getBoundingClientRect();
       const p = document.querySelector('.prose')?.getBoundingClientRect();
-      if (!m || !p) return null;
-      return { left: Math.round(p.left - m.left), right: Math.round(m.right - p.right) };
+      if (!p) return null;
+      const vw = document.documentElement.clientWidth;
+      return { left: Math.round(p.left), right: Math.round(vw - p.right) };
+    })(),
+    // 正文栏中点，用来直接验收「正文是否落在视口中线上」
+    proseCenter: (() => {
+      const p = document.querySelector('.prose')?.getBoundingClientRect();
+      if (!p) return null;
+      return Math.round((p.left + p.right) / 2);
+    })(),
+    // 正文两侧的「上一章 / 下一章」按钮
+    pager: (() => {
+      const read = (sel) => {
+        const el = document.querySelector(sel);
+        if (!el) return null;
+        const cs = getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        return {
+          display: cs.display,
+          l: Math.round(r.left),
+          r: Math.round(r.right),
+          w: Math.round(r.width),
+        };
+      };
+      return { prev: read('.sp-prev'), next: read('.sp-next') };
+    })(),
+    // 图解：小屏可读性靠「svg 有最小宽度 + 外框横向滚动」实现
+    fig: (() => {
+      const f = document.querySelector('figure.fig');
+      if (!f) return null;
+      const svg = f.querySelector('svg');
+      const frame = f.querySelector('.fig-frame');
+      return {
+        svgW: svg ? Math.round(svg.getBoundingClientRect().width) : null,
+        minW: svg ? getComputedStyle(svg).minWidth : null,
+        frameClient: frame ? frame.clientWidth : null,
+        frameScroll: frame ? frame.scrollWidth : null,
+        nodes: f.querySelectorAll('.dm-n').length,
+        texts: f.querySelectorAll('.dm-t').length,
+        sparks: f.querySelectorAll('.dm-go').length,
+      };
     })(),
   };
 })()`;
 
 let bad = 0;
+const proseLefts = [];
 console.log(`[measure] ${BASE}\n`);
 
 for (const page of PAGES) {
@@ -178,12 +222,92 @@ for (const page of PAGES) {
     console.log(`     └ 代码内部横向滚动：${m.preScroll.scroll} / ${m.preScroll.client}`);
 
   if (m.gap) {
+    // 只有「镜像留白能留满」的宽度才要求左右等宽；更窄是按可读性收缩过的
+    const symmetric = m.vw >= 1128;
     const diff = Math.abs(m.gap.left - m.gap.right);
-    const ok = diff <= 2;
+    const ok = symmetric ? diff <= 2 : true;
     if (!ok) bad += 1;
     console.log(
-      `   正文左右留白  左 ${m.gap.left} / 右 ${m.gap.right}   差 ${diff}px  ${ok ? 'ok' : '不对称 ×'}`
+      `   正文到屏幕两侧  左 ${m.gap.left} / 右 ${m.gap.right}   差 ${diff}px  ${
+        ok ? (symmetric ? '对称 ok' : '窄屏允许不对称 ok') : '不对称 ×'
+      }`
     );
+  }
+
+  if (m.proseCenter != null) {
+    const off = m.proseCenter - m.vw / 2;
+    /*
+     * 正文栏的居中分两个区间（见 global.css 里 .main 的注释）：
+     *   ≥1128px：右侧镜像留白留得满，正文栏严格落在视口中线上；
+     *   <1128px：镜像留白为了保住正文栏宽度而收缩，正文整体向右漂，
+     *            最多漂半个侧栏宽（134px）。这是设计好的取舍，不是 bug。
+     */
+    const wide = m.vw >= 1128;
+    let ok;
+    if (wide) ok = Math.abs(off) <= 2;
+    else ok = off >= 0 && off <= 140;
+    if (!ok) bad += 1;
+    console.log(
+      `   正文中点 vs 视口中线  ${m.proseCenter} / ${m.vw / 2}   偏移 ${
+        off > 0 ? '+' : ''
+      }${off}px  ${ok ? (wide ? '居中 ok' : '窄屏容差内 ok') : '偏离 ×'}`
+    );
+    proseLefts.push({ name: page.name, left: m.prose?.l });
+  }
+
+  // 正文栏不能窄到没法读。
+  // 420px ≈ 24 个汉字一行，是「还能舒服读下去」的下限；
+  // 桌面端最紧的一档（768px 平板）是 435px，就是从这条线守下来的。
+  if (m.prose && m.prose.w < (page.w <= 760 ? 300 : 420)) {
+    bad += 1;
+    console.log(`   正文栏过窄：${m.prose.w}px（要求 ≥ ${page.w <= 760 ? 300 : 420}px）×`);
+  }
+
+  if (m.pager && page.w) {
+    const { prev, next } = m.pager;
+    // 预期：≥1340px 显示，更窄则整体隐藏（走章尾翻页条）
+    const wantVisible = page.w >= 1340 && page.path.startsWith('/harness/');
+    const shown = prev && prev.display !== 'none' && prev.w > 0;
+    if (wantVisible) {
+      const overlaps = prev && m.prose && prev.r > m.prose.l;
+      const ok = shown && !overlaps;
+      if (!ok) bad += 1;
+      console.log(
+        `   两侧切换按钮  显示 ${shown}（上一章 ${prev?.l}→${prev?.r}，下一章 ${next?.l}→${next?.r}）${
+          overlaps ? '  与正文重叠 ×' : '  不压正文 ok'
+        }`
+      );
+    } else if (shown) {
+      bad += 1;
+      console.log(`   两侧切换按钮在 ${page.w}px 下仍然显示 ×`);
+    } else {
+      console.log(`   两侧切换按钮  @${page.w}px 按预期隐藏 ok`);
+    }
+  }
+
+  if (m.fig) {
+    const f = m.fig;
+    const scrolls = f.frameScroll > f.frameClient + 1;
+    console.log(
+      `   图解  svg ${f.svgW}px（min-width ${f.minW}）  外框 ${f.frameClient}${
+        scrolls ? ` → 可滚动 ${f.frameScroll}` : ' 不需滚动'
+      }  动效 节点 ${f.nodes} / 文字 ${f.texts} / 流光 ${f.sparks}`
+    );
+    if (f.nodes + f.texts === 0) {
+      // 只有走 markdown 管线的章节页才归 diagram-motion 管；
+      // 首页那张能力地图写在 index.astro 里，靠 CSS 的 nth-of-type 落版。
+      if (/^\/(llm|harness|eval|knowledge)\//.test(page.path)) {
+        bad += 1;
+        console.log('     └ 图解没有被 diagram-motion 标注 ×');
+      } else {
+        console.log('     └ 非 markdown 图解（首页能力地图），走 CSS 落版，豁免');
+      }
+    }
+    // 小屏：图不能被压小，必须靠横向滚动保住字号
+    if (page.w < 900 && !scrolls) {
+      bad += 1;
+      console.log('     └ 小屏下图解没有横向滚动，字会被压小 ×');
+    }
   }
 
   if (m.prose && m.codeBlock && m.codeBlock.w > m.prose.w + 1) {
@@ -211,6 +335,26 @@ for (const page of PAGES) {
   }
 
   console.log('');
+}
+
+/*
+ * 跨状态不变性：侧栏展开与收起时，正文的绝对位置必须一致。
+ * 这是「无论左侧导航栏折叠还是展开，正文都距屏幕边缘相同距离」的可验证形式 ——
+ * 单看某一帧的左右留白等宽，是证明不了这一条的（旧版就是左右等宽但整体偏右）。
+ */
+{
+  const open = proseLefts.find((p) => p.name === '章节页');
+  const shut = proseLefts.find((p) => p.name === '章节页·侧栏收起');
+  if (open?.left != null && shut?.left != null) {
+    const shift = Math.abs(open.left - shut.left);
+    const ok = shift <= 1;
+    if (!ok) bad += 1;
+    console.log(
+      `[不变性] 侧栏展开 / 收起时正文左边界 ${open.left} / ${shut.left}，位移 ${shift}px  ${
+        ok ? 'ok' : '会左右跳 ×'
+      }\n`
+    );
+  }
 }
 
 ws.close();

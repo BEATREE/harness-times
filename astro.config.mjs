@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import { shikiCodeTitle, rehypeCodeTitleWrapper } from './src/lib/code-title.mjs';
+import { rehypeDiagramMotion } from './src/lib/diagram-motion.mjs';
 
 // Harness Times — 静态输出，产物在 dist/，可直接交给 Cloudflare Pages
 export default defineConfig({
@@ -21,7 +22,9 @@ export default defineConfig({
       transformers: [shikiCodeTitle()],
     },
     // 把 ```lang title="文件名" 渲染成带文件名栏的代码块
-    rehypePlugins: [rehypeCodeTitleWrapper],
+    // 顺序有讲究：这两个插件都跑在 rehype-raw 之前，各自处理不同形态的节点
+    // （Shiki 产出的 <pre> 元素 / markdown 里原样保留的 raw HTML 图解），互不干扰。
+    rehypePlugins: [rehypeDiagramMotion, rehypeCodeTitleWrapper],
     smartypants: false,
   },
   vite: {
