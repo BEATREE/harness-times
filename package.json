@@ -20,6 +20,9 @@
     "cf:login": "wrangler login",
     "verify": "node tools/verify.mjs",
     "verify:live": "node tools/verify.mjs --base=https://harness-times.pages.dev",
+    "verify:build": "node scripts/verify-build.mjs",
+    "wiki:facts": "node scripts/wiki-facts.mjs",
+    "wiki:lint": "node scripts/wiki-lint.mjs",
     "audit": "node tools/audit.mjs",
     "probe": "node tools/probe.mjs",
     "bisect": "node tools/bisect.mjs"

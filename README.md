@@ -21,10 +21,40 @@ Astro 静态站，学习进度全部存在**你自己的浏览器**里（localSt
 | --- | --- |
 | 导读 | 一句话说清这章要解决什么 |
 | 正文 | 原理拆解，报纸式排版（首字下沉、双栏、三线表、pull quote） |
-| 图解 | 内联 SVG 手绘示意图，另附 CSV 原始数据表 |
+| 图解 | 内联 SVG 手绘示意图，随图附图注结论；首页能力地图另附 CSV 原始数据（`public/data/harness-layers.csv`） |
 | 实操 | 可直接跑的代码，不是伪代码 |
 | 面试官会怎么问 | 3–4 组问答，含追问链 |
 | 自测题 | 3 道单选题，答完即时给解析 |
+
+---
+
+## 维护站内知识 → 先读 `wiki/`
+
+本仓库带一个**知识库**（`wiki/`），它是内容的唯一维护入口。想让 AI 或你自己改动站内知识，
+先读 [`wiki/README.md`](wiki/README.md)：
+
+| 文件 | 一句话 |
+| --- | --- |
+| [`wiki/README.md`](wiki/README.md) | 三层结构（原始 / 知识 / 规则）、三个操作（ingest / query / lint）、**不变量清单** |
+| [`wiki/index.md`](wiki/index.md) | 知识目录：4 领域 / 22 章 / 72 问，每章一行含统计与关键标签 |
+| [`wiki/schema.md`](wiki/schema.md) | 契约：frontmatter、正文骨架、图解规范、代码块、术语表、禁止事项 |
+| [`wiki/sources.md`](wiki/sources.md) | 原始层：取材原则、外链台账（29 条）、归属章节、已知偏差 |
+| [`wiki/log.md`](wiki/log.md) | 追加式变更日志 |
+
+改 **版式 / 配色 / 断点 / 动效** 请读根目录的 [`design.md`](design.md)
+（设计系统：色板、字体分工、版面骨架、响应式、无障碍与对比度实测）。
+
+```bash
+npm run wiki:facts     # 清点每章图 / 码 / 节 / 题（--md 输出可直接贴进 index.md）
+npm run wiki:lint      # 体检：wiki 里的统计与真实内容是否一致
+npm run verify:build   # 体检：dist/ 的 50 项产物结构断言
+```
+
+`wiki:lint` 是防「wiki 自己变成错误信息源」的：手写的统计一定会漂，
+所以断言会核对 `index.md` 的每章数字、`curriculum.ts` 的难度时长、题库题数，以及 `schema.md` 里
+那些「必须」是否真的成立。漂了会直接指出是哪一章、差多少。
+
+> 如果你只想知道「某件事在哪一章讲过」——查 `wiki/index.md` 的目录表，别全文搜索。
 
 ---
 
@@ -74,11 +104,27 @@ src/
 │   ├── progress.astro       # 学习进度与复习计划
 │   └── [domain]/            # 领域索引 + 章节页
 └── styles/global.css        # 报纸设计系统
-scripts/normalize-content.mjs  # 内容守卫（见上）
-scripts/clean.mjs              # 清 Astro 内容缓存（改 markdown 管线后必须跑）
-scripts/check-links.mjs        # 外链体检
-scripts/sources.txt            # 「关联网站」清单的原始台账
-public/data/*.csv              # 图解对应的原始数据
+
+wiki/                        # 知识库：内容维护的唯一入口（先读 wiki/README.md）
+├── README.md                # 三层结构 + 三个操作 + 不变量清单
+├── index.md                 # 知识目录：4 领域 / 22 章 / 72 问
+├── schema.md                # 契约：写作、图解、代码、命名、术语
+├── sources.md               # 取材原则 + 外链台账 + 归属章节
+└── log.md                   # 追加式变更日志
+
+scripts/
+├── normalize-content.mjs    # 内容守卫（见上）
+├── clean.mjs                # 清 Astro 内容缓存（改 markdown 管线后必须跑）
+├── check-links.mjs          # 外链体检
+├── sources.txt              # 「关联网站」清单的原始台账
+├── verify-build.mjs         # dist/ 产物结构断言（50 项）
+├── measure.mjs              # 版面几何：居中、留白、溢出
+├── shoot.mjs                # CDP 截图（22 张 → .shots/）
+├── wiki-facts.mjs           # 清点每章图 / 码 / 节 / 题
+└── wiki-lint.mjs            # 校验 wiki 统计与真实内容一致
+
+tools/                       # 零依赖 CDP 验证工具（verify / audit / bisect / probe）
+public/data/*.csv            # 图解对应的原始数据
 ```
 
 ---
