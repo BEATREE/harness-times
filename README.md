@@ -21,7 +21,7 @@ Astro 静态站，学习进度全部存在**你自己的浏览器**里（localSt
 | --- | --- |
 | 导读 | 一句话说清这章要解决什么 |
 | 正文 | 原理拆解，报纸式排版（首字下沉、双栏、三线表、pull quote） |
-| 图解 | 内联 SVG 手绘示意图，随图附图注结论；首页能力地图另附 CSV 原始数据（`public/data/harness-layers.csv`） |
+| 图解 | 内联 SVG 手绘示意图，随图附图注结论（**不提供 CSV 之类的数据附件**） |
 | 实操 | 可直接跑的代码，不是伪代码 |
 | 面试官会怎么问 | 3–4 组问答，含追问链 |
 | 自测题 | 3 道单选题，答完即时给解析 |
@@ -117,14 +117,13 @@ scripts/
 ├── clean.mjs                # 清 Astro 内容缓存（改 markdown 管线后必须跑）
 ├── check-links.mjs          # 外链体检
 ├── sources.txt              # 「关联网站」清单的原始台账
-├── verify-build.mjs         # dist/ 产物结构断言（50 项）
-├── measure.mjs              # 版面几何：居中、留白、溢出
+├── verify-build.mjs         # dist/ 产物结构断言（62 项）
+├── measure.mjs              # 版面几何：翻页区尺寸、正文与工具栏同宽、留白、溢出
 ├── shoot.mjs                # CDP 截图（22 张 → .shots/）
 ├── wiki-facts.mjs           # 清点每章图 / 码 / 节 / 题
 └── wiki-lint.mjs            # 校验 wiki 统计与真实内容一致
 
 tools/                       # 零依赖 CDP 验证工具（verify / audit / bisect / probe）
-public/data/*.csv            # 图解对应的原始数据
 ```
 
 ---

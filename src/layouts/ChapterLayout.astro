@@ -24,29 +24,28 @@ const { chapter, domain, lead, note } = Astro.props;
 const { prev, next } = neighbors(chapter.id);
 const totalMin = chapter.minutes;
 
-/** 两侧悬浮卡片的公共结构：竖排标签 + 悬浮展开的详情 */
-const sideCard = (c: Chapter, dir: 'prev' | 'next') => {
+/** 两侧大翻页区的数据：直接显示标题与摘要，不再藏进悬浮卡片 */
+const railCard = (c: Chapter, dir: 'prev' | 'next') => {
   const d = domainOf(c.domain);
   return {
     href: pathOf(c.id),
     domain: c.domain,
     label: dir === 'prev' ? '上一章' : '下一章',
     chev: dir === 'prev' ? '‹' : '›',
-    kicker: `${d.no} · ${d.name} · 第 ${String(c.no).padStart(2, '0')} 章`,
     title: c.title,
     desc: c.desc,
-    meta: `${levelLabel(c.level)} · 约 ${c.minutes} 分钟 · ${c.en}`,
+    meta: `${d.no} · ${d.name} · 第 ${String(c.no).padStart(2, '0')} 章 · ${levelLabel(c.level)} · 约 ${c.minutes} 分钟`,
   };
 };
 
 /*
- * 正文两侧的悬浮切换按钮。
- * 走 <BaseLayout> 的 slot 而不是放在组件外面 —— 组件外的标记会被渲染到
- * <!doctype html> 之前，那不是合法的 HTML。放在报头之后即可，
- * 它是 position:fixed，源码位置不影响视觉。
+ * 正文两侧的大翻页区。
+ * 走 <BaseLayout> 的具名 slot（rail-prev / rail-next），因为它们必须是 .sheet 的
+ * 兄弟节点——≥1300px 时 .main 是三栏 flex，翻页区要占正文纸面之外的空间。
+ * 具名 slot 必须是 <BaseLayout> 的直接子节点，所以条件判断写在 <Fragment> 内部。
  */
-const pagerPrev = prev ? sideCard(prev, 'prev') : null;
-const pagerNext = next ? sideCard(next, 'next') : null;
+const railPrev = prev ? railCard(prev, 'prev') : null;
+const railNext = next ? railCard(next, 'next') : null;
 ---
 
 <BaseLayout
@@ -64,75 +63,74 @@ const pagerNext = next ? sideCard(next, 'next') : null;
   />
 
   <!--
-    正文两侧的「上一章 / 下一章」。只有 ≥1340px 才显示（见 global.css 里的注释），
-    窄屏请走章尾的翻页条。
-    卡片里那份文本对读屏是重复信息，所以标了 aria-hidden，链接名由 aria-label 提供。
+    正文两侧的大翻页区。≥1300px 显示（见 global.css「正文两侧的大翻页区」一节），
+    窄屏隐藏、改走章尾的 .pager。
+
+    它们是通过具名 slot 插到 <BaseLayout> 里 .sheet 的两侧的：
+    因为 ≥1300px 时 .main 是三栏 flex，翻页区必须占「正文纸面之外」的空间。
+    具名 slot 只能作为 <BaseLayout> 的直接子节点，所以条件都写在 <Fragment> 内部
+    —— 整块 <Fragment> 不参与条件渲染，避免被当成默认 slot 的内容。
   -->
-  <nav class="side-pager" aria-label="章节切换">
+  <Fragment slot="rail-prev">
     {
-      pagerPrev && (
+      railPrev && (
         <a
-          class="sp sp-prev"
-          href={pagerPrev.href}
-          data-domain={pagerPrev.domain}
-          aria-label={`上一章：${pagerPrev.title}`}
+          class="page-rail rail-prev"
+          href={railPrev.href}
+          data-domain={railPrev.domain}
+          aria-label={`上一章：${railPrev.title}`}
         >
-          <span class="sp-tab" aria-hidden="true">
-            <span class="sp-chev">‹</span>
-            <span class="sp-lab">上一章</span>
+          <span class="rail-k">
+            <span class="rail-chev" aria-hidden="true">{railPrev.chev}</span>
+            {railPrev.label}
           </span>
-          <span class="sp-card" aria-hidden="true">
-            <span class="sp-k">{pagerPrev.kicker}</span>
-            <span class="sp-title">{pagerPrev.title}</span>
-            <span class="sp-desc">{pagerPrev.desc}</span>
-            <span class="sp-meta">{pagerPrev.meta}</span>
-          </span>
+          <span class="rail-title">{railPrev.title}</span>
+          <span class="rail-desc">{railPrev.desc}</span>
+          <span class="rail-meta">{railPrev.meta}</span>
+          <span class="rail-hint" aria-hidden="true">← / → 也可切换</span>
         </a>
       )
     }
+  </Fragment>
+
+  <Fragment slot="rail-next">
     {
-      pagerNext ? (
+      railNext ? (
         <a
-          class="sp sp-next"
-          href={pagerNext.href}
-          data-domain={pagerNext.domain}
-          aria-label={`下一章：${pagerNext.title}`}
+          class="page-rail rail-next"
+          href={railNext.href}
+          data-domain={railNext.domain}
+          aria-label={`下一章：${railNext.title}`}
         >
-          <span class="sp-tab" aria-hidden="true">
-            <span class="sp-chev">›</span>
-            <span class="sp-lab">下一章</span>
+          <span class="rail-k">
+            {railNext.label}
+            <span class="rail-chev" aria-hidden="true">{railNext.chev}</span>
           </span>
-          <span class="sp-card" aria-hidden="true">
-            <span class="sp-k">{pagerNext.kicker}</span>
-            <span class="sp-title">{pagerNext.title}</span>
-            <span class="sp-desc">{pagerNext.desc}</span>
-            <span class="sp-meta">{pagerNext.meta}</span>
-          </span>
+          <span class="rail-title">{railNext.title}</span>
+          <span class="rail-desc">{railNext.desc}</span>
+          <span class="rail-meta">{railNext.meta}</span>
+          <span class="rail-hint" aria-hidden="true">← / → 也可切换</span>
         </a>
       ) : (
         <a
-          class="sp sp-next"
+          class="page-rail rail-next is-end"
           href="/progress/"
-          data-domain="eval"
           aria-label="全书读完，去看学习进度与复习计划"
         >
-          <span class="sp-tab" aria-hidden="true">
-            <span class="sp-chev">›</span>
-            <span class="sp-lab">全部读完</span>
+          <span class="rail-k">
+            全书终点
+            <span class="rail-chev" aria-hidden="true">›</span>
           </span>
-          <span class="sp-card" aria-hidden="true">
-            <span class="sp-k">全书终点</span>
-            <span class="sp-title">去看学习进度与复习计划</span>
-            <span class="sp-desc">
-              总完成度、到期复习队列、全部笔记汇总，以及导出 JSON 备份，都在这一页。
-            </span>
-            <span class="sp-meta">复习队列 · 笔记汇总 · 导出备份</span>
+          <span class="rail-title">去看学习进度与复习计划</span>
+          <span class="rail-desc">
+            总完成度、到期复习队列、全部笔记汇总，以及导出 JSON 备份，都在这一页。
           </span>
+          <span class="rail-meta">复习队列 · 笔记汇总 · 导出备份</span>
+          <span class="rail-hint" aria-hidden="true">← / → 也可切换</span>
         </a>
       )
     }
-  </nav>
-
+  </Fragment>
   <div class="chapter-toolbar" data-toolbar>
     <div class="reading-track" title="本页阅读进度">
       <div class="reading-fill" data-reading-fill></div>
@@ -270,6 +268,42 @@ const pagerNext = next ? sideCard(next, 'next') : null;
   if (!storageAvailable()) {
     toast('浏览器禁用了本地存储，进度将不会被保存');
   }
+
+  /* ---------- 键盘切换：← / → 与两侧翻页区等价 ----------
+   * 两侧翻页区解决了「点击热区太小」，键盘再补上「不必瞄准鼠标」。
+   * 三道守卫，缺一道都会在某个真实场景里抢键：
+   *   1. 焦点在输入框里时不抢 —— 本章的笔记输入框就在页面里，抢了就没法打左移光标
+   *   2. 按了修饰键时不抢 —— Cmd/Alt + ← 是浏览器前进后退，不属于本站
+   *   3. 焦点所在元素可横向滚动时不抢 —— 表格/图解的横向滚动本来就要用方向键
+   */
+  const railPrevEl = $<HTMLAnchorElement>('.page-rail.rail-prev');
+  const railNextEl = $<HTMLAnchorElement>('.page-rail.rail-next');
+
+  const isTyping = (el: Element | null) => {
+    if (!el) return false;
+    const tag = el.tagName;
+    return (
+      tag === 'INPUT' ||
+      tag === 'TEXTAREA' ||
+      tag === 'SELECT' ||
+      (el as HTMLElement).isContentEditable === true
+    );
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+    const active = document.activeElement as HTMLElement | null;
+    if (isTyping(active)) return;
+    if (active && active.scrollWidth > active.clientWidth + 1) return;
+
+    const target = e.key === 'ArrowLeft' ? railPrevEl : railNextEl;
+    if (!target) return;
+    e.preventDefault();
+    // 走 click() 而不是 location.href：站内的换页过渡是拦 click 实现的，
+    // 直接跳转会让过渡失效。
+    target.click();
+  });
 
   /* ---------- 状态渲染 ---------- */
   const renderState = () => {

@@ -68,6 +68,19 @@
   /* 中文一行 38~42 字最舒服；43rem 在宽屏上偏长，读久了容易串行 */
   --measure: 40rem;
   --gap: 32px;
+
+  /*
+   * .sheet 的左右内边距。抽成变量是因为有三处必须保持一致：
+   *   1. .sheet 自己的 padding
+   *   2. .chapter-toolbar 的负 margin（让它撑满整张纸，做出通栏横条）
+   *   3. ≥1300px 时正文/章头/章尾的负 margin（用户要求这三块与工具栏同宽）
+   * 写死三遍迟早会漂，所以只在这里定义一次。
+   */
+  --sheet-pad: 56px;
+
+  /* 正文两侧翻页区的宽度与它和纸面之间的间隙（见「正文两侧的大翻页区」一节） */
+  --rail-w: 150px;
+  --rail-gap: 24px;
 }
 
 /* ============================ Reset & base ============================ */
@@ -572,7 +585,7 @@ a:hover {
 .sheet {
   max-width: 1120px;
   margin: 0 auto;
-  padding: 40px 56px 72px;
+  padding: 40px var(--sheet-pad) 72px;
 }
 
 /*
@@ -1859,8 +1872,8 @@ figure.fig figcaption b {
   background: rgba(244, 239, 230, 0.97);
   backdrop-filter: blur(6px);
   border-bottom: 1px solid var(--border);
-  margin: 0 -56px 24px;
-  padding: 10px 56px;
+  margin: 0 calc(-1 * var(--sheet-pad)) 24px;
+  padding: 10px var(--sheet-pad);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -2086,189 +2099,227 @@ figure.fig figcaption b {
   flex: 1;
 }
 
-/* ==================== 正文两侧的「上一节 / 下一节」 ====================
+/* ==================== 正文两侧的大翻页区（上一章 / 下一章） ====================
  *
- * 定位基准刻意选「视口」而不是正文栏：
- * 正文栏以视口中线为中心、宽度 --measure，所以栏的左右边缘就落在
- * 50% ∓ --measure / 2 处，再往外让 14px 加大 34px 的按钮宽度，
- * 就是离屏幕边缘 calc(50% - --measure/2 - 48px) 的位置。
- * 这样侧栏开合时按钮紧贴正文栏，不会跟着版面漂。
+ * 版式改成三栏：.main 变成 flex 行 —— rail-prev | .sheet | rail-next，两侧等宽。
+ * 翻页区是整块可点的大面板（≥1300px 时宽 150~250px、高 ≥300px），
+ * 不是之前那个 34px 宽的小书签：小书签的点击热区太小，也看不出「这里能翻页」。
  *
- * 断点定在 1340px 是算出来的，不是拍的：
- * 左侧留给「收起目录」按钮 + 本节按钮的那条空白只有
- * (100vw - measure) / 2 - sidebar-w - 18px（按钮凸出量）宽，
- * 1340px 时刚好 48px，够放一个 34px 的按钮加 14px 间隙。
- * 再窄就会和「收起目录」按钮叠在一起，所以宁可不显示。
+ * 为什么断点定在 1300px：
+ *   拿最紧的账算 —— 侧栏 268 + 两个翻页区 (150+24)×2 + 正文栏下限 720 ≈ 1286px。
+ *   再窄下去正文栏会被压到不好读，所以宁可不给翻页区，改走章尾的 .pager。
+ *
+ * ⚠️ 一处明确的取舍（与上一版的差别）：
+ *   上一版为了「正文距屏幕边缘等距」，在 .main 右边留了一份和侧栏等宽的镜像留白，
+ *   让正文恰好落在视口中线上。但那 268px 是白送出去的：加上两侧翻页区之后，
+ *   1440px 的视口里正文栏只剩 604px，比现在还窄 —— 与「正文栏太窄」的诉求直接冲突。
+ *   所以这一版**取消镜像留白**，把空间还给正文和翻页区：
+ *   正文居中的基准从「视口」变成「.main 的内容区」，因为左侧有固定侧栏，
+ *   内容区的中心比视口中线右偏 134px（= 侧栏宽的一半）。
+ *   一句话：**正文更宽、翻页区更大，但整组内容相对屏幕略偏右。**
+ *   若更在意「正文严格居中」，把下面的 padding-right 改回
+ *   `min(var(--sidebar-hold), max(0px, calc(100% - 860px)))` 并删掉 .page-rail 即可回到上一版。
  */
-.side-pager {
+.page-rail {
   display: none;
 }
 
-.sp {
-  position: fixed;
-  top: 50%;
-  z-index: 38;
-  transform: translateY(-50%);
-  border: 0;
-  color: inherit;
-}
-
-.sp-prev {
-  left: calc(50% - (var(--measure) / 2) - 48px);
-}
-
-.sp-next {
-  right: calc(50% - (var(--measure) / 2) - 48px);
-}
-
-.sp[data-domain='llm'] {
+/* 领域配色：翻页区的顶边与悬浮色跟随目标章节所属领域，和侧栏、图解保持一致 */
+.rail-prev[data-domain='llm'],
+.rail-next[data-domain='llm'] {
   --dc: var(--blue);
 }
-.sp[data-domain='harness'] {
+.rail-prev[data-domain='harness'],
+.rail-next[data-domain='harness'] {
   --dc: var(--red);
 }
-.sp[data-domain='eval'] {
+.rail-prev[data-domain='eval'],
+.rail-next[data-domain='eval'] {
   --dc: #8a6a1f;
 }
-.sp[data-domain='knowledge'] {
+.rail-prev[data-domain='knowledge'],
+.rail-next[data-domain='knowledge'] {
   --dc: var(--teal);
 }
 
-/* --- 竖排小标签：默认只占 34px --- */
-.sp-tab {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  width: 34px;
-  padding: 11px 0 13px;
-  background: var(--paper-light);
-  border: 1px solid var(--border);
-  color: var(--ink-muted);
+@media (min-width: 1700px) {
+  :root {
+    --rail-w: 200px;
+  }
+}
+
+@media (min-width: 2000px) {
+  :root {
+    --rail-w: 250px;
+  }
+}
+
+@media (min-width: 1300px) {
+  .main {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: var(--rail-gap);
+    /* 取消镜像留白，空间交给正文与翻页区（取舍见本节顶部注释） */
+    padding-right: 0;
+  }
+
+  .page-rail {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 var(--rail-w);
+    /* 跟着阅读位置走：滚到哪都还在视野里可点 */
+    position: sticky;
+    top: 96px;
+    align-self: flex-start;
+    min-height: 300px;
+    padding: 24px var(--rail-pad, 20px) 22px;
+    gap: 10px;
+    background: var(--paper-light);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--dc, var(--red));
+    border-radius: 2px;
+    color: inherit;
+    text-decoration: none;
+    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease,
+      transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sheet {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 1120px;
+    margin: 0;
+  }
+
+  /*
+   * 这三块与 .chapter-toolbar 同宽：用和工具栏一样的负 margin 吃掉 .sheet 的两侧内边距。
+   * 只在有翻页区时这么做 —— 那时两侧有翻页区兜着，正文顶到纸边也不会贴到屏幕边；
+   * 窄屏没有翻页区，正文必须保留内边距，否则会真的贴到屏幕边上。
+   */
+  .chapter-head,
+  .prose,
+  .chapter-foot {
+    max-width: none;
+    width: calc(100% + 2 * var(--sheet-pad));
+    margin-left: calc(-1 * var(--sheet-pad));
+    margin-right: calc(-1 * var(--sheet-pad));
+  }
+}
+
+/* --- 翻页区内容 --- */
+
+.page-rail .rail-k {
   font-family: var(--font-ui);
-  cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-}
-
-.sp-prev .sp-tab {
-  border-left: 3px solid var(--dc, var(--red));
-  border-radius: 3px 0 0 3px;
-  border-right-color: var(--border);
-}
-
-.sp-next .sp-tab {
-  border-right: 3px solid var(--dc, var(--red));
-  border-radius: 0 3px 3px 0;
-}
-
-.sp-chev {
-  font-size: 0.7rem;
-  line-height: 1;
-  transition: transform 0.2s ease;
-}
-
-.sp-lab {
-  writing-mode: vertical-rl;
   font-size: 0.6rem;
-  letter-spacing: 0.2em;
-  line-height: 1;
-}
-
-.sp:hover .sp-tab {
-  background: var(--paper);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
   color: var(--dc, var(--red));
-  border-color: var(--border-strong);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.sp:hover .sp-chev {
-  transform: translateX(-1px);
+.page-rail .rail-chev {
+  font-size: 0.82rem;
+  line-height: 1;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.sp-next:hover .sp-chev {
-  transform: translateX(1px);
-}
-
-/* --- 悬浮卡片：绝对定位，不参与 .sp 的盒子，
- *     所以按钮的点击热区就是那 34px，不会在正文上盖一层看不见的挡板 --- */
-.sp-card {
-  position: absolute;
-  top: 50%;
-  width: 300px;
-  padding: 14px 16px 13px;
-  background: var(--paper-light);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--dc, var(--red));
-  box-shadow: 0 8px 26px var(--shadow);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.22s ease, transform 0.22s ease;
-}
-
-.sp-prev .sp-card {
-  left: calc(100% + 2px);
-  transform: translateY(-50%) translateX(-8px);
-}
-
-.sp-next .sp-card {
-  right: calc(100% + 2px);
-  border-left: 1px solid var(--border);
-  border-right: 3px solid var(--dc, var(--red));
-  transform: translateY(-50%) translateX(8px);
-}
-
-.sp:hover .sp-card,
-.sp:focus-visible .sp-card {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(-50%) translateX(0);
-}
-
-.sp-card .sp-k {
-  display: block;
-  font-family: var(--font-ui);
-  font-size: 0.56rem;
-  letter-spacing: 0.16em;
-  color: var(--ink-faint);
-  margin-bottom: 6px;
-}
-
-.sp-card .sp-title {
-  display: block;
-  font-family: var(--font-body);
-  font-size: 0.92rem;
+.page-rail .rail-title {
+  font-family: var(--font-display);
+  font-size: 1.06rem;
   font-weight: 700;
-  line-height: 1.4;
+  line-height: 1.42;
   color: var(--ink);
-  margin-bottom: 7px;
 }
 
-.sp-card .sp-desc {
+.page-rail .rail-desc {
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  font-size: 0.76rem;
-  line-height: 1.66;
+  font-size: 0.78rem;
+  line-height: 1.7;
   color: var(--ink-muted);
-  text-align: left;
 }
 
-.sp-card .sp-meta {
-  display: block;
+.page-rail .rail-meta {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-light);
+  font-family: var(--font-ui);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+}
+
+/*
+ * 快捷键提示。用 --ink-muted 而不是 --ink-faint：后者只有 1.94:1，
+ * 用在「告诉用户还有另一种操作方式」这种有用信息上是不合格的（见 design.md 第 11 节）。
+ */
+.page-rail .rail-hint {
   font-family: var(--font-ui);
   font-size: 0.56rem;
   letter-spacing: 0.1em;
-  color: var(--gold);
-  margin-top: 9px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border-light);
+  color: var(--ink-muted);
 }
 
-@media (min-width: 1340px) {
-  .side-pager {
-    display: block;
+.page-rail:hover {
+  background: var(--paper);
+  border-color: var(--border-strong);
+  box-shadow: 0 10px 28px var(--shadow);
+}
+
+.page-rail:hover .rail-title {
+  color: var(--dc, var(--red));
+}
+
+.rail-prev:hover {
+  transform: translateX(-3px);
+}
+
+.rail-next:hover {
+  transform: translateX(3px);
+}
+
+.rail-prev:hover .rail-chev {
+  transform: translateX(-3px);
+}
+
+.rail-next:hover .rail-chev {
+  transform: translateX(3px);
+}
+
+/* 下一章那侧右对齐，形成「翻页」的对称感 */
+.rail-next {
+  text-align: right;
+}
+
+.rail-next .rail-k {
+  justify-content: flex-end;
+}
+
+/* 全书读完时的收尾区：换个金顶，和普通「下一章」区分开 */
+.rail-next.is-end {
+  border-top-color: var(--gold);
+}
+
+.rail-next.is-end .rail-k {
+  color: var(--gold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-rail,
+  .page-rail .rail-chev {
+    transition: none;
+  }
+  .rail-prev:hover,
+  .rail-next:hover {
+    transform: none;
   }
 }
+
 
 /* ============================ 目录 / 卡片 ============================ */
 
@@ -2796,13 +2847,14 @@ figure.fig figcaption b {
 @media (max-width: 980px) {
   :root {
     --sidebar-w: 250px;
+    --sheet-pad: 34px;
   }
   .sheet {
-    padding: 32px 34px 60px;
+    padding: 32px var(--sheet-pad) 60px;
   }
   .chapter-toolbar {
-    margin: 0 -34px 22px;
-    padding: 10px 34px;
+    margin: 0 calc(-1 * var(--sheet-pad)) 22px;
+    padding: 10px var(--sheet-pad);
   }
 }
 
@@ -2819,14 +2871,16 @@ figure.fig figcaption b {
   .main {
     /* 窄屏的目录是覆盖式抽屉，不占版面，两侧留白一起归零 */
     --sidebar-hold: 0px;
+    --sheet-pad: 20px;
   }
   .sheet {
-    padding: 66px 20px 54px;
+    padding: 66px var(--sheet-pad) 54px;
   }
   .chapter-toolbar {
-    margin: 0 -20px 20px;
-    padding: 9px 20px;
+    margin: 0 calc(-1 * var(--sheet-pad)) 20px;
+    padding: 9px var(--sheet-pad);
   }
+
   .menu-toggle {
     display: grid;
     place-items: center;
@@ -2869,16 +2923,27 @@ figure.fig figcaption b {
   .chapter-toolbar,
   .menu-toggle,
   .scrim,
-  .side-pager,
+  .page-rail,
   .site-foot {
     display: none !important;
   }
   .main {
     --sidebar-hold: 0px;
+    /* 打印时不要三栏 flex，也不要翻页区撑出的宽度 */
+    display: block;
+    padding-right: 0;
   }
   .sheet {
     padding: 0;
     max-width: 100%;
+  }
+  .chapter-head,
+  .prose,
+  .chapter-foot {
+    width: auto;
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
   }
   .prose {
     max-width: 100%;

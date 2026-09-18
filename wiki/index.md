@@ -152,8 +152,9 @@ I. 大模型原理 (5章)  →  II. Harness 工程 (8章)  →  III. 评测工�
 | `/progress/` | `src/pages/progress.astro` | 学习进度、30 天热力图、复习队列、导出/导入 |
 | `/about/` | `src/pages/about.astro` | 关于本站、出品方、关联网站、隐私模型 |
 
-页面骨架：`BaseLayout.astro`（报头 + 侧栏 + 翻页过渡 + 本机数据面板）
-→ `ChapterLayout.astro`（阅读框架 + 进度/笔记/自评 + **左右「上一节 / 下一节」**）。
+页面骨架：`BaseLayout.astro`（报头 + 侧栏 + 纸张翻页过渡 + 本机数据面板
++ `.sheet` 两侧的 `rail-prev` / `rail-next` 具名 slot）
+→ `ChapterLayout.astro`（阅读框架 + 进度/笔记/自评 + **两侧大翻页区** + 章尾 `.pager`）。
 
 ---
 
@@ -161,13 +162,14 @@ I. 大模型原理 (5章)  →  II. Harness 工程 (8章)  →  III. 评测工�
 
 | 资产 | 位置 | 说明 |
 | --- | --- | --- |
-| 图解原始数据 | `public/data/harness-layers.csv` | 首页能力地图的可下载数据版（**目前全站仅此一份**） |
 | 站点图标 | `public/favicon.svg` | |
 | 缓存策略 | `public/_headers` | 带哈希静态资源 1 年强缓存；HTML 不缓存 |
 | 公众号二维码 | `https://beatree.cn/gzh/gzh-qr-card.jpg` | 外链，不在本仓库 |
 | 关联网站清单 | `scripts/sources.txt` | 原始台账，可被 `check-links.mjs` 验活 |
 
-> ✅ **已修正（2026-09-18）**：根 `README.md` 曾称每章「图解…另附 CSV 原始数据表」，
-> 实际只有首页能力地图提供 CSV（`harness-layers.csv`），22 张章节图解没有配套 CSV。
-> README 措辞已改为准确表述（「随图附图注结论；首页能力地图另附 CSV」）。
-> 若日后要为章节图解补数据文件，请放到 `public/data/` 并在下表中登记。
+> ✅ **已收敛（2026-09-18）**：根 `README.md` 曾称每章图解「另附 CSV 原始数据表」，
+> 而实际全站只有首页能力地图那一份 CSV。经确认那属于早期表述失误——
+> **本站不提供 CSV 数据附件**，图解的结论以图注与正文承载。
+> 因此 `public/data/` 目录连同 `harness-layers.csv` 已整体删除，
+> README / wiki / 首页正文里的相关提及也一并清掉（`verify-build.mjs` 有「产物中不得出现 csv 下载入口」的断言思路可循）。
+> 若日后确要提供数据附件，**先想清楚它服务谁**，再在 `public/data/` 落盘并在上表登记。

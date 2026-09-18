@@ -9,6 +9,10 @@
  *  5. 进度页：统计数字反映已完成的章节
  *  6. 面试页：筛选与「已能答出」自评写入独立 key
  *  7. 导出 / 导入恢复 链路
+ *  8. 两侧大翻页区：面板尺寸、链接指向、正文与工具栏同宽
+ *  9. 键盘 ← / → 切换章节，以及「输入框 / 带修饰键不抢键」两道守卫
+ * 10. 移动端视口横向溢出
+ * 11. 运行期无未捕获异常
  *
  * 用法：node ht-verify.mjs
  */
@@ -20,14 +24,19 @@ import { join } from 'node:path';
 const CHROME =
   process.env.HT_CHROME ||
   'C:\\Users\\BEATREE\\AppData\\Local\\ms-playwright\\chromium-1223\\chrome-win64\\chrome.exe';
-/** 目标站点：默认本地预览；可用 `--base=https://...` 或环境变量 HT_BASE 指向线上 */
+/**
+ * 目标站点：默认本地预览；可用 `--base=https://...` 或环境变量 HT_BASE 指向线上。
+ *
+ * 用 localhost 而不是 127.0.0.1：astro preview 在 Windows 上默认只绑 IPv6 回环（::1），
+ * 写死 127.0.0.1 会连不上。localhost 两个族都会试，两种起法都成立。
+ */
 const BASE =
   process.argv.find((a) => a.startsWith('--base='))?.slice(7) ||
   process.env.HT_BASE ||
-  'http://127.0.0.1:4321';
+  'http://localhost:4321';
 const PORT = 9333;
 console.log(`目标站点: ${BASE}`);
-const REMOTE = /^https?:/.test(BASE) && !BASE.includes('127.0.0.1') && !BASE.includes('localhost');
+const REMOTE = /^https?:/.test(BASE) && !/127\.0\.0\.1|localhost/.test(BASE);
 
 const profile = mkdtempSync(join(tmpdir(), 'ht-cdp-'));
 const chrome = spawn(
@@ -395,8 +404,178 @@ try {
   check('移动端有菜单按钮', mob.menuBtn);
   await cdp.send('Emulation.clearDeviceMetricsOverride');
 
-  /* ============ 9. 无 JS 报错 ============ */
-  console.log('\n[9] 运行期异常');
+  /* ============ 9. 两侧大翻页区 + 键盘切换 ============
+   *
+   * 为什么必须用真键盘事件（Input.dispatchKeyEvent）而不是直接调 rail.click()：
+   *   本站的切换是「拦 click → 播过渡 → 再跳转」的链路。直接点 DOM 上的链接能过，
+   *   但「← / → 到底有没有被接住」这件事只有从浏览器输入层发一遍才算验证过。
+   *   同样地，收敛守卫（输入框里不抢键、带修饰键不抢）也只能靠真事件证伪 ——
+   *   这正是最容易写错、又最难靠肉眼发现的地方。
+   */
+  console.log('\n[9] 两侧大翻页区与键盘切换');
+
+  const pressKey = async (key, vk, modifiers = 0) => {
+    const base = { key, code: key, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk, modifiers };
+    await cdp.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...base });
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', ...base });
+  };
+  const pathNow = () => cdp.evaluate(`location.pathname`);
+
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 1440, height: 900, deviceScaleFactor: 1, mobile: false,
+  });
+  await cdp.goto(`${BASE}/harness/harness-02-agent-loop/`, 900);
+
+  const rails = await cdp.evaluate(`(() => {
+    const info = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      const prose = document.querySelector('.prose').getBoundingClientRect();
+      const toolbar = document.querySelector('.chapter-toolbar').getBoundingClientRect();
+      return {
+        display: cs.display,
+        w: Math.round(r.width), h: Math.round(r.height),
+        left: Math.round(r.left), right: Math.round(r.right),
+        href: el.getAttribute('href'),
+        title: el.querySelector('.rail-title')?.textContent?.trim() || '',
+        hint: el.querySelector('.rail-hint')?.textContent?.trim() || '',
+        overlapsProse: r.right > prose.left && r.left < prose.right,
+        proseW: Math.round(prose.width),
+        toolbarW: Math.round(toolbar.width),
+        proseLeft: Math.round(prose.left),
+        toolbarLeft: Math.round(toolbar.left),
+      };
+    };
+    return { prev: info('.page-rail.rail-prev'), next: info('.page-rail.rail-next'),
+             vw: document.documentElement.clientWidth };
+  })()`);
+
+  check('1440px 下两侧翻页区都可见',
+    rails.prev?.display !== 'none' && rails.next?.display !== 'none',
+    `视口 ${rails.vw}`);
+  check('翻页区是「大面板」而不是小书签',
+    rails.prev.w >= 140 && rails.prev.h >= 300,
+    `${rails.prev.w}×${rails.prev.h}`);
+  check('左右翻页区不压住正文', !rails.prev.overlapsProse && !rails.next.overlapsProse);
+  check('上一章链接指向 harness-01',
+    rails.prev.href === '/harness/harness-01-what-is-harness/', rails.prev.href);
+  check('下一章链接指向 harness-03',
+    rails.next.href === '/harness/harness-03-tool-use/', rails.next.href);
+  check('翻页区显示的是章节标题（可读文本）',
+    rails.prev.title.length > 4 && rails.next.title.length > 4,
+    `「${rails.prev.title}」/「${rails.next.title}」`);
+  check('翻页区带键盘提示', /←|→/.test(rails.prev.hint), rails.prev.hint);
+
+  // 用户的原始诉求：正文栏要和 .chapter-toolbar 一样宽
+  check('正文栏与工具栏同宽（且左右边线重合）',
+    rails.prev.proseW === rails.prev.toolbarW && rails.prev.proseLeft === rails.prev.toolbarLeft,
+    `正文 ${rails.prev.proseW} / 工具栏 ${rails.prev.toolbarW}`);
+
+  // 真键盘：→ 应当跳到下一章
+  {
+    const before = await pathNow();
+    const loaded = cdp.once('Page.loadEventFired', 6000).catch(() => null);
+    await pressKey('ArrowRight', 39);
+    await loaded;
+    await sleep(450);
+    const after = await pathNow();
+    check('按 → 跳到下一章',
+      before === '/harness/harness-02-agent-loop/' && after === '/harness/harness-03-tool-use/',
+      `${before} → ${after}`);
+  }
+
+  // 真键盘：← 应当跳回上一章
+  {
+    const before = await pathNow();
+    const loaded = cdp.once('Page.loadEventFired', 6000).catch(() => null);
+    await pressKey('ArrowLeft', 37);
+    await loaded;
+    await sleep(450);
+    const after = await pathNow();
+    check('按 ← 跳回上一章',
+      before === '/harness/harness-03-tool-use/' && after === '/harness/harness-02-agent-loop/',
+      `${before} → ${after}`);
+  }
+
+  /*
+   * 收敛守卫（这一条是「不抢键」的核心）：
+   * 本章页面里就有笔记输入框，用户在里面按 ← / → 是在移动光标。
+   * 如果守卫失效，光标每移动一格就会被跳走一章 —— 这是最伤也最隐蔽的一类 bug。
+   */
+  {
+    await cdp.evaluate(`document.querySelector('[data-note-input]').focus()`);
+    const before = await pathNow();
+    const navigated = cdp.once('Page.loadEventFired', 1500).then(() => true).catch(() => false);
+    await pressKey('ArrowLeft', 37);
+    const didNav = await navigated;
+    await sleep(200);
+    const after = await pathNow();
+    const stillFocused = await cdp.evaluate(
+      `document.activeElement?.matches?.('[data-note-input]') === true`
+    );
+    check('输入框里按 ← 不抢键（光标可以正常移动）',
+      !didNav && before === after && stillFocused,
+      `${before} → ${after}，焦点仍在输入框 ${stillFocused}`);
+  }
+
+  // 带修饰键不抢：Cmd / Ctrl + ← 是浏览器自己的前进后退
+  {
+    const before = await pathNow();
+    const navigated = cdp.once('Page.loadEventFired', 1500).then(() => true).catch(() => false);
+    await pressKey('ArrowRight', 39, 2 /* Ctrl */);
+    const didNav = await navigated;
+    await sleep(200);
+    const after = await pathNow();
+    check('Ctrl + → 不抢键（留给浏览器）', !didNav && before === after, `${before} → ${after}`);
+  }
+
+  // 窄屏：翻页区整体退场，交给章尾 .pager
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 1200, height: 900, deviceScaleFactor: 1, mobile: false,
+  });
+  await cdp.goto(`${BASE}/harness/harness-02-agent-loop/`, 700);
+  const narrow = await cdp.evaluate(`(() => {
+    const el = document.querySelector('.page-rail.rail-prev');
+    const pager = document.querySelector('nav.pager');
+    return { railDisplay: getComputedStyle(el).display,
+             railW: Math.round(el.getBoundingClientRect().width),
+             pagerVisible: !!pager && getComputedStyle(pager).display !== 'none' };
+  })()`);
+  check('1200px 下翻页区退场、章尾 .pager 顶上',
+    narrow.railDisplay === 'none' && narrow.railW === 0 && narrow.pagerVisible,
+    `display=${narrow.railDisplay} 章尾 pager=${narrow.pagerVisible}`);
+
+  // 首章 / 末章的边界
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width: 1440, height: 900, deviceScaleFactor: 1, mobile: false,
+  });
+  await cdp.goto(`${BASE}/llm/llm-01-transformer/`, 700);
+  const firstCh = await cdp.evaluate(`(() => ({
+    hasPrev: !!document.querySelector('.page-rail.rail-prev'),
+    nextHref: document.querySelector('.page-rail.rail-next')?.getAttribute('href'),
+  }))()`);
+  check('首章没有「上一章」面板，只有「下一章」',
+    !firstCh.hasPrev && firstCh.nextHref === '/llm/llm-02-kv-cache/',
+    `hasPrev=${firstCh.hasPrev} next=${firstCh.nextHref}`);
+
+  await cdp.goto(`${BASE}/knowledge/knowledge-04-hybrid-trust/`, 700);
+  const lastCh = await cdp.evaluate(`(() => {
+    const n = document.querySelector('.page-rail.rail-next');
+    return { isEnd: n?.classList.contains('is-end'),
+             href: n?.getAttribute('href'),
+             prevHref: document.querySelector('.page-rail.rail-prev')?.getAttribute('href') };
+  })()`);
+  check('末章「下一章」变「全书终点」并指向进度页',
+    lastCh.isEnd === true && lastCh.href === '/progress/' &&
+      lastCh.prevHref === '/knowledge/knowledge-03-embedding/',
+    `is-end=${lastCh.isEnd} next=${lastCh.href} prev=${lastCh.prevHref}`);
+
+  await cdp.send('Emulation.clearDeviceMetricsOverride');
+
+  /* ============ 10. 无 JS 报错 ============ */
+  console.log('\n[10] 运行期异常');
   check('页面无未捕获异常', pageErrors.length === 0,
     pageErrors.slice(0, 3).join(' | ') || '无');
 

@@ -15,7 +15,12 @@ import { join } from 'node:path';
 const CHROME =
   process.env.HT_CHROME ||
   'C:\\Users\\BEATREE\\AppData\\Local\\ms-playwright\\chromium-1223\\chrome-win64\\chrome.exe';
-const BASE = 'http://127.0.0.1:4321';
+/*
+ * 用 localhost 而不是 127.0.0.1：
+ * astro preview 在 Windows 上默认只绑 IPv6 回环（::1），写死 127.0.0.1 会连不上。
+ * localhost 两个族都会试，对「绑 ::1」和「绑 127.0.0.1」两种起法都成立。
+ */
+const BASE = process.env.HT_BASE || 'http://localhost:4321';
 const PORT = 9343;
 
 const PATHS = [

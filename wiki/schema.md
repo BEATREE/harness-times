@@ -274,8 +274,7 @@ figure.fig svg { min-width: calc(var(--vbw, 660) * 1px); }
 | 章节 id | 文件名去 `.md` | `harness-04-context-engineering` |
 | 领域 id | 四选一：`llm` / `harness` / `eval` / `knowledge` | |
 | 自测题 id | `<领域><两位序号>-q<n>` | `harness04-q2` |
-| 专栏 CSS class | 短横线，语义前缀 | `.sp-card`（side pager）、`.dm-*`（diagram motion）、`.fig-*` |
-| 示意数据文件 | `public/data/<描述>.csv` | `harness-layers.csv` |
+| 专栏 CSS class | 短横线，语义前缀 | `.page-rail` / `.rail-*`（两侧大翻页区）、`.dm-*`（diagram motion）、`.fig-*` |
 
 **新增内容时不要造新的领域**。四个领域的划分是整站的骨架，
 加一个领域要同时改 `DOMAINS`、侧栏、首页、配色、读路径——不是「顺手」的改动。

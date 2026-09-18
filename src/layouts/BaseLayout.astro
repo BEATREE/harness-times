@@ -44,6 +44,12 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://harness-tim
     <div class="app">
       <Sidebar currentChapter={currentChapter} currentDomain={currentDomain} />
       <div class="main paper-texture">
+        <!--
+          正文两侧的大翻页区（只有章节页提供，其余页面这两个 slot 为空）。
+          它们必须是 .sheet 的**兄弟节点**而不是子节点：≥1300px 时 .main 是三栏 flex
+          （rail-prev | .sheet | rail-next），翻页区要占据正文纸面之外的空间。
+        -->
+        <slot name="rail-prev" />
         <div class="sheet">
           <slot />
           <footer class="site-foot">
@@ -59,6 +65,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://harness-tim
             </span>
           </footer>
         </div>
+        <slot name="rail-next" />
       </div>
     </div>
 

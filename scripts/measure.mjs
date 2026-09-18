@@ -7,7 +7,7 @@
  *   恰恰就是几十个像素级别的对齐问题。这里直接读 getBoundingClientRect。
  *
  * 用法：
- *   node scripts/measure.mjs --base=http://127.0.0.1:4321
+ *   node scripts/measure.mjs --base=http://localhost:4321
  *   node scripts/measure.mjs --base=... --w=1280
  */
 import { spawn } from 'node:child_process';
@@ -20,7 +20,11 @@ const arg = (k, d) => process.argv.find((a) => a.startsWith(`--${k}=`))?.slice(k
 const CHROME =
   process.env.HT_CHROME ||
   'C:\\Users\\BEATREE\\AppData\\Local\\ms-playwright\\chromium-1223\\chrome-win64\\chrome.exe';
-const BASE = arg('base', 'http://127.0.0.1:4321').replace(/\/$/, '');
+/*
+ * 用 localhost 而不是 127.0.0.1：astro preview 在 Windows 上默认只绑 IPv6 回环（::1），
+ * 写死 127.0.0.1 会拿不到页面（curl 直接 000）。localhost 两个族都试，两种起法都成立。
+ */
+const BASE = arg('base', 'http://localhost:4321').replace(/\/$/, '');
 const PORT = Number(arg('port', 9346));
 
 const PAGES = [
@@ -113,12 +117,18 @@ const EXPR = `(() => {
   const cb = document.querySelector('.code-block');
   return {
     vw: document.documentElement.clientWidth,
+    // 侧栏收起时 --sidebar-hold 归零，.main 占满视口，正文会重新落回视口中线。
+    // 居中 / 留白预期因此分「展开」「收起」两套，需要把这个状态量出来。
+    navCollapsed: document.body.classList.contains('nav-collapsed'),
     sidebar: R('.sidebar'),
     main: R('.main'),
     sheet: R('.sheet'),
     prose: R('.prose'),
     head: R('.chapter-head'),
     foot: R('.chapter-foot'),
+    // 用户诉求「正文要和 .chapter-toolbar 一样宽」，所以工具栏宽度必须量出来，
+    // 否则「一样宽」就只能靠肉眼比对截图 —— 那正是本脚本存在的理由。
+    toolbar: R('.chapter-toolbar'),
     codeBlock: cb ? R('.code-block') : null,
     preScroll: pre ? { client: pre.clientWidth, scroll: pre.scrollWidth } : null,
     docScrollW: document.documentElement.scrollWidth,
@@ -150,7 +160,9 @@ const EXPR = `(() => {
       if (!p) return null;
       return Math.round((p.left + p.right) / 2);
     })(),
-    // 正文两侧的「上一章 / 下一章」按钮
+    // 正文两侧的大翻页区（上一章 / 下一章）。
+    // 这一版是整块可点的大面板，所以除了 display 还要量宽高 ——
+    // 只断言「显示」的话，退化成 34px 小书签也能过，那就失去意义了。
     pager: (() => {
       const read = (sel) => {
         const el = document.querySelector(sel);
@@ -162,9 +174,10 @@ const EXPR = `(() => {
           l: Math.round(r.left),
           r: Math.round(r.right),
           w: Math.round(r.width),
+          h: Math.round(r.height),
         };
       };
-      return { prev: read('.sp-prev'), next: read('.sp-next') };
+      return { prev: read('.page-rail.rail-prev'), next: read('.page-rail.rail-next') };
     })(),
     // 图解：小屏可读性靠「svg 有最小宽度 + 外框横向滚动」实现
     fig: (() => {
@@ -217,42 +230,100 @@ for (const page of PAGES) {
   if (m.main) console.log(`   主区      ${m.main.l} → ${m.main.r}  (宽 ${m.main.w})`);
   if (m.sheet) console.log(`   纸面      ${m.sheet.l} → ${m.sheet.r}  (宽 ${m.sheet.w})`);
   if (m.prose) console.log(`   正文栏    ${m.prose.l} → ${m.prose.r}  (宽 ${m.prose.w})`);
+  if (m.toolbar) console.log(`   工具栏    ${m.toolbar.l} → ${m.toolbar.r}  (宽 ${m.toolbar.w})`);
   if (m.codeBlock) console.log(`   代码块    ${m.codeBlock.l} → ${m.codeBlock.r}  (宽 ${m.codeBlock.w})`);
   if (m.preScroll && m.preScroll.scroll > m.preScroll.client + 1)
     console.log(`     └ 代码内部横向滚动：${m.preScroll.scroll} / ${m.preScroll.client}`);
 
+  /*
+   * 用户诉求：「正文栏过窄，宽度要和 .chapter-toolbar 一致」。
+   * 只在有翻页区的宽度（≥1300px）上要求一致：那时正文用负 margin 吃掉 .sheet 的内边距，
+   * 与工具栏共用同一个 --sheet-pad，两条边线应当重合。
+   * 窄屏没有翻页区兜着，正文必须保留左右内边距，所以只要求「不比工具栏宽」。
+   */
+  if (m.prose && m.toolbar) {
+    const d = Math.abs(m.prose.w - m.toolbar.w);
+    if (m.vw >= 1300) {
+      const ok = d <= 1 && m.prose.l === m.toolbar.l && m.prose.r === m.toolbar.r;
+      if (!ok) bad += 1;
+      console.log(
+        `   正文栏 vs 工具栏宽度  ${m.prose.w} / ${m.toolbar.w}  差 ${d}px  ${
+          ok ? '同宽且左右边线重合 ok' : '未对齐 ×'
+        }`
+      );
+    } else {
+      const ok = m.prose.w <= m.toolbar.w + 1;
+      console.log(
+        `   正文栏 vs 工具栏宽度  ${m.prose.w} / ${m.toolbar.w}  差 ${d}px  ${
+          ok ? '窄屏保留内边距（不比工具栏宽）ok' : '正文溢出工具栏 ×'
+        }`
+      );
+      if (!ok) bad += 1;
+    }
+  }
+
   if (m.gap) {
-    // 只有「镜像留白能留满」的宽度才要求左右等宽；更窄是按可读性收缩过的
-    const symmetric = m.vw >= 1128;
+    /*
+     * 左右留白分三个区间（见 global.css「正文两侧的大翻页区」一节顶部的取舍说明）：
+     *   ≥1300px  三栏 flex，镜像留白**被取消** → 正文整组相对屏幕偏右「半个侧栏宽」，
+     *            因为左侧有固定侧栏，正文居中基准从「视口」换成「.main 的内容区」。
+     *            这是为「正文更宽 + 翻页区更大」主动付出的代价，所以这里断言的是
+     *            「差值 ≈ 侧栏宽」，而不是「差值 ≈ 0」。
+     *   1128~1299px  镜像留白留得满，正文仍严格落在视口中线上 → 左右等宽。
+     *   <1128px  镜像留白为保住可读宽度而收缩，允许不对称（宁可不居中也不能压字）。
+     */
     const diff = Math.abs(m.gap.left - m.gap.right);
-    const ok = symmetric ? diff <= 2 : true;
+    const sideW = m.navCollapsed ? 0 : (m.sidebar?.w ?? 0);
+    let ok;
+    let why;
+    if (m.vw >= 1300) {
+      ok = Math.abs(diff - sideW) <= 4;
+      why = ok
+        ? m.navCollapsed
+          ? '侧栏已收起，.main 占满视口，左右等宽 ok'
+          : `取消镜像留白 ok（差 ${diff} ≈ 侧栏宽 ${sideW}）`
+        : '偏离预期 ×';
+    } else if (m.vw >= 1128) {
+      ok = diff <= 2;
+      why = ok ? '镜像留白留满，左右对称 ok' : '不对称 ×';
+    } else {
+      ok = true;
+      why = '窄屏按可读性收缩，允许不对称 ok';
+    }
     if (!ok) bad += 1;
-    console.log(
-      `   正文到屏幕两侧  左 ${m.gap.left} / 右 ${m.gap.right}   差 ${diff}px  ${
-        ok ? (symmetric ? '对称 ok' : '窄屏允许不对称 ok') : '不对称 ×'
-      }`
-    );
+    console.log(`   正文到屏幕两侧  左 ${m.gap.left} / 右 ${m.gap.right}   差 ${diff}px  ${why}`);
   }
 
   if (m.proseCenter != null) {
     const off = m.proseCenter - m.vw / 2;
     /*
-     * 正文栏的居中分两个区间（见 global.css 里 .main 的注释）：
-     *   ≥1128px：右侧镜像留白留得满，正文栏严格落在视口中线上；
-     *   <1128px：镜像留白为了保住正文栏宽度而收缩，正文整体向右漂，
-     *            最多漂半个侧栏宽（134px）。这是设计好的取舍，不是 bug。
+     * 正文栏中点的三个区间，与上面 .gap 一一对应：
+     *   ≥1300px  基准是 .main 内容区，比视口中线右偏「半个侧栏宽」；
+     *   1128~1299px  严格落在视口中线上；
+     *   <1128px  为保可读宽度最多右漂半个侧栏宽（134px），是取舍不是 bug。
      */
-    const wide = m.vw >= 1128;
+    const sideW = m.navCollapsed ? 0 : (m.sidebar?.w ?? 0);
     let ok;
-    if (wide) ok = Math.abs(off) <= 2;
-    else ok = off >= 0 && off <= 140;
+    let why;
+    if (m.vw >= 1300) {
+      ok = Math.abs(off - sideW / 2) <= 4;
+      why = ok
+        ? m.navCollapsed
+          ? '侧栏已收起，正文回到视口中线 ok'
+          : `三栏居中基准为 .main 内容区（右偏 侧栏/2 = ${Math.round(sideW / 2)}px）ok`
+        : '偏离预期 ×';
+    } else if (m.vw >= 1128) {
+      ok = Math.abs(off) <= 2;
+      why = ok ? '居中 ok' : '偏离 ×';
+    } else {
+      ok = off >= 0 && off <= 140;
+      why = ok ? '窄屏容差内 ok' : '偏离 ×';
+    }
     if (!ok) bad += 1;
     console.log(
-      `   正文中点 vs 视口中线  ${m.proseCenter} / ${m.vw / 2}   偏移 ${
-        off > 0 ? '+' : ''
-      }${off}px  ${ok ? (wide ? '居中 ok' : '窄屏容差内 ok') : '偏离 ×'}`
+      `   正文中点 vs 视口中线  ${m.proseCenter} / ${m.vw / 2}   偏移 ${off > 0 ? '+' : ''}${off}px  ${why}`
     );
-    proseLefts.push({ name: page.name, left: m.prose?.l });
+    proseLefts.push({ name: page.name, left: m.prose?.l, w: m.prose?.w });
   }
 
   // 正文栏不能窄到没法读。
@@ -265,23 +336,30 @@ for (const page of PAGES) {
 
   if (m.pager && page.w) {
     const { prev, next } = m.pager;
-    // 预期：≥1340px 显示，更窄则整体隐藏（走章尾翻页条）
-    const wantVisible = page.w >= 1340 && page.path.startsWith('/harness/');
+    // 预期：≥1300px 显示（和 global.css 的断点一致），更窄则整体隐藏（走章尾翻页条）
+    const wantVisible = page.w >= 1300 && page.path.startsWith('/harness/');
     const shown = prev && prev.display !== 'none' && prev.w > 0;
     if (wantVisible) {
       const overlaps = prev && m.prose && prev.r > m.prose.l;
-      const ok = shown && !overlaps;
+      /*
+       * 「大面板」是这个版本的诉求本体：宽 ≥140px、高 ≥300px。
+       * 只断言 display 是不够的 —— 上一版 34px 宽的小书签同样会 display:flex，
+       * 那样断言照样绿，等于没测。这里把尺寸一起锁住。
+       */
+      const bigEnough = prev.w >= 140 && prev.h >= 300;
+      const ok = shown && !overlaps && bigEnough;
       if (!ok) bad += 1;
       console.log(
-        `   两侧切换按钮  显示 ${shown}（上一章 ${prev?.l}→${prev?.r}，下一章 ${next?.l}→${next?.r}）${
-          overlaps ? '  与正文重叠 ×' : '  不压正文 ok'
-        }`
+        `   两侧翻页区  显示 ${shown}  上一章 ${prev?.l}→${prev?.r}（${prev?.w}×${prev?.h}）  ` +
+          `下一章 ${next?.l}→${next?.r}（${next?.w}×${next?.h}）${
+            overlaps ? '  与正文重叠 ×' : ''
+          }${bigEnough ? '  尺寸达标 ok' : '  面板过小 ×'}`
       );
     } else if (shown) {
       bad += 1;
-      console.log(`   两侧切换按钮在 ${page.w}px 下仍然显示 ×`);
+      console.log(`   两侧翻页区在 ${page.w}px 下仍然显示 ×`);
     } else {
-      console.log(`   两侧切换按钮  @${page.w}px 按预期隐藏 ok`);
+      console.log(`   两侧翻页区  @${page.w}px 按预期隐藏 ok`);
     }
   }
 
@@ -342,17 +420,32 @@ for (const page of PAGES) {
  * 这是「无论左侧导航栏折叠还是展开，正文都距屏幕边缘相同距离」的可验证形式 ——
  * 单看某一帧的左右留白等宽，是证明不了这一条的（旧版就是左右等宽但整体偏右）。
  */
+/*
+ * 跨状态变化：侧栏折叠 / 展开时正文怎么动。
+ *
+ * ⚠️ 这一条相对上一版**放宽了**，是有意的：
+ *   上一版靠「镜像留白」把正文钉在视口中线上，所以收起侧栏时正文一格不动
+ *   （当时断言 |位移| ≤ 1px）。但镜像留白要白送 268px，加上两侧翻页区之后
+ *   正文栏会被压到 604px —— 与「正文栏过窄」的诉求正面冲突，因此这一版取消了它。
+ *   取消之后，收起侧栏腾出的空间会被正文和翻页区吃掉，正文左边界会往左移。
+ *   这不是回归，而是「收起侧栏 = 给内容更多空间」这个更直觉的语义。
+ *   所以现在断言的是两件真正该成立的事：
+ *     1) 收起后正文不会更窄（空间确实被内容拿走了，而不是白扔）；
+ *     2) 收起后正文没有跑到屏幕外（左边界 ≥ 0）。
+ */
 {
   const open = proseLefts.find((p) => p.name === '章节页');
   const shut = proseLefts.find((p) => p.name === '章节页·侧栏收起');
   if (open?.left != null && shut?.left != null) {
-    const shift = Math.abs(open.left - shut.left);
-    const ok = shift <= 1;
+    const shift = open.left - shut.left;
+    const notNarrower = (shut.w ?? 0) >= (open.w ?? 0) - 1;
+    const onScreen = shut.left >= 0;
+    const ok = notNarrower && onScreen;
     if (!ok) bad += 1;
     console.log(
-      `[不变性] 侧栏展开 / 收起时正文左边界 ${open.left} / ${shut.left}，位移 ${shift}px  ${
-        ok ? 'ok' : '会左右跳 ×'
-      }\n`
+      `[不变性] 侧栏展开 / 收起：正文左边界 ${open.left} / ${shut.left}（左移 ${shift}px），` +
+        `宽度 ${open.w} / ${shut.w}  ` +
+        `${ok ? '腾出的空间被内容吸收 ok' : '×'}\n`
     );
   }
 }

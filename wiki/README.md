@@ -109,14 +109,20 @@ node scripts/wiki-facts.mjs --md     # 输出可直接粘进 index.md 的表格�
 | 命令 | 查什么 | 什么时候跑 |
 | --- | --- | --- |
 | `npm run content:check` | HTML 块里有没有空行（图会不会被截断） | 改完正文，已挂在 `prebuild` |
-| `node scripts/verify-build.mjs` | 产物结构：50 项断言（代码块、翻页、图解动效、居中实现…） | 每次构建后 |
-| `node scripts/wiki-lint.mjs` | 本目录的统计与实际内容是否一致 | 改完正文/题库后 |
+| `node scripts/verify-build.mjs` | 产物结构：**64 项**断言（代码块、大翻页区、正文与工具栏同宽、图解动效…） | 每次构建后 |
+| `node scripts/wiki-lint.mjs` | 本目录的统计与实际内容是否一致（27 项） | 改完正文/题库后 |
 | `node scripts/check-links.mjs` | 站外链接是否还活着 | 上线前后 |
-| `node tools/verify.mjs` | 活页面交互（36 项，需起 preview） | 动过 JS/交互后 |
-| `node scripts/measure.mjs` | 版面几何（居中、留白、溢出） | 动过 CSS 后 |
+| `node tools/verify.mjs` | 活页面交互（**51 项**，需起 preview；含真键盘事件的翻页与「不抢键」守卫） | 动过 JS/交互后 |
+| `node tools/audit.mjs` | 多视口横向溢出审计 | 动过 CSS 后 |
+| `node scripts/measure.mjs` | 版面几何（正文与工具栏同宽、翻页区尺寸、居中、留白、溢出） | 动过 CSS 后 |
 
-> `tools/verify.mjs` / `scripts/measure.mjs` / `scripts/shoot.mjs` 都需要先起预览服务：
-> `npm run preview`，地址是 **`http://localhost:4321`**（注意不是 `127.0.0.1`）。
+> `tools/verify.mjs` / `tools/audit.mjs` / `scripts/measure.mjs` / `scripts/shoot.mjs`
+> 都需要先起预览服务：`npm run preview`。
+>
+> ⚠️ **地址必须用 `http://localhost:4321`，不能写 `127.0.0.1:4321`。**
+> Windows 上 `astro preview` 默认只绑 IPv6 回环（`::1`），写 `127.0.0.1` 会直接连不上
+> （`curl` 返回 `000`），而报错信息不会告诉你是地址族的问题。
+> 三个脚本的默认值都已经是 `localhost`，改坏了就会集体报「DevTools 未就绪 / 页面内异常」。
 
 ---
 
@@ -138,6 +144,14 @@ node scripts/wiki-facts.mjs --md     # 输出可直接粘进 index.md 的表格�
    Astro 5 的内容缓存键不含插件，不清缓存会出现「改了、构建过了、产物没变」。
 7. **不再出现「本报」「第 N 期」**。本站是按章组织、随修订更新的学习站，不是每日报刊。
 8. **每章必须有 1 张主图 + ≥1 段可运行代码 + 3–4 道问答**（当前 22 章全部满足）。
+9. **大翻页区 `.page-rail` 必须是 `.sheet` 的兄弟节点，不能是子节点**。
+   ≥1300px 时 `.main` 是三栏 flex，写成子节点会**静默塌回单栏**——不报错、不警告。
+   所以它走 `BaseLayout` 的具名 slot（`rail-prev` / `rail-next`）。
+10. **正文宽度只有 `--sheet-pad` 一个来源**。`.chapter-head` / `.prose` / `.chapter-foot` /
+    `.chapter-toolbar` 四处共用它；只改其中一处会让边线错开几个像素，肉眼几乎看不出来。
+11. **键盘 ← / → 的三道「不抢键」守卫不能删**（输入框内、带修饰键、焦点元素可横向滚动）。
+    删掉第一条最严重：本章页面里就有笔记输入框，在输入框里按 ← 会直接跳走一章。
+12. **`tools/verify.mjs` 等脚本的服务地址必须是 `localhost` 而不是 `127.0.0.1`**（见第三节的警告）。
 
 ---
 
