@@ -47,7 +47,7 @@ Astro 静态站，学习进度全部存在**你自己的浏览器**里（localSt
 ```bash
 npm run wiki:facts     # 清点每章图 / 码 / 节 / 题（--md 输出可直接贴进 index.md）
 npm run wiki:lint      # 体检：wiki 里的统计与真实内容是否一致
-npm run verify:build   # 体检：dist/ 的 50 项产物结构断言
+npm run verify:build   # 体检：dist/ 的产物结构断言
 ```
 
 `wiki:lint` 是防「wiki 自己变成错误信息源」的：手写的统计一定会漂，
@@ -117,9 +117,9 @@ scripts/
 ├── clean.mjs                # 清 Astro 内容缓存（改 markdown 管线后必须跑）
 ├── check-links.mjs          # 外链体检
 ├── sources.txt              # 「关联网站」清单的原始台账
-├── verify-build.mjs         # dist/ 产物结构断言（62 项）
+├── verify-build.mjs         # dist/ 产物结构断言
 ├── measure.mjs              # 版面几何：翻页区尺寸、正文与工具栏同宽、留白、溢出
-├── shoot.mjs                # CDP 截图（22 张 → .shots/）
+├── shoot.mjs                # CDP 截图（→ .shots/）
 ├── wiki-facts.mjs           # 清点每章图 / 码 / 节 / 题
 └── wiki-lint.mjs            # 校验 wiki 统计与真实内容一致
 
@@ -184,14 +184,30 @@ node scripts/check-links.mjs --file=scripts/sources.txt
 ## 部署（Cloudflare Pages）
 
 ```bash
-npm run build
-npx wrangler pages deploy dist --project-name harness-times
+npm run deploy          # = build:fresh + 推送 dist
+npm run deploy:only     # 只推 dist，不重新构建
 ```
 
 需要先完成鉴权，二选一：
 
 - 交互式：`npx wrangler login`
 - CI/CD：设置环境变量 `CLOUDFLARE_API_TOKEN`
+
+### 为什么要走 `scripts/deploy.mjs`，而不是直接 `wrangler pages deploy`
+
+本项目的 **Pages 项目与 zone `beatree.cn` 分属两个 Cloudflare 账号**。
+不显式指定 `CLOUDFLARE_ACCOUNT_ID` 时，wrangler 会**交互式**等你选账号，
+而那个提示在无人值守场景下 25 秒就超时 —— 表现出来的样子是「命令挂着不动」，
+很像网络问题，其实它在等键盘输入。
+
+所以 `scripts/deploy.mjs` 会自己解析 account id 再显式传下去，杜绝交互。
+取值顺序：环境变量 → `.dev.vars` → `.env` → `.env.local`（后三个都在 `.gitignore` 内）。
+拿不到就直接报错并告诉你两种给法，**不会**悄悄退化成交互式。
+
+> 账号标识（account id / zone tag）不进仓库，本机放 `.dev.vars`。
+> 这是**标识**不是凭据 —— 空手拿着它调不了 API —— 但仓库是公开的，
+> 它会把你关联到具体账号，所以连 `deploy.mjs` 自己的输出也只打半掩形式（`0515…14b9`）。
+> 完整值：`node scripts/cf-domain.mjs status --show-ids`。
 
 `public/_headers` 已配置长缓存策略：带哈希的静态资源 1 年强缓存，HTML 不缓存。
 
@@ -201,6 +217,7 @@ npx wrangler pages deploy dist --project-name harness-times
 | --- | --- |
 | **https://harness.beatree.cn** | **主地址（canonical 指向它）** |
 | https://harness-times.pages.dev | Pages 默认域名（项目 `harness-times`），同样可用 |
+| https://github.com/BEATREE/harness-times | 源码仓库（**公开**；关于页有入口）。仓库里不写邮箱 / QQ 号 / account id / zone tag / token，见 `wiki/log.md` 顶部的约定 |
 
 `astro.config.mjs` 的 `site` 是 `https://harness.beatree.cn`——
 canonical / og:url 都基于它。改这里等于改「对外主张的地址」，别随手动。
@@ -230,8 +247,9 @@ HTTP 校验要求能真的访问到域名，而 DNS 没解析就访问不到，�
 > ✅ **2026-09-18 已解决**：手工补上 CNAME 后，Cloudflare 自动签发了
 > `CN=harness.beatree.cn` 证书（有效期至 2026-12-17），
 > `npm run cf:domain` 显示 `status=active / HTTP 校验 active`，
-> `node tools/verify.mjs --base=https://harness.beatree.cn` 全过（当时 53 项；
-> 用例集仍在增长 —— 以实际输出为准，别把这里的数字当契约）。
+> `node tools/verify.mjs --base=https://harness.beatree.cn` 全过
+> （2026-09-18 重写历史后重新部署时跑的；用例集仍在增长 ——
+> **具体条数以实际输出为准，别把这里的数字当契约**）。
 
 > ⚠️ wrangler 的本机 OAuth 凭据只有 `pages:write` / `zone:read`，**没有 DNS 写权限**。
 > 要做到「一条命令连 DNS 一起加」，需要额外提供 `Zone → DNS → Edit` 权限的

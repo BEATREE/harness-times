@@ -76,7 +76,7 @@ npm run content:fix        # 有的话自动修（只删 HTML 块内的空行）
 
 # 3. 重建并验证
 npm run build:fresh        # 动了 markdown 管线就必须 fresh；只改正文可以 npm run build
-node scripts/verify-build.mjs    # 50 项产物断言
+node scripts/verify-build.mjs    # 产物结构断言
 node scripts/wiki-lint.mjs       # 核对 wiki 统计有没有漂
 ```
 
@@ -110,12 +110,19 @@ node scripts/wiki-facts.mjs --md     # 输出可直接粘进 index.md 的表格�
 | --- | --- | --- |
 | `npm run content:check` | HTML 块里有没有空行（图会不会被截断） | 改完正文，已挂在 `prebuild` |
 | `node scripts/verify-build.mjs` | 产物结构：**79 项**断言（代码块、大翻页区、正文与工具栏同宽、图解动效、侧栏悬停唤出…） | 每次构建后 |
-| `node scripts/wiki-lint.mjs` | 本目录的统计与实际内容是否一致（27 项） | 改完正文/题库后 |
+| `node scripts/wiki-lint.mjs` | 本目录的统计与实际内容是否一致（**33 项**） | 改完正文/题库后 |
 | `node scripts/check-links.mjs` | 站外链接是否还活着 | 上线前后 |
 | `node tools/verify.mjs` | 活页面交互（**64 项**，需起 preview；含真键盘事件的翻页、真鼠标事件的侧栏唤出与「不抢键」守卫） | 动过 JS/交互后 |
 | `node tools/audit.mjs` | 多视口横向溢出审计 | 动过 CSS 后 |
 | `node scripts/measure.mjs` | 版面几何（正文与工具栏同宽、翻页区尺寸、居中、留白、溢出） | 动过 CSS 后 |
 
+> ⚠️ **断言数只写在这张表里，别在别处再抄一遍。**
+> 这几个数字每加一条断言就会变，而它们散落在 `README.md` / `wiki/schema.md` /
+> `tools/README.md` 的注释里时**没人会想起来同步** —— 2026-09-18 一次就查出 9 处漂了的
+> （`verify-build` 写着 50/62、`verify.mjs` 写着 36、`wiki-lint` 写着 27）。
+> 所以现在的约定是：**这里 = 唯一出处**；其他地方的命令行注释只写「干什么」，
+> 不写「多少条」。
+>
 > `tools/verify.mjs` / `tools/audit.mjs` / `scripts/measure.mjs` / `scripts/shoot.mjs`
 > 都需要先起预览服务：`npm run preview`。
 >

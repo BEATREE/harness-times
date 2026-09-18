@@ -20,7 +20,7 @@ set HT_CHROME=D:\path\to\chrome.exe          # Windows
 
 ## 四个工具
 
-### `verify.mjs` — 功能验证（36 项）
+### `verify.mjs` — 功能验证
 
 覆盖渲染、交互、存储与恢复四条链路：
 

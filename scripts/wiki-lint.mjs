@@ -197,6 +197,77 @@ check('sources.md 记的 URL 条数与 sources.txt 一致', sources.includes(`${
 const invN = (readme.match(/^\d+\.\s+\*\*/gm) || []).length;
 check('README 列出了不变量清单', invN >= 6, `解析到 ${invN} 条`);
 
+/* ---------- 10. log.md 的结构 ----------
+ *
+ * 这几条是给「加新条目」这个动作兜底的。
+ * 起因很具体：给 log.md 最上面追加条目时，用的是「把 `---` + 旧标题一起替换掉」的写法，
+ * 结果**旧标题被吃掉、正文留了下来** —— 于是新条目后面直接跟着一段没有标题的正文，
+ * markdown 渲染出来两件事糊成一条。这个失误犯过两次，两次都是靠人眼发现的。
+ *
+ * 它不报错、页面也照样渲染，所以只能靠断言拦：
+ *  - 每条 `- **类型**：` 必须先有归属的 `## ` 标题；
+ *  - 每个 `## YYYY-MM-DD · …` 标题下面紧跟着的就是 `- **类型**：`；
+ *  - 日期倒序（文件自己开头就写了「最新的在最上面」）；
+ *  - 标题不重复。
+ */
+const logSrc = readText(join(wikiDir, 'log.md'));
+const logLines = logSrc.split('\n');
+
+// 契约里的示例块（``` 里那段 `## YYYY-MM-DD · <一句话标题>`）不算真条目
+let inFence = false;
+const logEntries = [];
+logLines.forEach((line, i) => {
+  if (/^```/.test(line)) inFence = !inFence;
+  if (inFence) return;
+  if (/^## /.test(line)) logEntries.push({ i, title: line.slice(3).trim() });
+});
+
+const orphaned = [];
+let lastHeading = -1;
+logLines.forEach((line, i) => {
+  if (/^## /.test(line)) lastHeading = i;
+  if (/^- \*\*类型\*\*：/.test(line) && lastHeading === -1) orphaned.push(i + 1);
+});
+check('log.md 没有「没有标题的正文」', orphaned.length === 0,
+  orphaned.length ? `第 ${orphaned.join(' / ')} 行的「类型」行上面找不到 ## 标题` : '');
+
+// 「条目」= 形如 `## YYYY-MM-DD · …` 的标题。
+// 文件尾部那句 `## 更早` 是收尾说明（本日志从版本控制建立起才有记录），
+// 它本来就不该有「类型」行 —— 所以它被排除在「条目」之外。
+//
+// 两个判据要**独立**成立，不能一个的通过与否决定另一个要不要跑：
+//   · `stray`  —— 非日期、又不在白名单里的标题（比如手误成 `## 2026/09-17 …`）
+//   · `noType` —— 作者当条目写了（即非「更早」），却没给「类型」行
+// 一个标题只要不叫「更早」，作者就把它当条目了 → 它就必须有「类型」行，
+// 哪怕日期格式写错了也一样报红。两条同时红是好事，说明信号没有互相掩盖。
+const NON_ENTRY_TITLES = [/^更早$/];
+const isNonEntry = (e) => NON_ENTRY_TITLES.some((re) => re.test(e.title));
+const dated = logEntries.filter((e) => /^\d{4}-\d{2}-\d{2}\s*·/.test(e.title));
+const asEntries = logEntries.filter((e) => !isNonEntry(e));
+
+const stray = asEntries.filter((e) => !dated.includes(e));
+check('log.md 的 `## ` 要么是日期条目、要么是「更早」收尾', stray.length === 0,
+  stray.length ? `认不出的标题：${stray.map((e) => e.title).join(' | ')}` : '');
+
+const noType = asEntries.filter(({ i }) => {
+  const next = logLines.slice(i + 1).find((l) => l.trim() !== '' && !/^>/.test(l));
+  return !/^- \*\*类型\*\*：/.test(next ?? '');
+});
+check('log.md 每条条目都有「类型」行', noType.length === 0, noType.map((e) => e.title).join(' | '));
+
+const dates = dated
+  .map((e) => e.title.match(/^(\d{4}-\d{2}-\d{2})/)?.[1])
+  .filter(Boolean);
+const badOrder = dates.filter((d, k) => k > 0 && d > dates[k - 1]);
+check('log.md 条目按日期倒序（最新在最上）', badOrder.length === 0, badOrder.join(', '));
+
+const dupTitles = logEntries
+  .map((e) => e.title)
+  .filter((t, k, arr) => arr.indexOf(t) !== k);
+check('log.md 没有重复的条目标题', dupTitles.length === 0, dupTitles.join(' | '));
+
+check('log.md 条目数合理', dated.length >= 5, `解析到 ${dated.length} 条`);
+
 /* ---------- 输出 ---------- */
 let failed = 0;
 for (const r of results) {

@@ -327,7 +327,7 @@ figure.fig svg { min-width: calc(var(--vbw, 660) * 1px); }
 ```bash
 npm run content:check          # ① 空行守卫（HTML 块内不能有空行）
 npm run build                  # ② 构建（frontmatter / viewBox / 自闭合 都在这一步拦）
-node scripts/verify-build.mjs  # ③ 50 项产物结构断言
+node scripts/verify-build.mjs  # ③ 产物结构断言
 node scripts/wiki-lint.mjs     # ④ wiki 统计与真实内容是否一致
 node scripts/check-links.mjs   # ⑤ 若新增了外链
 ```
@@ -337,9 +337,9 @@ node scripts/check-links.mjs   # ⑤ 若新增了外链
 ```bash
 npm run build:fresh            # 动了 markdown 管线时必做（缓存键不含插件）
 npm run preview                # 起服务，注意是 http://localhost:4321
-node tools/verify.mjs          # 活页面交互 36 项
+node tools/verify.mjs          # 活页面交互
 node scripts/measure.mjs       # 版面几何：居中、留白、溢出
-node scripts/shoot.mjs         # 22 张截图落到 .shots/（供人眼终审）
+node scripts/shoot.mjs         # 截图落到 .shots/（供人眼终审）
 ```
 
 ---
