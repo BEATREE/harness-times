@@ -19,7 +19,42 @@
 
 ---
 
-## 2026-09-18 · 建立知识库（wiki）；图解动效 · 左右翻页 · 正文按屏幕居中
+## 2026-09-18 · 自定义域名 harness.beatree.cn（Pages 侧已挂，DNS 待手工加）
+
+- **类型**：部署
+- **改了什么**：
+  - 新增 `scripts/cf-domain.mjs`（`npm run cf:domain`）：查 / 加 / 实探 Pages 自定义域名。
+    之所以要自己写：**wrangler v4 删掉了 `wrangler pages domain` 子命令**，
+    域名操作只剩 Dashboard 或 REST API 两条路，脚本走 API，可重复执行。
+  - **已通过 API 把 `harness.beatree.cn` 挂到 Pages 项目 `harness-times`**，
+    返回 `status=initializing` → `pending`，`zone_tag=ZONE_TAG`。
+- **卡在哪**：zone 跨账号。
+  - Pages 项目在账号 **主账号**（`PAGES_ACCOUNT_ID`）
+  - zone `beatree.cn` 在账号 **另一个账号**（`ZONE_ACCOUNT_ID`）
+
+  跨账号时 Cloudflare **不会**自动建 DNS 记录，所以域名永远停在
+  `pending / validation=pending/http` —— HTTP 校验要求能真的访问到域名，
+  而 DNS 没解析就访问不到，证书签不出来（鸡生蛋）。
+  且 wrangler 本机 OAuth 凭据的 scope 里**只有 `zone:read`，没有 DNS 写权限**
+  （scope 清单实测：`pages:write` ✅ / `zone:read` ✅ / 无 `dns_records:edit` ❌）。
+
+- **待办（需要持有 beatree.cn 的账号操作）**：
+  在 Beatreehero 账号 → `beatree.cn` → DNS 添加：
+
+  ```
+  类型 CNAME · 名称 harness · 目标 harness-times.pages.dev · 代理：已代理（橙色云）
+  ```
+
+  加完 1–5 分钟，`npm run cf:domain` 应显示 `active`。
+  若改用 API 自动加：需要一个带 `Zone → DNS → Edit` 的 `CLOUDFLARE_API_TOKEN`，
+  `cf-domain.mjs` 会优先读这个环境变量。
+
+- **验证**：`node scripts/cf-domain.mjs check harness-times.pages.dev`
+  → `HTTP 200`，页面标题 `Harness Times`（默认域名线上正常）。
+
+---
+
+## 2026-09-18 · 建立知识库（wiki）；沉淀设计系统（design.md）
 
 - **类型**：工程 + 版式 + 内容
 - **改了什么**：

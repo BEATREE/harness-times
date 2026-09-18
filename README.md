@@ -196,6 +196,40 @@ npx wrangler pages deploy dist --project-name harness-times
 
 `public/_headers` 已配置长缓存策略：带哈希的静态资源 1 年强缓存，HTML 不缓存。
 
+### 线上地址
+
+| 地址 | 说明 |
+| --- | --- |
+| https://harness-times.pages.dev | Pages 默认域名（项目 `harness-times`） |
+| https://harness.beatree.cn | 自定义域名（**需手工建 DNS，见下**） |
+
+### 自定义域名：为什么需要手工加一条 CNAME
+
+wrangler v4 **去掉了** `wrangler pages domain` 子命令，所以域名相关操作走
+`scripts/cf-domain.mjs`（内部走 Cloudflare REST API）：
+
+```bash
+npm run cf:domain                          # 查域名与签发状态（也可直接 node scripts/cf-domain.mjs status）
+node scripts/cf-domain.mjs add harness.beatree.cn      # 挂到 Pages 项目
+node scripts/cf-domain.mjs check harness.beatree.cn    # 解析 + HTTPS 实探
+```
+
+**本项目特有的坑**：Pages 项目在账号 `主账号`，
+而 zone `beatree.cn` 在**另一个账号** `另一个账号`。
+zone 跨账号时 Cloudflare 不会自动创建 DNS 记录，必须去持有 zone 的那个账号手工加：
+
+```
+类型 CNAME · 名称 harness · 目标 harness-times.pages.dev · 代理状态：已代理（橙色云）
+```
+
+不加这条记录，域名会一直停在 `status=pending / validation=pending/http`——
+HTTP 校验要求能真的访问到域名，而 DNS 没解析就访问不到，证书自然签不出来（鸡生蛋）。
+加完等 1–5 分钟，用 `npm run cf:domain` 确认转为 `active`。
+
+> ⚠️ wrangler 的本机 OAuth 凭据只有 `pages:write` / `zone:read`，**没有 DNS 写权限**。
+> 要做到「一条命令连 DNS 一起加」，需要额外提供 `Zone → DNS → Edit` 权限的
+> `CLOUDFLARE_API_TOKEN`（该脚本会自动优先使用它）。
+
 ---
 
 ## 内容取材
