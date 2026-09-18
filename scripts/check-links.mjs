@@ -22,6 +22,9 @@ import { dirname, join, resolve } from 'node:path';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
+/** 读取源文件统一折成 LF：Windows 上 autocrlf=true 会签出 CRLF，而带 m 标志的 $ 不认 \r\n。 */
+const readText = (p) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
+
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
     const full = join(dir, name);
@@ -43,7 +46,7 @@ function collectFromSource() {
   const re = /https?:\/\/[^\s"'`)<>\\]+/g;
   for (const file of walk(join(root, 'src'))) {
     if (!/\.(astro|md|ts|mjs|js|json|css)$/.test(file)) continue;
-    const text = stripCode(readFileSync(file, 'utf8'));
+    const text = stripCode(readText(file));
     for (const m of text.match(re) ?? []) urls.add(m.replace(/[.,;:]+$/, ''));
   }
   return [...urls];
@@ -72,7 +75,7 @@ const fileArg = args.find((a) => a.startsWith('--file='))?.slice('--file='.lengt
 
 let targets;
 if (fileArg) {
-  targets = readFileSync(resolve(root, fileArg), 'utf8')
+  targets = readText(resolve(root, fileArg))
     .split('\n')
     .map((l) => l.trim())
     .filter((l) => l && !l.startsWith('#'));

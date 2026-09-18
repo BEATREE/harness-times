@@ -24,6 +24,19 @@ import { chapterFacts, interviewFacts } from './wiki-facts.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const wikiDir = join(root, 'wiki');
 
+/*
+ * 所有源文件读取都走这里，强制把 CRLF 折成 LF。
+ *
+ * 为什么必须有：本仓库是公开的，Windows 上 `core.autocrlf=true`（默认）的人一 clone
+ * 得到的就是 CRLF 工作区，而 JS 正则里的 `$`（带 m 标志）**只认 `\n` 之前**，
+ * 不认 `\r\n` —— 于是 `/^---\n([\s\S]*?)\n---/` 直接匹配不到 frontmatter，
+ * 一夜之间「每章都有 chapter / lead」两条断言全红，看起来像内容坏了，
+ * 其实只是行尾。这类失败最坑人的地方是：**在本机怎么改都不会复现**。
+ *
+ * 注意只在*文本*层面折行，不写回文件 —— 校验脚本不该有副作用。
+ */
+const readText = (p) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
+
 const results = [];
 const check = (name, pass, detail = '') => results.push({ name, pass, detail });
 
@@ -37,17 +50,17 @@ if (results.some((r) => !r.pass)) {
   process.exit(1);
 }
 
-const index = readFileSync(join(wikiDir, 'index.md'), 'utf8');
-const schema = readFileSync(join(wikiDir, 'schema.md'), 'utf8');
-const sources = readFileSync(join(wikiDir, 'sources.md'), 'utf8');
-const readme = readFileSync(join(wikiDir, 'README.md'), 'utf8');
+const index = readText(join(wikiDir, 'index.md'));
+const schema = readText(join(wikiDir, 'schema.md'));
+const sources = readText(join(wikiDir, 'sources.md'));
+const readme = readText(join(wikiDir, 'README.md'));
 
 /* ---------- 1. 真实事实 ---------- */
 const facts = chapterFacts();
 const qa = interviewFacts();
 const byId = new Map(facts.map((f) => [f.id, f]));
 
-const curriculumSrc = readFileSync(join(root, 'src/data/curriculum.ts'), 'utf8');
+const curriculumSrc = readText(join(root, 'src/data/curriculum.ts'));
 const curriculum = [
   ...curriculumSrc.matchAll(
     /id: '([^']+)',\s*\n\s*domain: '([^']+)',\s*\n\s*no: (\d+),\s*\n\s*title: '((?:[^'\\]|\\.)*)',[\s\S]*?\n\s*level: (\d),\s*\n\s*minutes: (\d+),/g
@@ -132,7 +145,7 @@ const titleFenceBad = [];
 const quizBad = [];
 const leadBad = [];
 for (const f of facts) {
-  const src = readFileSync(join(root, f.file), 'utf8');
+  const src = readText(join(root, f.file));
   const fm = src.match(/^---\n([\s\S]*?)\n---/);
   const body = fm ? src.slice(fm[0].length) : src;
 
@@ -159,7 +172,7 @@ check('每段代码围栏都带 title=', titleFenceBad.length === 0, titleFenceB
 check('每章都有 3 道自测题', quizBad.length === 0, quizBad.join(', '));
 
 /* ---------- 7. schema.md 里声明的禁止事项，抽查是否守住 ---------- */
-const allSrc = facts.map((f) => readFileSync(join(root, f.file), 'utf8')).join('\n');
+const allSrc = facts.map((f) => readText(join(root, f.file))).join('\n');
 check('正文中不含「本报」', !allSrc.includes('本报'));
 check('正文中不含「第 N 期」式期号', !/第\s*\d+\s*期/.test(allSrc));
 
@@ -175,7 +188,7 @@ for (const [cls, why] of [
 }
 
 /* ---------- 8. 交叉引用：sources.md 的总量说法 ---------- */
-const urlCount = readFileSync(join(root, 'scripts/sources.txt'), 'utf8')
+const urlCount = readText(join(root, 'scripts/sources.txt'))
   .split('\n')
   .filter((l) => /^https?:\/\//.test(l.trim())).length;
 check('sources.md 记的 URL 条数与 sources.txt 一致', sources.includes(`${urlCount} 条 URL`), `sources.txt 实际 ${urlCount} 条`);

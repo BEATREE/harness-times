@@ -22,6 +22,14 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const chapterDir = join(root, 'src/content/chapters');
 const asMd = process.argv.includes('--md');
 
+/*
+ * 读源文件一律折成 LF 再用。理由见 wiki-lint.mjs 同名函数：
+ * Windows 上 autocrlf=true 会签出 CRLF，而带 m 标志的 `$` 不认 `\r\n`，
+ * 于是下面 `^\s{6,}'.+?',$` 这类行尾锚定的正则会静默数成 0 ——
+ * 不报错、只是数字变小，比直接红掉更难发现。
+ */
+const readText = (p) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
+
 /**
  * 清点单章事实。
  * 说明：围栏数以 ``` 出现次数 / 2 计；`<svg` 以标签出现次数计
@@ -33,7 +41,7 @@ export function chapterFacts() {
     .sort();
 
   return files.map((file) => {
-    const src = readFileSync(join(chapterDir, file), 'utf8');
+    const src = readText(join(chapterDir, file));
     const csvRefs = [
       ...new Set(
         (src.match(/\/data\/[a-z0-9_.-]+\.csv/g) || []).map((s) => s.replace(/^\//, ''))
@@ -54,7 +62,7 @@ export function chapterFacts() {
 
 /** 清点题库：每章几问、几问被标为高频。 */
 export function interviewFacts() {
-  const src = readFileSync(join(root, 'src/data/interview.ts'), 'utf8');
+  const src = readText(join(root, 'src/data/interview.ts'));
   const ids = [...src.matchAll(/^ {2}'([a-z0-9-]+)':\s*\[/gm)].map((m) => m[1]);
   const out = new Map();
   ids.forEach((id, i) => {

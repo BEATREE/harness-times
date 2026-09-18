@@ -20,7 +20,12 @@
 > ### ⚠️ 关于账号标识：本文件（以及整个仓库）一律不写
 >
 > **本仓库是公开的**，所以下面这些一律不进仓库，历史提交里也已清理（见 2026-09-18 那条）：
-> 邮箱、Cloudflare account id、zone tag、任何 token。
+> 邮箱、QQ 号、Cloudflare account id、zone tag、任何 token。
+>
+> **别只盯文件内容**：提交元数据（`%ae` / `%ce`）同样是公开信息，
+> 而且 `git log --oneline` 看不见它 —— 2026-09-18 那次就漏到第二遍才发现。
+> 提交前对一眼 `git log -1 --format='%an <%ae> | %cn <%ce>'`，
+> 并确认**本仓库**的 `user.email` 是 noreply（`git config user.email`，别用 `--global`）。
 >
 > 需要它们时的去处：
 > - **本机**：项目根的 `.dev.vars`（已在 `.gitignore` 内）
@@ -32,6 +37,39 @@
 > 又不会被人直接抄走。
 >
 > 写文档时请用「主账号 / 持有 zone 的那个账号」这类描述，而不是具体邮箱。
+
+---
+
+## 2026-09-18 · 修掉一个 CRLF 潜伏 bug：Windows 上一 clone 就会红两条断言
+
+- **类型**：工程
+- **现象**：一次 `git reset --hard` 之后（也就是「**任何人在 Windows 上 clone 本仓库**」
+  得到的状态），`wiki-lint` 从 27/27 掉到 25/27，
+  「每章 frontmatter 的 chapter 等于文件名」「每章 frontmatter 有 lead」
+  两条对 **22 章全部报红** —— 看起来像 22 个内容文件一起坏了，其实文件一个字都没动。
+- **根因**：`wiki-lint.mjs` 用 `/^---\n([\s\S]*?)\n---/` 取 frontmatter。
+  仓库里存的是 LF，但 Windows 上 `core.autocrlf=true`（安装默认）会**签出成 CRLF**，
+  于是 `---\n` 匹配不到 `---\r\n`，`fm` 直接为 `null`，两条断言全红。
+  同一类的还有 `wiki-facts.mjs` 的 `/^\s{6,}'.+?',$/gm` —— 它更阴：
+  CRLF 下**不报错**，只是把 followups 静默数成 0，数字悄悄变小。
+  共同点是 JS 正则里带 `m` 标志的 `$` **只认 `\n` 之前，不认 `\r\n`**。
+- **为什么直到今天才暴露**：本机工作区一直是 LF（由脚本与编辑器写出，git 没重签出过），
+  而 `git status` 因为 autocrlf 归一化仍然显示干净 ——
+  所以这个 bug **在开发机上不可能复现**，只有真正签出才会现形。
+  这次是重写历史时 `git reset --hard` 顺带把它逼出来的，属于「坏事里的好事」。
+- **修法**：`wiki-lint.mjs` / `wiki-facts.mjs` / `check-links.mjs` 各加一个
+  `readText()`，读进来先 `replace(/\r\n/g, '\n')`，**所有源文件读取统一走它**。
+  只折行、不写回文件 —— 校验脚本不该有副作用。
+- **连带改动**：新增脚本里的源文件读取要记得用 `readText` 而不是 `readFileSync`；
+  写 `$` 锚定的正则时先想一句「CRLF 下还成立吗」。
+- **验证**：CRLF 工作区下 `wiki-lint` **27/27**；`wiki-facts` 数字与 LF 时完全一致
+  （22 章 · 22 图 · 24 段代码 · 131 小节 · 57958 汉字 · 72 问）；
+  `check-links` 正常（2 个 BAD 是 OpenAI 站点对爬虫返 403，与本次无关）；
+  `verify:build` **72/72** · `tools/verify.mjs` **53/53** · `audit` 全视口无横向溢出 ·
+  `measure` 异常 0 项。
+- **考虑过但没做**：加 `.gitattributes`（`* text=auto eol=lf`）从源头统一行尾。
+  没做是因为它会改写现有工作区的行尾，让 `git status` 出现满屏「已修改」，
+  而收益已经被 `readText()` 完整覆盖 —— 不值当。
 
 ---
 
@@ -76,8 +114,49 @@
   用户明确要求「历史版本提交记录也不要透露出来」，所以走重写而非只改工作区。
 - **连带改动**：重写历史会**换掉所有 commit hash**，远端必须
   `git push --force-with-lease`；本地任何基于旧 hash 的引用（分支、tag、笔记）都要重新对。
-- **验证**：全历史 blob 扫描（`git rev-list --objects --all` → 逐个 `git cat-file`）
-  对 5 类模式全部为 0 命中；`git ls-files` 对同一组模式同样为 0 命中。
+  提交者身份也一起换了 —— 所有提交的 author/committer 从 `<QQ号>@qq.com`
+  改成 `BEATREE <BEATREE@users.noreply.github.com>`。**这条最容易漏**：
+  `git log --oneline` 默认不显示邮箱，但 GitHub 网页与 API 都会给出来，
+  QQ 号就那样躺在公开的提交元数据里。
+  另外**本仓库的 `git config user.email` 也要改**（只改本仓库，别动 `--global`）——
+  否则下一条提交立刻把 QQ 号又写回去，前面全白做。
+- **⚠️ 顺序约束**：**强推完成之前不要部署站点**。
+  关于页新增的「本站源码」入口直指这个仓库 —— 若先把站点发上去、历史却还是旧版，
+  等于亲手把访客引向一个「历史里还带着标识」的仓库。正确顺序：脱敏 → 强推 → 部署。
+- **⚠️ 踩过的坑：`--replace-text` 的规则文件不认 `#` 注释**。
+  我按「注释行」写了几行 `#` 开头的说明，其中一行是**孤立的 `#`** ——
+  它被当成了一条真规则：*把每个 `#` 替换成 `***REMOVED***`*。
+  结果全仓库所有 `.mjs` 的 shebang（`#!/usr/bin/env node`）连同 53 个文件里的
+  `#` 全被改写，`wiki-lint.mjs` 直接 `SyntaxError: Unexpected token '**'`。
+  注意 `--replace-text` / `--replace-message` 走的是 `get_replace_text()`，
+  **它没有注释逻辑**；`--replace-paths` 走的 `get_paths_from_file()` 才跳过 `#`。
+  两个函数行为不一样，别互相类比。
+  所以：**规则文件里只准写 `literal:...==>...`，一个注释都不要加**；
+  跑之前先把文件喂给 `FilteringOptions.get_replace_text()` 数一遍规则条数。
+  这次靠 `***REMOVED***` 当损坏哨兵 + 重写前后 `HEAD^{tree}` 必须逐字节相同这两条抓住了，
+  并用重写前的 `git bundle` 完整回滚重来。
+- **怎么做的（可复用）**：
+  1. **先扫清家底**，这步不能跳：要扫**历史里所有 blob**，不是工作区。
+     `git rev-list --objects --all | awk 'NF==2{print $1}' | sort -u` 拿 blob 清单，
+     逐个 `git cat-file -p` 再 grep。只看 `git diff` 会漏掉历史中间版本。
+     提交信息与 `%ae/%ce` 要**分开扫**，它们不在 blob 里。
+  2. **备份**：`git bundle create <备份>.bundle --all` + `git bundle verify`。
+     本次就是靠它回滚的 —— 不是形式主义。
+  3. `git filter-repo --force --replace-text <规则> --replace-message <规则> --mailmap <映射>`
+     —— blob 内容、提交信息、提交者元数据**三处都要过**，只做第一处等于没做。
+     替换值用占位描述（`主账号` / `PAGES_ACCOUNT_ID`）而不是删空，旧提交才仍读得通。
+     注意 filter-repo 会**顺手删掉 origin**，事后要 `git remote add` 加回来。
+  4. **复扫 + 校验三件事**：6 类敏感模式 0 命中、`***REMOVED***` 哨兵 0 命中、
+     `%an <%ae> | %cn <%ce>` 全部是预期身份。
+     再加一条最硬的：**重写前后 `HEAD^{tree}` 必须完全一致** ——
+     因为 HEAD 的文件本来就干净，内容替换不该动它；一旦不等，说明规则误伤了正文。
+- **验证**：全历史 **214 个 blob** + **10 条提交信息与身份**对 6 类模式（两个邮箱、
+  QQ 号、两个 account id、zone tag）**全部 0 命中**；`***REMOVED***` 哨兵 0；
+  `HEAD^{tree}` 与重写前逐字节相同（`15a79fd…`）；占位符确实写入（主账号 15 处 /
+  另一个账号 16 处 / `PAGES_ACCOUNT_ID` 6 处 / `ZONE_ACCOUNT_ID` 5 处 / `ZONE_TAG` 5 处）；
+  10 commits / 71 files 不变；工作区干净。
+  重写前的完整备份在仓库外：`E:\AllWorkspace\ht-backup\`
+  （`harness-times-pre-rewrite.bundle` + `replacements-v2.txt` + `mailmap.txt`）。
 
 ---
 
