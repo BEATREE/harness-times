@@ -114,6 +114,11 @@ const SHOTS = [
   // 1280px：翻页区整体退场，翻页能力交给章尾 .pager（滚到页尾才看得到）。
   // 和 20 号并排看，能一眼确认「断点确实在 1300 而不是别处」。
   { name: '23-chapter-1280-no-rail', path: '/harness/harness-02-agent-loop/', w: 1280, h: 900, js: 'window.scrollTo(0, document.body.scrollHeight)' },
+  // 出口区的两个断点：1100px 应降成「主站独占一行 + 两块并排」，
+  // 620px 应全部堆叠。三张并排时最容易出的问题是 cta-d 说明文案被压成「一列一个字」，
+  // 只看 1440px 的广角图是发现不了的。
+  { name: '24-about-cta-1100', path: '/about/', w: 1100, h: 720, js: 'document.querySelector(".cta-row")?.scrollIntoView({block:"start"})' },
+  { name: '25-about-cta-620', path: '/about/', w: 620, h: 900, js: 'document.querySelector(".cta-row")?.scrollIntoView({block:"start"})' },
 ];
 
 if (!existsSync(CHROME)) {

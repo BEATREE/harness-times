@@ -121,6 +121,17 @@ check('关于页标题为「关于本站」', about.includes('关于本站'));
 check('关于页声明不是每日报刊', about.includes('不是一份每天更新的报刊'));
 check('关于页有主站 CTA 区块', about.includes('class="cta cta-main"') && about.includes('class="cta-row"'));
 check('主站 CTA 是外链且带 rel=noopener', /class="cta cta-main"[^>]*target="_blank"[^>]*rel="noopener"/.test(about));
+/* 源码入口：这是「本站有公开作品」这条叙事在页面上的落点，
+ * 链接失效或 rel 掉了都不报错，所以必须断言。 */
+check(
+  '关于页有「本站源码」GitHub 入口',
+  about.includes('class="cta cta-slim cta-src"') &&
+    about.includes('https://github.com/BEATREE/harness-times')
+);
+check(
+  '源码入口是外链且带 rel=noopener',
+  /class="cta cta-slim cta-src"[^>]*target="_blank"[^>]*rel="noopener"/.test(about)
+);
 
 /* ---------- 5. 主站入口的另外两处（不只是关于页） ---------- */
 check('报头有 beatree.cn 主站入口', sample.includes('class="site-link"') && sample.includes('https://beatree.cn'));
@@ -262,6 +273,18 @@ check('CSS 有描边扫读动画', css.includes('dm-sweep'));
 check('CSS 有流向彗星动画', css.includes('dm-travel'));
 check('CSS 有 prefers-reduced-motion 降级', /prefers-reduced-motion/.test(css));
 check('CSS 有大翻页区样式', css.includes('page-rail'));
+
+/* 关于页出口区：两块主推大卡 + 一条整宽源码横条。
+ *
+ * 注意：Astro 会把组件里的 <style> 抽成单独的 CSS 包，所以「样式断言」必须读 css，
+ * 读 about/index.html 是一定读不到的 —— 这类断言写错位置不会报错，只会永远失败，
+ * 容易被后来的人当噪声忽略掉。
+ *
+ * 这里刻意**不**断言「源码做成第三张竖卡」：试过，纸面只有 600～700px 时三栏会把
+ * 说明文案压成「一列一个字」。横条对纸面宽度不敏感，是这版能稳的原因。 */
+check('关于页出口区是两块主推卡（主站最宽）', /grid-template-columns:\s*1\.4fr 1fr/.test(css));
+check('出口区窄屏降单栏', /max-width:\s*620px\)[\s\S]{0,600}\.cta-row[\s\S]{0,140}grid-template-columns:\s*1fr/.test(css));
+check('源码入口是整宽横条（.cta-slim 走 flex 而非 block）', /\.cta-slim[\s\S]{0,200}?display:\s*flex/.test(css));
 
 /* ---------- 输出 ---------- */
 let failed = 0;

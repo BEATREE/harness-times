@@ -238,7 +238,7 @@ const RELATED = [
     </figure>
   </div>
 
-  <!-- 主站入口：这是全页最想让人点出去的地方，所以单独做成一块大按钮，
+  <!-- 出口区：这是全页最想让人点出去的地方，所以单独做成几块大按钮，
        而不是埋在正文里的一行小链接。 -->
   <div class="cta-row">
     <a class="cta cta-main" href="https://beatree.cn" target="_blank" rel="noopener">
@@ -263,6 +263,24 @@ const RELATED = [
       <span class="cta-d">新章节与修订会先在那里说一声。</span>
     </a>
   </div>
+
+  <!-- 源码入口：做成整宽横条而不是第三张竖卡。
+       竖卡三并排只在纸面很宽时好看，窄一档就会出现「一列一个字」的说明文案
+       （侧栏占位后纸面只有 600～700px，三栏根本撑不住）。
+       横条对纸面宽度不敏感，且源码本来就是工具性入口，不该和主站抢同样的视觉重量。 -->
+  <a
+    class="cta cta-slim cta-src"
+    href="https://github.com/BEATREE/harness-times"
+    target="_blank"
+    rel="noopener"
+  >
+    <span class="cta-k">本站源码 · 公开仓库</span>
+    <span class="cta-t">
+      GitHub
+      <span class="cta-arrow" aria-hidden="true">↗</span>
+    </span>
+    <span class="cta-d">章节内容、构建脚本与验证工具全在这个仓库里，发现错误欢迎提 Issue。</span>
+  </a>
 
   <div class="section-head">关联网站</div>
   <p class="related-note">
@@ -479,7 +497,7 @@ const RELATED = [
     margin-bottom: 12px;
   }
 
-  /* --- 主站入口：全页最想让人点出去的两块 --- */
+  /* --- 出口区：全页最想让人点出去的两块 + 一条源码横条 --- */
   .cta-row {
     display: grid;
     grid-template-columns: 1.4fr 1fr;
@@ -539,6 +557,29 @@ const RELATED = [
     line-height: 1.7;
     color: var(--ink-muted);
     margin-top: 9px;
+  }
+
+  /* 源码横条：同一套视觉语言（纸底 + 红左沿），但排成一行。
+     行内用 baseline 对齐，说明文字用 margin-left:auto 推到右端；
+     纸面变窄时 flex-wrap 会让说明自动落到第二行，不需要额外断点。 */
+  .cta-slim {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 3px 18px;
+    margin-top: 16px;
+    padding: 13px 18px 12px;
+  }
+  .cta-slim .cta-k {
+    margin-bottom: 0;
+  }
+  .cta-slim .cta-t {
+    font-family: var(--font-body);
+    font-size: 1.02rem;
+  }
+  .cta-slim .cta-d {
+    margin-top: 0;
+    margin-left: auto;
   }
 
   .qr {
@@ -719,6 +760,16 @@ const RELATED = [
     }
     .cta-row {
       grid-template-columns: 1fr;
+    }
+    /* 手机上一行放不下「标签 + GitHub + 说明」，说明让它整行落下。 */
+    .cta-slim {
+      display: block;
+    }
+    .cta-slim .cta-k {
+      margin-bottom: 6px;
+    }
+    .cta-slim .cta-d {
+      margin-top: 6px;
     }
   }
 </style>

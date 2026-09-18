@@ -216,8 +216,8 @@ node scripts/cf-domain.mjs add harness.beatree.cn      # 挂到 Pages 项目
 node scripts/cf-domain.mjs check harness.beatree.cn    # 解析 + HTTPS 实探
 ```
 
-**本项目特有的坑**：Pages 项目在账号 `主账号`，
-而 zone `beatree.cn` 在**另一个账号** `另一个账号`。
+**本项目特有的坑**：Pages 项目挂在**主账号**下，
+而 zone `beatree.cn` 挂在**另一个账号**下 —— 两个账号不是同一个。
 zone 跨账号时 Cloudflare 不会自动创建 DNS 记录，必须去持有 zone 的那个账号手工加：
 
 ```

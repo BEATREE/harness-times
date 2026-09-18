@@ -17,6 +17,68 @@
 - **验证**：跑过哪些脚本、结果如何
 ```
 
+> ### ⚠️ 关于账号标识：本文件（以及整个仓库）一律不写
+>
+> **本仓库是公开的**，所以下面这些一律不进仓库，历史提交里也已清理（见 2026-09-18 那条）：
+> 邮箱、Cloudflare account id、zone tag、任何 token。
+>
+> 需要它们时的去处：
+> - **本机**：项目根的 `.dev.vars`（已在 `.gitignore` 内）
+> - **脚本参数**：`CLOUDFLARE_ACCOUNT_ID=… npm run cf:domain`
+> - **查完整值**：`node scripts/cf-domain.mjs status --show-ids`
+>
+> `cf-domain.mjs` 的输出默认是半掩的（`0515…14b9`）—— 因为**这些标识之所以会进仓库，
+> 正是因为有人把它的输出原样贴进了本文件**。半掩值足够核对「是不是同一个账号」，
+> 又不会被人直接抄走。
+>
+> 写文档时请用「主账号 / 持有 zone 的那个账号」这类描述，而不是具体邮箱。
+
+---
+
+## 2026-09-18 · 关于页出口区补「本站源码」入口
+
+- **类型**：版式
+- **改了什么**：`about.astro` 在原有的「主站 / 公众号」两块大卡下面，加了一条
+  **整宽的源码横条**（`.cta-slim.cta-src` → `github.com/BEATREE/harness-times`）。
+- **为什么**：仓库已经公开，但页面上没有任何入口指过去 —— 作品要是没人点得到，
+  公开就等于没公开。放在关于页最想让人点出去的那一区，是它能被看到的位置。
+- **踩到的坑（重要）**：第一版做成了**第三张竖卡**（`grid-template-columns: 1.45fr 1fr 1fr`），
+  1440px 上很好看，一到 1100px 就崩 —— 侧栏是固定占位的，纸面只剩 470px 左右，
+  三栏把 `.cta-d` 说明压成「一列一个字」。
+  所以改成两块竖卡（保持原构图）+ 一条横条：横条对纸面宽度不敏感，
+  靠 `flex-wrap` 自己就够，**不需要额外断点**；只保留 `≤620px` 让它由 `flex` 转 `block`。
+  这条已经写进 `design.md` 第六节组件清单与第十三节第 13 条。
+- **连带改动**：`scripts/verify-build.mjs` 新增 5 条断言（源码入口存在 / 外链带 `rel=noopener` /
+  出口区仍是两块主推卡 / `≤620px` 降单列 / `.cta-slim` 走 `flex`）；
+  `scripts/shoot.mjs` 新增 `24-about-cta-1100`、`25-about-cta-620` 两个镜头 ——
+  **只看 1440px 的广角图发现不了上面那个坑**，必须留下窄一档的证据。
+- **验证**：`npm run build:fresh` → `verify:build` **72/72**；`tools/verify.mjs` **53/53**；
+  `tools/audit.mjs` 全视口无横向溢出；三个宽度的截图（1440 / 1100 / 620）人工过目。
+
+---
+
+## 2026-09-18 · 仓库脱敏收尾：工作区改完 + 历史重写
+
+- **类型**：工程
+- **改了什么**：
+  - `scripts/cf-domain.mjs` 不再硬编码 account id，改为读 `CLOUDFLARE_ACCOUNT_ID`
+    环境变量 → 回落到 `.dev.vars`（`.gitignore` 内）；输出默认**半掩**（`0515…14b9`），
+    要完整值加 `--show-ids`。
+  - `README.md`、`wiki/log.md` 里的邮箱换成「主账号 / 持有 zone 的那个账号」这类描述。
+  - 本文件顶部加了「账号标识一律不进仓库」的约定说明。
+  - **历史重写**：`3a9b3c9` 引入的这些串在所有后续提交里都还在（一个串进了仓库，
+    它就在每一个后续 tree 里），所以工作区改干净**不等于**仓库改干净 ——
+    必须重写历史再强推。重写后校验：全历史 blob 扫一遍，邮箱 0 条、
+    32 位十六进制标识 0 条、token 0 条。
+- **为什么**：仓库是 public 的。要脱的不是密码（本来就没有），
+  而是**账号标识**：它们单看不是凭据，但足以让人定位到具体账号，
+  和「顺手贴进日志的输出」拼在一起就是一条可用的线索。
+  用户明确要求「历史版本提交记录也不要透露出来」，所以走重写而非只改工作区。
+- **连带改动**：重写历史会**换掉所有 commit hash**，远端必须
+  `git push --force-with-lease`；本地任何基于旧 hash 的引用（分支、tag、笔记）都要重新对。
+- **验证**：全历史 blob 扫描（`git rev-list --objects --all` → 逐个 `git cat-file`）
+  对 5 类模式全部为 0 命中；`git ls-files` 对同一组模式同样为 0 命中。
+
 ---
 
 ## 2026-09-18 · harness.beatree.cn 转 active —— canonical 随之切到自定义域名
@@ -106,10 +168,11 @@
     之所以要自己写：**wrangler v4 删掉了 `wrangler pages domain` 子命令**，
     域名操作只剩 Dashboard 或 REST API 两条路，脚本走 API，可重复执行。
   - **已通过 API 把 `harness.beatree.cn` 挂到 Pages 项目 `harness-times`**，
-    返回 `status=initializing` → `pending`，`zone_tag=ZONE_TAG`。
+    返回 `status=initializing` → `pending`。（zone_tag 与账号 id **已按 2026-09-18 的
+    脱敏决定移除**，见本文件顶部的说明。）
 - **卡在哪**：zone 跨账号。
-  - Pages 项目在账号 **主账号**（`PAGES_ACCOUNT_ID`）
-  - zone `beatree.cn` 在账号 **另一个账号**（`ZONE_ACCOUNT_ID`）
+  - Pages 项目挂在**主账号**下
+  - zone `beatree.cn` 挂在**另一个账号**下 —— 两个账号不是同一个
 
   跨账号时 Cloudflare **不会**自动建 DNS 记录，所以域名永远停在
   `pending / validation=pending/http` —— HTTP 校验要求能真的访问到域名，
@@ -118,7 +181,7 @@
   （scope 清单实测：`pages:write` ✅ / `zone:read` ✅ / 无 `dns_records:edit` ❌）。
 
 - **待办（需要持有 beatree.cn 的账号操作）**：
-  在 Beatreehero 账号 → `beatree.cn` → DNS 添加：
+  在持有 zone 的那个账号 → `beatree.cn` → DNS 添加：
 
   ```
   类型 CNAME · 名称 harness · 目标 harness-times.pages.dev · 代理：已代理（橙色云）

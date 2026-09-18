@@ -327,6 +327,7 @@ flex 项的 `min-width` 默认是 `auto`，等于「min-content 宽度」。
 | 章节头 | `.chapter-head` | 版块号 + 领域标签 + 难度 + 时长 + 导语 |
 | 章节工具条 | `.chapter-toolbar` | 进度 / 笔记 / 自评，滚动时吸顶 |
 | 侧边翻页 | `.page-rail` · `.rail-prev` · `.rail-next` · `.rail-k` · `.rail-title` · `.rail-desc` · `.rail-meta` · `.rail-hint` | 见第八节 |
+| 出口区（关于页） | `.cta-row` · `.cta` · `.cta-main` · `.cta-sub` · `.cta-slim` · `.cta-src` | 两块主推竖卡（主站 `1.4fr` / 公众号 `1fr`）+ 一条整宽源码横条。**竖卡不要做第三张**：侧栏占位后纸面只有 600～700px，三并排会把 `.cta-d` 说明压成「一列一个字」；横条对纸面宽度不敏感，`flex-wrap` 自己就够，不需要断点 |
 | 目录卡片 | `.card` | 首页与领域页的章节入口 |
 | 进度页 | `.stat-row` · 热力图 | 本机数据面板 |
 | 页脚 | `.site-foot` | |
@@ -501,6 +502,7 @@ body.is-entering .main { animation: paperEnter 0.26s …; } /* opacity 0→1, tr
 | `≤ 980px` | `--sidebar-w` 268 → 250px；`--sheet-pad` 56 → **34px** | 挤一点，先把栏宽留住 |
 | `≤ 900px` | 头版 / 目录卡片转单列 | — |
 | `≤ 780px` | 正文相关的小结构调整 | — |
+| `≤ 620px` | 关于页出口区：两块竖卡转单列；源码横条由 `flex` 转 `block` | 一行放不下「标签 + GitHub + 说明」，说明整行落下比挤成两截好读 |
 | **`≤ 760px`** | **侧栏变覆盖式抽屉**（`☰` + `.scrim`）；两侧留白归零；隐藏折叠按钮与翻页区；`--sheet-pad` → **20px**，`.sheet` padding → `66px 20px 54px` | 移动端不占版面，正文满宽 |
 | `print` | 隐藏侧栏 / 工具条 / **翻页区** / 页脚；`.main` 回退 `display: block` 并取消 `padding-right`；`.sheet` 与 `.prose` 全宽；链接去下划线；`.box` `.quiz` `figure.fig` `.qa` 设 `break-inside: avoid` | 打印时不要被切断的块 |
 
@@ -609,7 +611,7 @@ body { font-family: var(--font-body); color: var(--ink); line-height: 1.75; }
 
 ---
 
-## 十三、十二条「不要做」
+## 十三、「不要做」清单（13 条）
 
 | # | 不要 | 因为 |
 | --- | --- | --- |
@@ -625,6 +627,7 @@ body { font-family: var(--font-body); color: var(--ink); line-height: 1.75; }
 | 10 | 新增动效不写 `prefers-reduced-motion` | 晕动症用户无法使用 |
 | 11 | 只改 `--sheet-pad` 而不改 `.chapter-toolbar` 的负 margin | 正文与工具栏会错开；两次体检脚本都会报红 |
 | 12 | 把 `.page-rail` 写成 `.sheet` 的子节点 | 三栏 flex 会静默塌回单栏，且不报错 |
+| 13 | 把关于页出口区的竖卡排到三列 | 侧栏占位后纸面只剩 600～700px，说明文案被压成「一列一个字」；第三张改横条 |
 
 ---
 
