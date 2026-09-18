@@ -10,9 +10,9 @@ note: '本刊读者若只读一章，请读这一章。它决定了后面所有�
 
 模型提供三种能力：理解输入、生成内容、在给定格式下输出结构化结果。它不能做的是：记住上一次对话、访问外部世界、判断自己的输出对不对、在失败后重试、控制自己做事的顺序、以及在出事之后被追责。
 
-这些「不能做」的事情，就是 Harness 的地盘。换个更工程化的说法：
+这些「不能做」的事情，就是 [[harness]] 的地盘。换个更工程化的说法：
 
-> **Harness 是把一个概率性的文本生成器，包装成一个可交付、可观测、可控制、可恢复的执行系统的全部工程。**
+> **Harness 是把一个概率性的文本生成器，包装成一个 [[deliverable|可交付]]、[[observability|可观测]]、可控制、可恢复的执行系统的全部工程。**
 
 「可交付」意味着用户拿到的是结果而不是一段文字；「可观测」意味着每一步都能查；「可控制」意味着越权行为会被拦住；「可恢复」意味着中途断了能接着跑。这四件事没有一件是模型本身提供的。
 
@@ -60,21 +60,89 @@ note: '本刊读者若只读一章，请读这一章。它决定了后面所有�
   <figcaption><b>图 1</b>　Harness 能力地图。注意第 ③ 层的标注：<b>上下文层是效果上限的真正来源</b>——工具再多、编排再花，模型看到的上下文决定了它能做出什么判断。这也是后面第七、八章反复回到这一层的原因。</figcaption>
 </figure>
 
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 330" role="img" aria-label="研究问题与工程问题的分界：判据是是否需要改模型结构或训练">
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">研究问题 vs 工程问题：边界在哪</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">唯一的判据：要不要改模型权重、结构或重新训练？</text>
+      <rect x="16" y="58" width="300" height="210" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.3"/>
+      <text x="166" y="80" text-anchor="middle" font-family="Georgia, serif" font-size="12" font-weight="700" fill="#9b2c2c">研究问题（模型侧）</text>
+      <text x="166" y="100" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.4" fill="#6b6257">必须动模型本身</text>
+      <text x="32" y="128" font-family="ui-monospace, monospace" font-size="9.6" fill="#1f1b16">· 长序列注意力效率</text>
+      <text x="32" y="150" font-family="ui-monospace, monospace" font-size="9.6" fill="#1f1b16">　（FlashAttention / 稀疏）</text>
+      <text x="32" y="174" font-family="ui-monospace, monospace" font-size="9.6" fill="#1f1b16">· 降低解码重复（改采样/训练）</text>
+      <text x="32" y="198" font-family="ui-monospace, monospace" font-size="9.6" fill="#1f1b16">· 提升多语言 / 推理能力</text>
+      <text x="32" y="222" font-family="ui-monospace, monospace" font-size="9.6" fill="#1f1b16">· 注入全新知识（继续预训练）</text>
+      <rect x="344" y="58" width="300" height="210" fill="#eef4f1" stroke="#2f6157" stroke-width="1.3"/>
+      <text x="494" y="80" text-anchor="middle" font-family="Georgia, serif" font-size="12" font-weight="700" fill="#2f6157">工程问题（Harness 侧）</text>
+      <text x="494" y="100" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.4" fill="#6b6257">模型之外全部可改</text>
+      <text x="360" y="128" font-family="ui-monospace, monospace" font-size="9.6" fill="#1f1b16">· 工具契约与错误回喂</text>
+      <text x="360" y="150" font-family="ui-monospace, monospace" font-size="9.6" fill="#1f1b16">· 上下文预算与压缩</text>
+      <text x="360" y="174" font-family="ui-monospace, monospace" font-size="9.6" fill="#1f1b16">· 循环终止与卡死检测</text>
+      <text x="360" y="198" font-family="ui-monospace, monospace" font-size="9.6" fill="#1f1b16">· 权限沙箱与编排</text>
+      <text x="360" y="222" font-family="ui-monospace, monospace" font-size="9.6" fill="#1f1b16">· 交付形态与回滚</text>
+      <line x1="332" y1="58" x2="332" y2="268" stroke="#1f1b16" stroke-width="1" stroke-dasharray="3 2"/>
+      <rect x="16" y="282" width="628" height="36" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="330" y="305" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.8" font-weight="700" fill="#8a6a1e">判据：需要动模型结构或训练 → 研究问题；否则 → 工程问题（Harness 的地盘）</text>
+    </svg>
+  </div>
+  <figcaption><b>图 2</b>　同一份模型，套不同 Harness 效果差异更大，原因就在这条分界线上。<b>凡是「改模型结构或训练才能做到」的，都不属于 Harness</b>——这是第一章自测第 1 题的判据，也是岗位边界。</figcaption>
+</figure>
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 360" role="img" aria-label="同一份模型输出，加不加 Harness 的天差地别：四层包装把一段文字变成可交付可观测可控制可恢复的执行系统">
+      <defs>
+        <marker id="ar1" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#1f1b16"/>
+        </marker>
+      </defs>
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">同一份模型输出，加不加 Harness 天差地别</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">四层包装把「一段概率性文字」变成「可交付 / 可观测 / 可控制 / 可恢复的执行系统」。</text>
+      <rect x="16" y="60" width="280" height="250" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.3"/>
+      <text x="156" y="84" text-anchor="middle" font-family="Georgia, serif" font-size="12" font-weight="700" fill="#9b2c2c">裸模型输出</text>
+      <text x="156" y="112" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" fill="#1f1b16">一段概率性文本</text>
+      <text x="40" y="146" font-family="ui-monospace, monospace" font-size="9.4" fill="#6b6257">× 记不住上次对话</text>
+      <text x="40" y="170" font-family="ui-monospace, monospace" font-size="9.4" fill="#6b6257">× 调不了外部工具</text>
+      <text x="40" y="194" font-family="ui-monospace, monospace" font-size="9.4" fill="#6b6257">× 坏了没法重试</text>
+      <text x="40" y="218" font-family="ui-monospace, monospace" font-size="9.4" fill="#6b6257">× 越权无法拦截</text>
+      <text x="40" y="242" font-family="ui-monospace, monospace" font-size="9.4" fill="#6b6257">× 出事没法追责</text>
+      <text x="40" y="276" font-family="ui-monospace, monospace" font-size="9.2" fill="#9b2c2c">没有这四项保障，</text>
+      <text x="40" y="294" font-family="ui-monospace, monospace" font-size="9.2" fill="#9b2c2c">它只是「会聊天的模型」。</text>
+      <line x1="300" y1="185" x2="338" y2="185" stroke="#1f1b16" stroke-width="1.2" marker-end="url(#ar1)"/>
+      <text x="319" y="178" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">包装</text>
+      <rect x="340" y="60" width="304" height="56" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1.3"/>
+      <text x="492" y="82" text-anchor="middle" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#1f1b16">① 可交付</text>
+      <text x="492" y="100" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">给用户结果，不是一段文字</text>
+      <rect x="340" y="124" width="304" height="56" fill="#eef4f1" stroke="#2f6157" stroke-width="1.3"/>
+      <text x="492" y="146" text-anchor="middle" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#2f6157">② 可观测</text>
+      <text x="492" y="164" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">每步留痕、可回放</text>
+      <rect x="340" y="188" width="304" height="56" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.3"/>
+      <text x="492" y="210" text-anchor="middle" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#8a6a1e">③ 可控制</text>
+      <text x="492" y="228" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">越权与不可逆被拦住</text>
+      <rect x="340" y="252" width="304" height="56" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.3"/>
+      <text x="492" y="274" text-anchor="middle" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#9b2c2c">④ 可恢复</text>
+      <text x="492" y="292" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">中断续跑、状态持久化</text>
+    </svg>
+  </div>
+  <figcaption><b>图 3</b>　模型本身提供理解与生成，但「记不住、调不了工具、坏了不能重试、越权拦不住」这四件事它做不到。<b>Harness 的价值不是让模型变聪明，而是把这段输出包进四层保障</b>，变成能交付、能追责的执行系统。</figcaption>
+</figure>
+
 ## 二、为什么「同一模型不同效果」是常态
 
 一个常被忽略的事实：把 GPT / Claude / DeepSeek 换进同一个 Harness，效果差异往往小于「同一个模型换一个 Harness」。原因有三：
 
-**第一，工具描述的质量决定了模型会不会用、用得对不对。** 同一个查询接口，描述写成「查询数据」，写成一个带参数说明、取值范例、返回结构示例的完整契约，工具调用成功率可以差出一倍。
+**第一，[[tool-contract|工具契约]] 描述的质量决定了模型会不会用、用得对不对。** 同一个查询接口，描述写成「查询数据」，写成一个带参数说明、取值范例、返回结构示例的完整契约，工具调用成功率可以差出一倍。
 
 **第二，上下文里的信息决定模型能做什么判断。** 如果历史全量堆进上下文，模型注意力被稀释；如果该给的信息没给（比如「这个字段昨天刚改过口径」），模型只能猜。
 
-**第三，失败处理决定系统能不能跑完。** 同一个模型，遇到工具报错就整轮失败，和把错误分类后回喂让它换参数重试，任务完成率的差距是量级级别的。
+**第三，失败处理决定系统能不能跑完。** 同一个模型，遇到工具报错就整轮失败，和把错误分类后 [[error-refeed|回喂]] 让它换参数重试，任务完成率的差距是量级级别的。模型一次误判还可能直接造成 [[side-effect|副作用]]、改坏线上数据。
 
 <p class="pull-quote">模型决定上限，Harness 决定你能不能摸到那个上限。而绝大多数产品离上限还差得远，所以 Harness 才是主战场。<cite>本刊编辑部</cite></p>
 
 ## 三、一个最小可用的 Harness 应该有什么
 
-不需要一上来就建六层。但如果只有一天时间写一个能用的 Harness，下面这六件事缺一不可：
+不需要一上来就建六层。但如果只有一天时间写一个能用的 Harness，下面这六件事缺一不可——它们正好对应一张 [[capability-map|能力地图]]，其中「最小权限」就是 [[least-privilege|最小权限]] 原则，而工具契约还要求声明是否 [[idempotency|幂等]]：
 
 <div class="tbl-wrap">
   <table class="news">
@@ -187,7 +255,7 @@ def run(task: str, budget: Budget) -> dict:
 
 ## 四、面试里怎么答「什么是 Harness」
 
-这道题的标准陷阱是答成「Agent 的框架」。正确的答法是给一个判据，而不是一个描述：
+这道题的标准陷阱是答成「Agent 的框架」。正确的答法是给一个判据，而不是一个描述——按六层展开时，不要忘了还有 [[orchestration|编排]] 这一层：
 
 <div class="box box-practice">
   <span class="box-title">推荐的答题结构</span>
@@ -197,7 +265,29 @@ def run(task: str, budget: Budget) -> dict:
   <p><b>实践：</b>举一个你自己的例子（比如把某个失败率高的链路从「加提示词」改成「改错误分类 + 回喂」）。</p>
 </div>
 
-## 五、自测
+## 五、常见误区与追问
+
+### 5.1 误区：把 Harness 答成「Agent 框架」
+
+错在哪：面试里说「Harness 就是 LangChain 那种框架」，把概念降维成了工具库。为什么自然：框架确实管循环和工具，容易混为一谈。判据：框架是给开发者用的基础设施；Harness 是「把模型包成可交付系统」的全部工程，含上下文、失败恢复、权限、可观测——这些框架默认不给。能说出「模型做不到的才是 Harness」，就过关。
+
+### 5.2 误区：上下文越长效果越好
+
+错在哪：无治理地堆历史，信噪比下降，模型「越跑越笨」。为什么自然：直觉上信息多总比少好。判据：真实判断依据占比从约 18% 被稀释到 10%，成本却涨十几倍。健康做法是按四类成分分配预算、把状态外部化，而不是无脑加长。
+
+### 5.3 误区：工具越多越能干活
+
+错在哪：相似工具多了，模型选错、选重、遗忘。为什么自然：功能覆盖看起来更全。判据：工具描述要求「动词开头、语义唯一、不与其它重名」。每新增一个工具，先问「它和已有工具的选择边界是否清晰」，边界不清就合并而非新增。
+
+### 5.4 误区：错误回喂就是「把异常打印出来」
+
+错在哪：回喂的是原始异常，模型看不出该改参数还是换方案。为什么自然：try/except 里直接 `str(e)` 最省事。判据：必须先分类（参数/格式/权限/超时/空结果…），再回喂「具体哪个字段错、合法取值是什么、是否该重试」。空结果要显式标成非错误。
+
+### 5.5 误区：最小权限会拖慢开发
+
+错在哪：为省事给工具全量权限，一次误判就改坏线上。为什么自然：加确认和权限隔离要多写代码。判据：权限在工具内部强制执行（确定性闸门），不是靠模型自觉；不可逆操作每次强制确认，确认信息必须含影响范围，如「删除 orders_2025 表，共 12 万行」。
+
+## 六、自测
 
 <div class="quiz">
   <div class="quiz-head"><span>本章自测</span><span>第 3 题最容易答错</span></div>
@@ -227,7 +317,7 @@ def run(task: str, budget: Budget) -> dict:
   </div>
 </div>
 
-## 六、小结
+## 七、小结
 
 - **判据比定义重要**：模型做不到的，就是 Harness 的。
 - **六层地图**：循环 / 工具 / 上下文 / 记忆与知识 / 编排 / 交付，权限与观测贯穿全层。
@@ -235,3 +325,22 @@ def run(task: str, budget: Budget) -> dict:
 - **Harness 要能变薄**：为绕开旧模型弱点而加的补丁要能被识别并拆除。
 
 下一章从最底下那层开始：循环该怎么写，尤其是——什么时候该让它停下来。
+
+## 八、参考与延伸
+
+这一章给的是一张地图，而地图要能被验证才值得信。下面这几份材料分别回答三件事：别人怎么分层、一个真实的 Harness 长什么样、以及「效果差异」该怎么量。全站不做原文转载，这里只登记链接与「为什么值得读」。
+
+**先看总览（对齐别人的地图）**
+
+- [Anthropic · Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents) —— 目前把「Agent 到底由哪些工程部件组成」讲得最克制的一篇，全篇在做一件事：区分「编排好的工作流」与「让模型自己决策的 Agent」，并且明确主张能用前者就别写后者。<strong>先读它，再回来看本章第一节的能力地图——两张图重合的部分说明共识，不重合的那几层才是你真正需要想清楚的地方。</strong>
+- [Eugene Yan · Patterns for Building LLM-based Systems & Products](https://eugeneyan.com/writing/llm-patterns/) —— 把 RAG、缓存、护栏、评测、可观测性按「工程模式」编成一份带目录的清单，每条都写了代价而不只是好处。<strong>适合当索引用：你现在缺哪一层就翻哪一节，不必从头读；它的分类比任何一篇「Agent 入门」都更接近生产现实。</strong>
+
+**再看一个真 Harness 长什么样**
+
+- [Anthropic · Claude Code Best Practices](https://www.anthropic.com/engineering/claude-code-best-practices) —— 一个已经上线的编码 Agent 具体做了哪些取舍：什么情况下停下来问人、哪些操作必须先设闸门、上下文怎么组织、失败后怎么接着跑。<strong>把本章第三节那张「最小可用六件事」表对着它看，你会发现这六条全都对应着某个具体的产品决策——这比任何论证都能说明它们为什么缺一不可。</strong>
+
+**最后看效果该怎么量**
+
+- [SWE-bench](https://github.com/SWE-bench/SWE-bench) —— 「同一个模型换不同 Harness，效果差异能有多大」这件事最硬的证据来源：它固定模型与任务，只允许改动 Harness 侧（提示组织、工具、循环、重试策略），榜单上的名次差异全部来自工程。<strong>要说服别人「Harness 值得投入」，拿它当论据比讲道理有效得多。</strong>
+- [τ-bench（sierra-research/tau-bench）](https://github.com/sierra-research/tau-bench) —— 面向「多轮、带业务规则约束、必须通过工具办事」的场景，并且把「结果对不对」与「过程有没有违规」分开记分。<strong>本章第一节说「可控制不等于结果正确」，这份基准是这句话的可执行版本：它专门惩罚「办成了但办得不合规」。</strong>
+- [Anthropic · Writing Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents) —— 放在第一章的延伸里，是因为工具契约是整张能力地图上投入产出比最高的一项，也是第三章的主题。<strong>如果你读完这一章只打算动手改一处，就先读这一篇，再回去改你的工具描述——它给的改法是当天能落地的。</strong>

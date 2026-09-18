@@ -8,7 +8,7 @@ note: '这一章的内容可以直接拿去改你手上的 Harness —— 它是
 
 ## 一、工具是契约，不是接口
 
-一个完整的工具契约包含七个要素。少任何一个都会以某种方式转化为线上问题。
+一个完整的工具契约包含七个要素。少任何一个都会以某种方式转化为线上问题——其中 [[tool-description|工具描述]] 与 [[tool-schema|参数 schema]] 直接决定模型「会不会用、用得对不对」：
 
 <div class="tbl-wrap">
   <table class="news">
@@ -67,9 +67,79 @@ note: '这一章的内容可以直接拿去改你手上的 Harness —— 它是
   <figcaption><b>图 1</b>　工具描述的四个层次：做什么 → 什么时候用 → 参数怎么填 → 返回什么。多数团队只写了第一层，然后靠「加系统提示词」去补救第二到第四层——<b>把该写在契约里的信息写进提示词，是典型的职责错位。</b></figcaption>
 </figure>
 
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 320" role="img" aria-label="三层约束金字塔：描述约束弱、执行前校验强，强制程度递增">
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">让调用不可能出错：三层约束，强制程度递增</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">越往下越「硬」：上层靠模型自觉，下层靠结构强制。</text>
+      <polygon points="300,64 392,64 410,124 282,124" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.3"/>
+      <text x="346" y="88" text-anchor="middle" font-family="Georgia, serif" font-size="10.5" font-weight="700" fill="#9b2c2c">③ 执行前校验</text>
+      <text x="346" y="106" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#6b6257">Handler 入口再校验</text>
+      <text x="346" y="118" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#6b6257">不信任任何上游 · 强</text>
+      <polygon points="272,128 420,128 442,188 250,188" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.3"/>
+      <text x="346" y="152" text-anchor="middle" font-family="Georgia, serif" font-size="10.5" font-weight="700" fill="#8a6a1e">② schema 约束</text>
+      <text x="346" y="170" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#6b6257">enum/min/max/required 堵死非法</text>
+      <text x="346" y="182" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#6b6257">结构化输出保证 · 中</text>
+      <polygon points="244,192 448,192 474,252 218,252" fill="#eef4f1" stroke="#2f6157" stroke-width="1.3"/>
+      <text x="346" y="216" text-anchor="middle" font-family="Georgia, serif" font-size="10.5" font-weight="700" fill="#2f6157">① 描述约束</text>
+      <text x="346" y="234" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#6b6257">取值范围 + 范例，靠模型自觉</text>
+      <text x="346" y="246" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#6b6257">成本最低 · 弱</text>
+      <rect x="486" y="64" width="158" height="188" fill="#fbf8f2" stroke="#1f1b16" stroke-width="1.2"/>
+      <text x="500" y="86" font-family="Georgia, serif" font-size="10.5" font-weight="700" fill="#1f1b16">为什么三层</text>
+      <text x="500" y="108" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">模型可能绕过第①层</text>
+      <text x="500" y="126" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">（不走结构化通道），</text>
+      <text x="500" y="144" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">也可能无视第②层；</text>
+      <text x="500" y="162" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">第③层在代码里，</text>
+      <text x="500" y="180" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">谁都绕不过去。</text>
+      <text x="500" y="204" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#9b2c2c">三层叠加，</text>
+      <text x="500" y="222" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#9b2c2c">错误在抵达外部前</text>
+      <text x="500" y="240" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#9b2c2c">就被拦下。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 2</b>　把「防止出错」从「指望模型自觉」升级成「结构上不可能」。<b>最可靠的一层永远在执行前校验</b>——它在代码里，不依赖任何模型行为，是防御的最后一道硬墙。</figcaption>
+</figure>
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 340" role="img" aria-label="错误回喂的决策链路：先排除空结果，再分类决定重试/换方案/上报">
+      <defs>
+        <marker id="ar1" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1f1b16"/></marker>
+        <marker id="ar2" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#9b2c2c"/></marker>
+      </defs>
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">错误回喂的决策链路</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">分类决定下一步动作；空结果要先排除——它不是错误。</text>
+      <rect x="30" y="70" width="180" height="40" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1.3"/>
+      <text x="120" y="95" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" font-weight="700" fill="#1f1b16">工具执行返回</text>
+      <line x1="210" y1="90" x2="248" y2="90" stroke="#1f1b16" stroke-width="1.2" marker-end="url(#ar1)"/>
+      <polygon points="252,66 372,66 392,90 372,114 252,114 272,90" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.3"/>
+      <text x="320" y="94" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" font-weight="700" fill="#8a6a1e">是空结果？</text>
+      <line x1="392" y1="90" x2="430" y2="90" stroke="#1f1b16" stroke-width="1.2" marker-end="url(#ar1)"/>
+      <rect x="430" y="70" width="200" height="40" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.3"/>
+      <text x="530" y="95" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.2" font-weight="700" fill="#9b2c2c">明确告知：成功但无数据</text>
+      <text x="320" y="138" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">否 →</text>
+      <line x1="320" y1="114" x2="320" y2="150" stroke="#1f1b16" stroke-width="1.2" marker-end="url(#ar1)"/>
+      <rect x="230" y="150" width="180" height="40" fill="#eef4f1" stroke="#2f6157" stroke-width="1.3"/>
+      <text x="320" y="175" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" font-weight="700" fill="#2f6157">错误分类</text>
+      <line x1="230" y1="170" x2="120" y2="210" stroke="#1f1b16" stroke-width="1.2" marker-end="url(#ar1)"/>
+      <line x1="320" y1="190" x2="320" y2="220" stroke="#1f1b16" stroke-width="1.2" marker-end="url(#ar1)"/>
+      <line x1="410" y1="170" x2="540" y2="210" stroke="#9b2c2c" stroke-width="1.2" marker-end="url(#ar2)"/>
+      <rect x="30" y="210" width="180" height="44" fill="#eef4f1" stroke="#2f6157" stroke-width="1.3"/>
+      <text x="120" y="230" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.2" font-weight="700" fill="#2f6157">参数/格式错误</text>
+      <text x="120" y="246" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">改参数后重试</text>
+      <rect x="230" y="220" width="180" height="44" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.3"/>
+      <text x="320" y="240" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.2" font-weight="700" fill="#8a6a1e">超时/限流</text>
+      <text x="320" y="256" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">原样重试（退避）</text>
+      <rect x="460" y="210" width="180" height="44" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.3"/>
+      <text x="550" y="230" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.2" font-weight="700" fill="#9b2c2c">权限/业务拒绝</text>
+      <text x="550" y="246" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">换方案 / 上报</text>
+    </svg>
+  </div>
+  <figcaption><b>图 3</b>　回喂给模型的内容由「分类」决定，而不是由「失败了」三个字决定。<b>最隐蔽的坑是空结果</b>：它会被当成失败，引发「换关键词—再失败—再换」的空转，而日志里全是正常调用。</figcaption>
+</figure>
+
 ## 二、错误分类：决定重试有没有意义
 
-这是本章最有工程价值的部分。工具执行失败时，Harness 只有两种选择：抛出异常终止，或者把错误回喂让模型换策略。而**回喂的内容决定了第二次尝试有没有意义。**
+这是本章最有工程价值的部分，核心是 [[error-taxonomy|错误分类]]。工具执行失败时，Harness 只有两种选择：抛出异常终止，或者把错误回喂让模型换策略。而**回喂的内容决定了第二次尝试有没有意义**——尤其要注意 [[empty-result|空结果]]：查询成功但无数据，必须和「失败」区分开，否则模型会陷入换关键词空转。
 
 <div class="tbl-wrap">
   <table class="news">
@@ -100,9 +170,9 @@ note: '这一章的内容可以直接拿去改你手上的 Harness —— 它是
 
 **第一层，描述约束。** 在描述里写清取值范围与范例。靠模型自觉，最弱但成本最低。
 
-**第二层，schema 约束。** 用 JSON Schema 的 `enum`、`minimum`、`maximum`、`pattern`、`required` 把非法输入堵死。多数模型 API 在结构化输出模式下会直接保证符合 schema。
+**第二层，schema 约束。** 用 JSON Schema 的 `enum`、`minimum`、`maximum`、`pattern`、`required` 把非法输入堵死，这本质上是在强制 [[structured-output|结构化输出]]。多数模型 API 在结构化输出模式下会直接保证符合 schema。
 
-**第三层，执行前校验。** 无论前面怎么写，Handler 入口必须再校验一遍——因为模型可能根本不走结构化输出通道，或者你做了参数转换。
+**第三层，[[pre-execution-validation|执行前校验]]。** 无论前面怎么写，Handler 入口必须再校验一遍——因为模型可能根本不走结构化输出通道，或者你做了参数转换。对有副作用的工具，还要配合 [[idempotency-key|幂等键]] 在重试时去重。
 
 ```python title="tool_contract.py"
 from dataclasses import dataclass
@@ -185,7 +255,7 @@ def api_send(user_id, text): raise NotImplementedError
 
 ## 四、什么时候该用 MCP
 
-MCP（Model Context Protocol）解决的是**工具供给的标准化**问题，不是工具设计的质量问题。用不用的判据很清楚：
+[[mcp|MCP]]（Model Context Protocol）解决的是**工具供给的标准化**问题，不是工具设计的质量问题。用不用的判据很清楚——有 [[side-effect-level|副作用等级]] 的工具在调用前必须确认，而 [[call-cost-hint|调用成本提示]] 能阻止模型反复敲昂贵接口：
 
 <div class="tbl-wrap">
   <table class="news">
@@ -204,7 +274,29 @@ MCP（Model Context Protocol）解决的是**工具供给的标准化**问题，
 
 <p class="pull-quote">把工具当接口写，模型会当接口用——参数填得对，语义完全错。把工具当契约写，模型才知道你的系统期望它做什么。<cite>本刊编辑部</cite></p>
 
-## 五、自测
+## 五、常见误区与追问
+
+### 5.1 误区：工具描述是「文档」，写短一点省 token
+
+错在哪：把描述当成占 token 的成本项，而不是决定成功率的输入。为什么自然：描述越长，每轮请求的常驻前缀越大，看着确实是在烧钱。判据：先算账再决定删不删——描述属于常驻前缀，前缀稳定时它被缓存复用，边际成本接近零；而描述含糊带来的每一次误调用，都要额外一轮「失败→回喂→重试」，那一轮的输入是完整上下文。所以「描述多写 300 token」和「多跑一轮 4k token」不是一个量级的取舍。<strong>要压就压真正冗余的部分</strong>，例如重复的业务背景、与调用无关的实现细节。
+
+### 5.2 误区：把该写在 schema 里的约束写进系统提示词
+
+错在哪：用概率性手段去实现确定性约束。为什么自然：改提示词看起来更快。判据：凡是能用 enum、minimum、maximum、required 表达的限制，都不该写进提示词——schema 约束下非法输入在结构上不可能出现，提示词约束下它只是变得不太可能。<strong>检查方法：把提示词里带数字或范围的句子抄出来，逐条问「这条能不能写成 schema 字段」；能改而没改的，就是留给线上事故的口子。</strong>提示词该留的是 schema 表达不了的东西：什么时候用、什么时候换别的。
+
+### 5.3 误区：错误回喂就是把异常信息打印给模型
+
+错在哪：把「让模型看到错误」当成「让模型能修正错误」。为什么自然：try/except 里直接拼一句 str(e) 只需要一行。判据：回喂内容必须回答三个问题——哪个字段错了、合法取值是什么、这次该不该重试。原始堆栈只能回答第一个，而且往往答不清：invalid literal 不会告诉模型 limit 应该落在 1–20。<strong>只回喂堆栈时，模型通常会原样重试 2–3 次才想到换参数，那是 2–3 轮完整上下文的成本；说清合法区间，第一次改参数就能过。</strong>
+
+### 5.4 误区：有了重试就不需要幂等
+
+错在哪：把「重试」和「重复执行」当成两件事，而不是同一件事的两种叫法。为什么自然：重试看起来只是再发一次请求，没人觉得危险。判据：最容易出事的是超时——服务端可能已经执行完、只是响应在路上丢了，此时重试就是第二次执行。挡住它的唯一办法是幂等键，而键必须由调用方按「操作意图」生成（任务 ID + 步骤序号），绝不能是时间戳或随机 UUID，否则每次重试都是新键，去重表永远命中不了。<strong>检查动作：把服务端的去重记录捞出来，看同一个业务对象有没有两条来自同一任务的记录。</strong>
+
+### 5.5 误区：上了 MCP 就解决了工具接入的乱象
+
+错在哪：把「供给标准化」当成「质量提升」。为什么自然：MCP 确实让同一份能力可以跨产品复用，看起来是全面的进步。判据：它解决的是「一次实现、N 处接入」的成本问题，一个字都没规定工具该怎样命名、描述怎么写、错误怎么分类。描述含糊的 MCP 工具接进来照样被误用，七要素一条都不能省。<strong>反过来也成立：如果这份能力只服务一个产品、调用链又极短，引入 MCP 只会多一层进程与协议开销，收益为负。</strong>所以判据是「它需不需要被第二个产品复用」，而不是「MCP 是不是更先进」。
+
+## 六、自测
 
 <div class="quiz">
   <div class="quiz-head"><span>本章自测</span><span>第 2 题为高频考点</span></div>
@@ -234,7 +326,7 @@ MCP（Model Context Protocol）解决的是**工具供给的标准化**问题，
   </div>
 </div>
 
-## 六、小结
+## 七、小结
 
 - 工具是**契约**：名称、用途、参数、返回、幂等性、副作用等级、成本提示，七项齐全。
 - 描述要回答四个问题：做什么 / 何时用 / 参数怎么填 / 返回什么。
@@ -244,3 +336,21 @@ MCP（Model Context Protocol）解决的是**工具供给的标准化**问题，
 - MCP 解决工具**供给标准化**，不解决工具**设计质量**。
 
 下一章处理那个决定效果上限的层：模型到底能看到什么。
+
+## 八、参考与延伸
+
+工具这一层的理论文献很薄，但官方文档质量极高——因为各家模型厂都在教人怎么写工具。下面按「先看怎么写、再看协议、最后看怎么量」排好。全站不做原文转载，这里只登记链接与「为什么值得读」。
+
+**先看怎么写（契约的四个层次）**
+
+- [Anthropic · Writing Tools for Agents](https://www.anthropic.com/engineering/writing-tools-for-agents) —— 目前最接近「工具描述实操手册」的一篇：命名怎么起、描述该写哪几段、返回结构怎么设计、错误怎么回喂，都给了改前改后的对照。<strong>把它和本章第一节的七要素表并排放着看，重合的部分可以直接照抄着改你自己的工具——这是本章所有延伸材料里唯一「当天就能用」的一份。</strong>
+- [Anthropic · Prompt Engineering Overview](https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/overview) —— 标题像讲措辞，但有大半篇幅在讲工具定义、结构化输出这类确定性通道的正确用法。<strong>想彻底弄清「哪些约束该交给 schema、哪些只能靠提示词」，这一页把边界划得最清楚；本章第三层约束的设计标准就是从这里来的。</strong>
+
+**再看协议（工具怎么供给）**
+
+- [Model Context Protocol 官方站](https://modelcontextprotocol.io/) —— 规范、各语言 SDK、示例 server 都在这一站，读 Getting Started 一页足够建立全貌。<strong>本章第四节说「MCP 解决供给标准化、不解决设计质量」，读完规范你会确认这一点：它定义的是传输与方法，一个字都没规定描述该怎么写。</strong>
+- [OpenAI Cookbook](https://developers.openai.com/cookbook) —— 函数调用、结构化输出、并行工具调用都有可直接跑的 notebook。<strong>想验证「schema 约束到底能拦住多少错参数」，照它的结构化输出示例改一版你自己的工具，一个下午就能拿到自己的数据，而不必相信任何人的说法。</strong>
+
+**最后看怎么量（调用得对不对）**
+
+- [τ-bench（sierra-research/tau-bench）](https://github.com/sierra-research/tau-bench) —— 它的评分同时看「参数是否准确」和「是否在正确的时机调用了正确的工具」。<strong>这正好对应本章强调的那条区别：参数填对但语义用错，是最难被单测发现的失败形态；只统计工具调用成功率是看不出来的。</strong>

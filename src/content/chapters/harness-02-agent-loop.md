@@ -8,7 +8,7 @@ note: '「什么时候该停下来」是本刊认为最被低估的工程问题�
 
 ## 一、循环的骨架
 
-Agent 循环的最小结构只有三步，这三步的命名在不同框架里不同，但语义一致：
+[[agent-loop|Agent 循环]] 的最小结构只有三步，这三步的命名在不同框架里不同，但语义一致——它们合起来就是 [[think-act-observe|思考-行动-观察]] 这三步骨架：
 
 <div class="tbl-wrap">
   <table class="news">
@@ -25,7 +25,7 @@ Agent 循环的最小结构只有三步，这三步的命名在不同框架里�
 
 ## 二、五类终止条件：一个都不能少
 
-这是本章的核心。**只写「任务完成就停」的系统，一定会以三种方式之一失控。**
+这是本章的核心，也就是 [[termination-conditions|终止条件]]。**只写「任务完成就停」的系统，一定会以三种方式之一失控。**
 
 <figure class="fig">
   <div class="fig-frame">
@@ -77,9 +77,84 @@ Agent 循环的最小结构只有三步，这三步的命名在不同框架里�
   <figcaption><b>图 1</b>　五类终止条件分别覆盖不同的失控方式。<b>第 ③ 类「无进展检测」是最容易被漏掉、也最能体现工程经验的一条</b>——它处理的不是「跑不完」，而是「跑了但没动」，这类问题在日志里几乎看不出来。</figcaption>
 </figure>
 
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 400" role="img" aria-label="Agent 循环状态机：Think-Act-Observe 回环与五道退出出口">
+      <defs>
+        <marker id="ar1" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1f1b16"/></marker>
+        <marker id="ar3" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#9b2c2c"/></marker>
+      </defs>
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">Agent 循环状态机：回环 + 五道出口</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">每一圈都可能从这五个出口之一退出，而不是必须跑完。</text>
+      <rect x="40" y="70" width="150" height="46" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1.3"/>
+      <text x="115" y="99" text-anchor="middle" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#1f1b16">THINK</text>
+      <rect x="470" y="70" width="150" height="46" fill="#eef4f1" stroke="#2f6157" stroke-width="1.3"/>
+      <text x="545" y="99" text-anchor="middle" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#2f6157">ACT</text>
+      <rect x="255" y="250" width="150" height="46" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.3"/>
+      <text x="330" y="279" text-anchor="middle" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#8a6a1e">OBSERVE</text>
+      <line x1="190" y1="93" x2="468" y2="93" stroke="#1f1b16" stroke-width="1.2" marker-end="url(#ar1)"/>
+      <line x1="545" y1="116" x2="330" y2="248" stroke="#1f1b16" stroke-width="1.2" marker-end="url(#ar1)"/>
+      <line x1="255" y1="273" x2="115" y2="116" stroke="#1f1b16" stroke-width="1.2" marker-end="url(#ar1)"/>
+      <text x="330" y="180" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.4" fill="#6b6257">回环：Think → Act → Observe → Think</text>
+      <rect x="40" y="320" width="118" height="46" fill="#eef4f1" stroke="#2f6157" stroke-width="1.3"/>
+      <text x="99" y="340" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.4" font-weight="700" fill="#2f6157">① 完成</text>
+      <text x="99" y="356" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">显式 finish</text>
+      <rect x="174" y="320" width="118" height="46" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.3"/>
+      <text x="233" y="340" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.4" font-weight="700" fill="#8a6a1e">② 预算</text>
+      <text x="233" y="356" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">轮数/token/时间</text>
+      <rect x="308" y="320" width="118" height="46" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.3"/>
+      <text x="367" y="340" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.4" font-weight="700" fill="#9b2c2c">③ 无进展</text>
+      <text x="367" y="356" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">连续 N 轮不变</text>
+      <rect x="442" y="320" width="118" height="46" fill="#eef4f1" stroke="#2f6157" stroke-width="1.3"/>
+      <text x="501" y="340" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.4" font-weight="700" fill="#2f6157">④ 人工</text>
+      <text x="501" y="356" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">越权/不可逆</text>
+      <rect x="576" y="320" width="68" height="46" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1.3"/>
+      <text x="610" y="340" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.4" font-weight="700" fill="#1f1b16">⑤ 异常</text>
+      <text x="610" y="356" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">解析/5xx</text>
+      <line x1="330" y1="296" x2="330" y2="318" stroke="#9b2c2c" stroke-width="1.2" stroke-dasharray="3 2" marker-end="url(#ar3)"/>
+      <text x="338" y="312" font-family="ui-monospace, monospace" font-size="8.8" fill="#9b2c2c">任一出口触发即退出</text>
+    </svg>
+  </div>
+  <figcaption><b>图 2</b>　循环不是「跑到完为止」，而是每圈都经过五道出口的筛选。<b>第 ③ 类「无进展」最隐蔽</b>：它不报错，只是状态原地踏步，日志里几乎看不出来，必须靠调用签名与状态指纹去检测。</figcaption>
+</figure>
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 320" role="img" aria-label="五类终止条件的触发时机时间轴">
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">五类终止条件的触发时机</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">它们不在同一位置触发：预算是上限，无进展是过程，人工是节点。</text>
+      <line x1="50" y1="150" x2="620" y2="150" stroke="#1f1b16" stroke-width="1.3"/>
+      <text x="50" y="172" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">轮 1</text>
+      <text x="150" y="172" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">轮 2</text>
+      <text x="250" y="172" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">轮 3</text>
+      <text x="350" y="172" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">轮 4</text>
+      <text x="450" y="172" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">轮 5</text>
+      <text x="550" y="172" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">轮 6</text>
+      <text x="620" y="172" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">上限</text>
+      <circle cx="450" cy="150" r="5" fill="#2f6157"/>
+      <line x1="450" y1="145" x2="450" y2="110" stroke="#2f6157" stroke-width="1.2"/>
+      <text x="450" y="104" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.2" font-weight="700" fill="#2f6157">完成 → DONE</text>
+      <circle cx="250" cy="150" r="5" fill="#b8944b"/>
+      <line x1="250" y1="155" x2="250" y2="200" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="250" y="216" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.2" font-weight="700" fill="#8a6a1e">需人工：越权/不可逆</text>
+      <circle cx="350" cy="150" r="5" fill="#1f1b16"/>
+      <line x1="350" y1="145" x2="350" y2="110" stroke="#1f1b16" stroke-width="1.2"/>
+      <text x="350" y="104" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.2" fill="#1f1b16">系统异常：解析/5xx</text>
+      <text x="150" y="200" font-family="ui-monospace, monospace" font-size="9.2" font-weight="700" fill="#9b2c2c">无进展：</text>
+      <text x="212" y="200" font-family="ui-monospace, monospace" font-size="9.2" fill="#9b2c2c">连续 N 轮状态不变</text>
+      <line x1="150" y1="208" x2="350" y2="208" stroke="#9b2c2c" stroke-width="1" stroke-dasharray="3 2"/>
+      <line x1="620" y1="118" x2="620" y2="180" stroke="#9b2c2c" stroke-width="2"/>
+      <text x="612" y="200" text-anchor="end" font-family="ui-monospace, monospace" font-size="9.2" font-weight="700" fill="#9b2c2c">预算耗尽 → 退出</text>
+      <text x="50" y="240" font-family="ui-monospace, monospace" font-size="9.4" fill="#6b6257">注：完成 / 异常 / 人工是「事件触发」，预算是「硬上限」，无进展是「过程检测」。</text>
+      <text x="50" y="258" font-family="ui-monospace, monospace" font-size="9.4" fill="#6b6257">只写「完成」这一道，模型一旦判断失误就会越过上限——所以上限必须独立存在。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 3</b>　五类终止条件里，只有「预算」是绝对上限，其余都是某一轮的事件。<b>把预算上限漏掉，等于把「是否会无限循环」交给模型的判断</b>——这正是线上成本失控最常见的根因。</figcaption>
+</figure>
+
 ## 三、无进展检测怎么做
 
-不要指望模型自己意识到自己在绕圈。要在 Harness 侧用可计算的判据来检测。常用手段按可靠性排序：
+不要指望模型自己意识到自己在绕圈。要在 Harness 侧用可计算的判据来检测——核心是 [[no-progress|无进展检测]]：对 <code>(tool_name, normalized_args)</code> 做哈希得到 [[call-signature|调用签名]]，对工作区文件列表取 [[state-fingerprint|状态指纹]]，再配合 [[cost-slope|成本斜率]] 作为提前预警。常用手段按可靠性排序：
 
 <div class="tbl-wrap">
   <table class="news">
@@ -192,7 +267,7 @@ def run(task: str, call_model, exec_tool, ask_human):
 
 ## 五、Human-in-the-loop 的正确姿势
 
-人工介入不是「弹个窗问一下」那么简单，它有三个必须设计清楚的点：
+[[human-in-the-loop|人工介入]] 不是「弹个窗问一下」那么简单，它有三个必须设计清楚的点——其中最重要的是，暂停之后状态必须 [[resumable|可恢复]]，否则一旦 [[budget-exhausted|预算耗尽]] 或用户离开，任务就彻底丢失：
 
 **第一，暂停必须可恢复。** 用户拒绝或长时间不回应之后，任务不能就这么死掉。要把完整状态（上下文、已完成的步骤、待决策的问题）持久化，用户回来时能从中断点继续。
 
@@ -207,7 +282,29 @@ def run(task: str, call_model, exec_tool, ask_human):
 | 不可逆但有边界 | 发送邮件到内部群、创建线上工单 | 首次确认，同类操作可批量授权 |
 | 不可逆且影响外部 | 删除数据、支付、发布公开内容 | <b>每次强制确认</b>，且确认信息必须包含影响范围 |
 
-## 六、自测
+## 六、常见误区与追问
+
+### 6.1 误区：装了 max_turns 就算装了刹车
+
+错在哪：把轮数上限当成终止条件的全部。为什么自然：一行代码就能加上，加上之后最吓人的「无限循环」确实不再发生，容易产生「刹车已装好」的错觉。判据：它只覆盖五类出口的第②类，保证的是「一定会停」，不是「停在该停的地方」——模型第 3 轮就完成了却继续重试、两个工具互相调用、连续几轮返回同一个空结果，这三种情况它都会跑满。<strong>算一笔账：上限 15 轮、每轮新增 4k token 输入，从第 4 轮空转到第 15 轮，累积输入约 45.6 万 token，全是浪费。</strong>
+
+### 6.2 误区：无进展检测越灵敏越好，阈值设成 1
+
+错在哪：把「漏检」当成唯一要防的错，于是把容忍度压到最低。为什么自然：漏检会烧钱，宁枉勿纵看着总是安全的。判据：合法任务里「一轮没变化」极其常见——先写文件、下一轮才校验；先检索、下一轮才用结果。阈值取 1 时，这些任务会在真正推进之前被杀掉，完成率反而下降，日志里只有一行「因无进展退出」。建议取 3，且只在「调用签名重复」与「观察结果哈希不变」同时成立时计数。<strong>代价对比：连续 3 轮的容忍成本约 12k token，而一次误杀意味着整个长任务重跑一遍。</strong>
+
+### 6.3 误区：人工介入就是弹一个「是否继续？」
+
+错在哪：把人工介入当成一个确认弹窗，而不是一个可恢复的状态。为什么自然：写起来最简单，两个按钮就能交差。第一，确认信息里没有决策依据：用户看到「是否继续？」只能猜，40 分钟前看过的上下文早就忘了，唯一理性的选择就是「否」；可决策的问法必须自带上文，例如「将删除 orders_2025（12 万行），不可逆；确认／先备份／跳过」。第二，暂停后状态没落盘，用户一离开任务就死。<strong>判据：把进程杀掉再拉起来，任务能不能从暂停那一轮继续，且等待期间不计入轮数与时间上限。</strong>
+
+### 6.4 误区：退出时返回一句失败就够了
+
+错在哪：把异常退出当成「任务不存在」，而不是「任务停在中途」。为什么自然：失败就是失败，抛个错误码最省事。判据：预算耗尽、需要人工、系统异常这三类退出，返回值里都必须带 partial——已完成的步骤、中间产物、未完成的原因、下一步该做什么。<strong>算一下：一个 12 轮的任务在第 11 轮因预算退出，一句 failed 意味着重跑要再花 12 轮，而带上 partial 续跑通常只需 1–2 轮。</strong>只有 partial 才能让用户判断该重跑还是该补预算。
+
+### 6.5 误区：重试是无害的兜底
+
+错在哪：把重试当成「多试一次不亏」的手段，既不分类也不设上限。为什么自然：重试在只读接口上几乎零成本，这个经验被带到了所有工具上。判据：重试前必须先分类——超时、限流、上游 5xx 可重试（指数退避 + 最多 2–3 次）；参数错误、权限不足、业务拒绝不可重试，重试多少次都是同一个错，正确动作是改参数、换方案或上报。<strong>数字：每次重试都带完整历史时，三次无效重试就是 12k token 的净损失；更糟的是对不可逆操作重试——把「可能已执行」变成「执行了两次」。</strong>
+
+## 七、自测
 
 <div class="quiz">
   <div class="quiz-head"><span>本章自测</span><span>第 1、3 题为高频考点</span></div>
@@ -237,7 +334,7 @@ def run(task: str, call_model, exec_tool, ask_human):
   </div>
 </div>
 
-## 七、小结
+## 八、小结
 
 | 要素 | 必须做到 |
 | --- | --- |
@@ -250,3 +347,20 @@ def run(task: str, call_model, exec_tool, ask_human):
 <p class="pull-quote">循环的上限由模型的推理能力决定，循环的可靠性由刹车决定。而线上事故绝大多数出在刹车上。<cite>本刊编辑部</cite></p>
 
 刹车装好了，下一章处理最容易出问题的那一层：工具。因为工具是模型唯一能真正改变世界的手。
+
+## 九、参考与延伸
+
+「什么时候该停下来」这件事没有一条公式可背，最好的材料是别人的实现和别人的评测。下面这几份按「先看结构、再看实现、最后看怎么量」排好。全站不做原文转载，这里只登记链接与「为什么值得读」。
+
+**先看结构（一个循环该有哪些部件）**
+
+- [Anthropic · Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents) —— 它把「循环 + 工具 = Agent」讲成一个最小定义，并且反复提醒：大多数任务其实不需要自主循环，编排好的工作流更可控。<strong>读本章第二节之前先读它，你会更容易接受「五类终止条件不是过度设计」——它把循环的每一步都当成一个必须显式设计的部件。</strong>
+
+**再看实现（别人怎么装刹车）**
+
+- [LangGraph · Durable Execution](https://langchain-ai.github.io/langgraph/concepts/durable_execution/) —— 把「暂停—持久化—恢复」做成框架级能力：每个节点之后落检查点，进程被杀也能从断点继续，并明确了恢复时如何避免重放已完成步骤。<strong>本章第五节说「暂停必须可恢复」，这里给出的是它在工程上长什么样（检查点粒度、状态写在哪、恢复时谁负责去重）。</strong>
+- [OpenAI Agents SDK 文档](https://openai.github.io/openai-agents-python/) —— 一个刻意做小的实现：显式动作、工具调用、任务移交、护栏各占一个概念，整篇读完就能在脑子里跑一遍。<strong>适合对照本章第四节那份 agent_loop.py 看：同样是刹车，别人把它放在了框架的哪一层、你又把它放在了哪一层。</strong>
+
+**最后看怎么量（刹车有没有效）**
+
+- [τ-bench（sierra-research/tau-bench）](https://github.com/sierra-research/tau-bench) —— 多轮工具任务上的评测，把「任务完成」与「是否违反规则」「是否该澄清」分开统计。<strong>要证明你的终止条件没有误杀，就需要这类分层指标；只看成功率会把「刹车踩过头导致中途放弃」和「模型确实做不到」混成一个数。</strong>

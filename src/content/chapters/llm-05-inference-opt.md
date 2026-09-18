@@ -8,7 +8,7 @@ note: '本章难度较高，建议在读完前四章后再读。重点是「每�
 
 ## 一、先分清两个阶段，再谈优化
 
-推理分两个阶段，它们的瓶颈完全不同，因此优化手段也不同。这是本章最重要的一张表。
+推理分[[prefill-decode|Prefill 和 Decode 两个阶段]]，它们的瓶颈完全不同，因此优化手段也不同。这是本章最重要的一张表。Prefill 阶段的主要指标是 [[ttft|首 token 时延（TTFT）]]，它卡在算力上。
 
 <div class="tbl-wrap">
   <table class="news">
@@ -75,13 +75,107 @@ note: '本章难度较高，建议在读完前四章后再读。重点是「每�
   <figcaption><b>图 1</b>　四种手段针对的瓶颈完全不同。面试中被问到「怎么优化推理成本」时，<b>先问清瓶颈在哪（显存、并发、吞吐、还是延迟），再给手段</b>——不问瓶颈直接列表，是最容易被追问到答不上来的答法。</figcaption>
 </figure>
 
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 340" role="img" aria-label="Prefill 与 Decode 两个阶段瓶颈对照">
+      <text x="16" y="20" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">Prefill 与 Decode：两个阶段的瓶颈不同</text>
+      <text x="16" y="38" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">左：一次性算完、可并行　右：逐 token、强串行。优化要分别下手。</text>
+      <!-- 左 Prefill -->
+      <text x="40" y="64" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#2f6157">Prefill（处理输入）</text>
+      <g>
+        <rect x="40" y="80" width="40" height="34" fill="#eef4f1" stroke="#2f6157" stroke-width="1.1"/>
+        <rect x="88" y="80" width="40" height="34" fill="#eef4f1" stroke="#2f6157" stroke-width="1.1"/>
+        <rect x="136" y="80" width="40" height="34" fill="#eef4f1" stroke="#2f6157" stroke-width="1.1"/>
+        <rect x="184" y="80" width="40" height="34" fill="#eef4f1" stroke="#2f6157" stroke-width="1.1"/>
+        <rect x="232" y="80" width="40" height="34" fill="#eef4f1" stroke="#2f6157" stroke-width="1.1"/>
+      </g>
+      <text x="40" y="138" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">n 个位置同时算（高并行）</text>
+      <text x="40" y="156" font-family="ui-monospace, monospace" font-size="9.5" font-weight="700" fill="#9b2c2c">瓶颈：算力 FLOPs</text>
+      <text x="40" y="174" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">指标：TTFT 高</text>
+      <!-- 右 Decode -->
+      <text x="360" y="64" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#9b2c2c">Decode（逐 token）</text>
+      <g>
+        <rect x="360" y="80" width="34" height="30" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.1"/>
+        <text x="377" y="100" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" fill="#9b2c2c">t1</text>
+        <rect x="410" y="80" width="34" height="30" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.1"/>
+        <text x="427" y="100" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" fill="#9b2c2c">t2</text>
+        <rect x="460" y="80" width="34" height="30" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.1"/>
+        <text x="477" y="100" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" fill="#9b2c2c">t3</text>
+        <rect x="510" y="80" width="34" height="30" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.1"/>
+        <text x="527" y="100" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" fill="#9b2c2c">t4</text>
+      </g>
+      <line x1="394" y1="95" x2="408" y2="95" stroke="#9b2c2c" stroke-width="1.1" marker-end="url(#ar1)"/>
+      <line x1="444" y1="95" x2="458" y2="95" stroke="#9b2c2c" stroke-width="1.1" marker-end="url(#ar1)"/>
+      <line x1="494" y1="95" x2="508" y2="95" stroke="#9b2c2c" stroke-width="1.1" marker-end="url(#ar1)"/>
+      <text x="360" y="138" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">第 t 步必须等 t−1（强串行）</text>
+      <text x="360" y="156" font-family="ui-monospace, monospace" font-size="9.5" font-weight="700" fill="#9b2c2c">瓶颈：显存带宽（搬权重）</text>
+      <text x="360" y="174" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">指标：吞吐低、GPU 利用率个位数</text>
+      <rect x="16" y="220" width="628" height="100" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="30" y="244" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#8a6a1e">判据：问「这一步卡在算还是搬」</text>
+      <text x="30" y="266" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">Prefill 卡在算力 → 用算子融合 / FlashAttention / 分块计算把一次前向算便宜。</text>
+      <text x="30" y="286" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">Decode 卡在带宽 → 用量化（少搬）、连续批处理（一次搬服务多请求）、投机解码（一次搬产多 token）。</text>
+      <text x="30" y="306" font-family="ui-monospace, monospace" font-size="10" fill="#9b2c2c">两者是不同瓶颈，不能用同一把锤子：给 prefill 上量化，对 TTFT 帮助有限；给 decode 上分块，治不了带宽。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 2</b>　Prefill 一次算完、n 个位置可并行，瓶颈是算力；Decode 逐 token、强串行，瓶颈是显存带宽。<b>把两个阶段混为一谈，是推理优化最常见的方向性错误。</b></figcaption>
+</figure>
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 380" role="img" aria-label="四种推理优化手段与四个瓶颈的配对矩阵">
+      <defs>
+        <marker id="ar1" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#1f1b16"/>
+        </marker>
+      </defs>
+      <text x="16" y="20" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">手段 × 瓶颈：该用哪把锤子</text>
+      <text x="16" y="38" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">✓ = 该手段针对此瓶颈；先定位瓶颈列，再找对应的 ✓</text>
+      <!-- 列头 -->
+      <rect x="196" y="56" width="108" height="30" fill="#fdf6e8" stroke="#b8944b" stroke-width="1"/>
+      <text x="250" y="76" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.5" fill="#8a6a1e">显存容量</text>
+      <rect x="308" y="56" width="108" height="30" fill="#eef4f1" stroke="#2f6157" stroke-width="1"/>
+      <text x="362" y="76" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.5" fill="#2f6157">显存碎片</text>
+      <rect x="420" y="56" width="108" height="30" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1"/>
+      <text x="474" y="76" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.5" fill="#1f1b16">显存带宽</text>
+      <rect x="532" y="56" width="108" height="30" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1"/>
+      <text x="586" y="76" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.5" fill="#9b2c2c">串行/吞吐</text>
+      <!-- 行 -->
+      <g font-family="ui-monospace, monospace" font-size="9.5">
+        <rect x="30" y="92" width="160" height="34" fill="#f0ebe1" stroke="#cfc6b6" stroke-width="1"/>
+        <text x="38" y="113" fill="#1f1b16">量化</text>
+        <text x="250" y="114" text-anchor="middle" fill="#2f6157" font-size="13" font-weight="700">✓</text>
+        <text x="474" y="114" text-anchor="middle" fill="#2f6157" font-size="13" font-weight="700">✓</text>
+        <rect x="30" y="130" width="160" height="34" fill="#f0ebe1" stroke="#cfc6b6" stroke-width="1"/>
+        <text x="38" y="151" fill="#1f1b16">PagedAttention</text>
+        <text x="362" y="152" text-anchor="middle" fill="#2f6157" font-size="13" font-weight="700">✓</text>
+        <rect x="30" y="168" width="160" height="34" fill="#f0ebe1" stroke="#cfc6b6" stroke-width="1"/>
+        <text x="38" y="189" fill="#1f1b16">连续批处理</text>
+        <text x="586" y="190" text-anchor="middle" fill="#9b2c2c" font-size="13" font-weight="700">✓</text>
+        <rect x="30" y="206" width="160" height="34" fill="#f0ebe1" stroke="#cfc6b6" stroke-width="1"/>
+        <text x="38" y="227" fill="#1f1b16">投机解码</text>
+        <text x="586" y="228" text-anchor="middle" fill="#9b2c2c" font-size="13" font-weight="700">✓</text>
+        <rect x="30" y="244" width="160" height="34" fill="#f0ebe1" stroke="#cfc6b6" stroke-width="1"/>
+        <text x="38" y="265" fill="#1f1b16">FlashAttn·融合</text>
+        <text x="474" y="266" text-anchor="middle" fill="#2f6157" font-size="13" font-weight="700">✓</text>
+      </g>
+      <rect x="16" y="294" width="628" height="68" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="30" y="316" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#8a6a1e">用法：先量瓶颈列，再读对应行的 ✓</text>
+      <text x="30" y="338" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">显存装不下 → 量化；碎片严重 → PagedAttention；GPU 空转 → 连续批处理；串行依赖 → 投机解码；一次前向贵 → FlashAttn/融合。</text>
+      <text x="30" y="356" font-family="ui-monospace, monospace" font-size="10" fill="#9b2c2c">这些手段可叠加：量化 + 连续批处理 + 投机解码，各自打不同的钉子。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 3</b>　把「手段」和「瓶颈」摆成矩阵，对应关系一目了然。<b>面试里被问「怎么优化成本」，先定位瓶颈列再给手段；直接列名词而不说针对什么，几乎一定会被追问到答不上来。</b></figcaption>
+</figure>
+
 ## 三、MLA：结构层面的一次改写
 
-除了上面四个「工程手段」，还有一条更彻底的路：**改注意力本身的结构**。
+除了上面四个「工程手段」，还有一条更彻底的路：改注意力本身的结构。
 
-DeepSeek 提出的 MLA（Multi-head Latent Attention）思路是：不直接缓存完整的 K/V，而是把它们压到一个低维的潜在向量里缓存，用的时候再投影回来。
+DeepSeek 提出的 [[mla|MLA]]（Multi-head Latent Attention）思路是：不直接缓存完整的 K/V，而是把它们压到一个低维的潜在向量里缓存，用的时候再投影回来。
 
-用前面学过的语言描述：**它压的是 KV Cache 这张「线性增长的账单」的系数。**
+顺带把四把锤子的发力点一次性说清：[[quantization|量化]] 同时压显存与搬运量，[[paged-attention|PagedAttention]] 消灭[[memory-fragmentation|显存碎片]]，[[continuous-batching|连续批处理]] 填平硬件空转，[[speculative-decoding|投机解码]] 绕开串行依赖——而后两者的提速分别受 [[acceptance-rate|接受率]] 与 [[memory-bandwidth|显存带宽]] 制约；此外还有 [[flash-attention|FlashAttention]] 与 [[operator-fusion|算子融合]] 这类「让单次计算更便宜」的手段。
+
+用前面学过的语言描述：**它压的是 [[kv-cache|KV Cache]] 这张「线性增长的账单」的系数。**
 
 - 常规 MHA：缓存量 ∝ `n_layers × n_heads × head_dim`
 - GQA：把 `n_heads` 换成更小的 `n_kv_heads`，系数降到 1/8 左右
@@ -143,7 +237,33 @@ print(f'fp8 量化             搬运 {b:8.1f} GiB  ← 直接减半')
   </ul>
 </div>
 
-## 五、自测
+## 五、常见误区与追问
+
+### 5.1 误区：Decode 慢是因为算力不够
+
+错在哪：直觉上「生成慢 = 算得慢」。为什么自然：我们习惯用算力衡量深度学习瓶颈。正确做法：Decode 每步只生成一个 token，计算量极小，但**每步都要把整个模型权重和 KV Cache 从显存搬到计算单元一次**——时间花在搬运上，不是计算上。**判据：看 GPU 利用率，若只有个位数百分比却算力充足，说明瓶颈是显存带宽而非算力；优化方向是「少搬 / 一次搬服务多请求 / 一次搬产多 token」，而不是堆算力。**
+
+### 5.2 误区：优化推理成本，先上量化最稳妥
+
+错在哪：量化几乎人人会提，便当成默认第一步。为什么自然：它名字最熟、上手最容易。正确做法：应该**先测瓶颈**：GPU 利用率低、吞吐上不去 → 先看连续批处理（性价比最高的一刀）；显存装不下 → 才上量化；碎片严重 → PagedAttention。**判据：没量就上手段等于在黑暗中拧螺丝；被问「先优化哪个」时，先反问「你卡在显存、并发、吞吐还是延迟」，再给手段。**
+
+### 5.3 误区：投机解码总是比朴素 decode 快
+
+错在哪：把「并行验证多个 token」想成必然加速。为什么自然：一次前向验证 k 个草稿，听起来省了 k−1 次前向。正确做法：加速的前提是草稿被大模型**接受**；接受率低时，草稿白白计算，反而净亏损。**判据：设草稿数 k、接受率 r，等效前向次数 ≈ 步数 /(1 + k·r)；当 r 很低（如 0.2 配 k=4 时等效约 1/1.8≈0.56 步/ token 的节省并不稳），需实测；接受率掉到阈值以下就关掉投机解码。**
+
+### 5.4 误区：PagedAttention 把注意力的平方复杂度降下来了
+
+错在哪：看到「优化注意力」就联想到降复杂度。为什么自然：名字带 Attention，容易望文生义。正确做法：PagedAttention 只解决 **KV Cache 的显存碎片**——把缓存切成固定块、按需分配、物理不连续，从而提升可并发请求数；它**不改 O(n²) 的注意力计算复杂度**。**判据：被问「PagedAttention 改了哪个公式因子」时，答案必须是显存利用率，而不是 n²；降复杂度是稀疏/线性注意力与 FlashAttention 的事。**
+
+### 5.5 误区：Prefill 和 Decode 用同一套优化手段
+
+错在哪：把「推理优化」当成一张扁平清单随机挑。为什么自然：清单上都是「优化手段」，容易混用。正确做法：Prefill 瓶颈在**算力**（n 个位置可并行，卡在 FLOPs），Decode 瓶颈在**显存带宽**（强串行，卡在搬权重）。**判据：问「这一步卡在算还是搬」——Prefill 上量化对 TTFT 帮助有限，Decode 上分块计算治不了带宽；手段必须对准阶段。**
+
+### 5.6 误区：FlashAttention 是推理专属或训练专属的优化
+
+错在哪：按使用场景给它贴标签。为什么自然：常听人在「训练加速」语境下提到它。正确做法：FlashAttention 是**训练与推理通用的注意力 IO 优化**——通过分块与算子融合，减少中间结果的显存读写，不改变注意力语义。**判据：它改的是「注意力怎么算更省 IO」，不是「注意力算什么」；在任何受显存带宽制约的阶段（prefill 尤甚）都能用。**
+
+## 六、自测
 
 <div class="quiz">
   <div class="quiz-head"><span>本章自测</span><span>本章为深入级别，答对 2/3 即可</span></div>
@@ -173,7 +293,7 @@ print(f'fp8 量化             搬运 {b:8.1f} GiB  ← 直接减半')
   </div>
 </div>
 
-## 六、小结
+## 七、小结
 
 | 手段 | 针对的瓶颈 | 主要收益 | 主要代价 |
 | --- | --- | --- | --- |
@@ -184,3 +304,22 @@ print(f'fp8 量化             搬运 {b:8.1f} GiB  ← 直接减半')
 | MLA 类结构优化 | KV Cache 系数 | 长上下文 + 高并发 | 训练与实现复杂度 |
 
 **这一章的最终落点是那个决定性的问题：当一个成本问题出现时，你的第一反应是「换个更强的模型」，还是「先量一下瓶颈在哪」？** 面试官几乎一定会用这个问题来区分这两类人——而这道题，正好是下一部分（Harness 工程）的入口。
+
+## 八、参考与延伸
+
+本章机制部分只讲到「够用」为止。想往下深挖，下面按「先看图、再看代码、最后读论文」的顺序排好了。全站不做原文转载，这里只登记链接与「为什么值得读」。
+
+**先看图（建立直觉）**
+
+- [vLLM：用 PagedAttention 把 LLM 服务做到又快又省](https://blog.vllm.ai/2023/06/20/vllm.html) —— 把 PagedAttention、连续批处理、KV 块管理讲得最直白，还有实测吞吐曲线。<strong>读本章第二节「四把锤子」卡住时，来这儿看工程落地最快。</strong>
+- [Lilian Weng · Large Transformer Model Inference Optimization](https://lilianweng.github.io/posts/2023-01-10-inference-optimization/) —— 按「压模型」与「改推理系统」两条线把优化手段摊开，量化、剪枝、蒸馏、结构改造各占一节。<strong>想给本章那四把锤子补一个外部坐标系、看清哪些手段属于压缩模型、哪些属于改服务系统，读它最快。</strong>
+
+**再看代码（动手实现）**
+
+- [动手学深度学习（中文，zh.d2l.ai）](https://zh.d2l.ai/) —— 配套可跑代码，把注意力、量化、批处理都实现了一遍。<strong>把本章的 decode_cost_model 照着敲一遍，比看十遍都记得牢。</strong>
+
+**最后读论文（对齐一手定义）**
+
+- [Efficient Memory Management for LLM Serving with PagedAttention（arXiv:2309.06180）](https://arxiv.org/abs/2309.06180) —— PagedAttention 原论文，也是 vLLM 的基础。<strong>想搞清楚「碎片到底按什么粒度发生、连续批处理怎么和分页协同」，看它的系统设计那节。</strong>
+- [DeepSeek-V2（MLA）arXiv:2405.04434](https://arxiv.org/abs/2405.04434) —— MLA 的一手来源。<strong>重点看它怎么把 K/V 压成低维潜在向量再投影，以及为什么同样显存能撑更长上下文。</strong>
+- [Fast Inference from Transformers via Speculative Decoding（arXiv:2211.17192）](https://arxiv.org/abs/2211.17192) —— 投机解码的一手论文。<strong>重点看接受率（acceptance rate）怎么决定加速比，以及为什么接受率低会净亏损。</strong>

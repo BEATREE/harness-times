@@ -83,9 +83,11 @@ note: '本章是全站最有「系统感」的一章。面试里讲清这条闭�
   <figcaption><b>图 1</b>　评测闭环的五个环节。<b>最容易断的是 ① 和 ④</b>：没有可重放的 trace，一切归因都是猜；评测没接进 CI，它就没有约束力，改动照样能合进去。</figcaption>
 </figure>
 
+这五个环节各自解决一个具体问题：[[trace|全链路 Trace]] 让失败可复现，[[attribution|归因]] 把失败落到具体环节，入集把一次性问题变成永久约束，[[regression-gate|回归门禁]] 让评测拥有否决权，[[canary-release|灰度发布]] 用小流量在真实分布上做最后一次验证。断掉任何一个，后面的环节都会退化——这正是「明明做了评测，线上却还在出同样的问题」的最常见原因。
+
 ## 二、Trace 的设计：为「重放」而记录
 
-Trace 的价值不是「记录发生了什么」，而是「能在本地重现当时发生了什么」。这个区别决定了你要记录什么。
+Trace 的价值不是「记录发生了什么」，而是「能在本地[[replay|重放]]当时发生了什么」。这个区别决定了你要记录什么。
 
 <div class="tbl-wrap">
   <table class="news">
@@ -108,6 +110,8 @@ Trace 的价值不是「记录发生了什么」，而是「能在本地重现�
   <p>「用户重试率」和「用户中断率」是最接近真相的质量指标。原因很简单：<b>模型评分再准也只是代理指标，用户行为是真实结果。</b>一个完成率 90% 但用户重试率 30% 的系统，实际体验远差于完成率 85%、重试率 8% 的系统。</p>
   <p>建议把这两个信号当作一等指标，与完成率并列观察。它们还能自动帮你挖掘 badcase——所有重试请求的原始 trace，就是一份高质量的问题样本来源。</p>
 </div>
+
+这两个信号值得单独说清楚。[[user-retry-rate|用户重试率]] 是「同一件事被问第二次」的比例，[[user-abort-rate|用户中断率]] 是中途放弃的比例；它们比任何离线评分都更接近真相，而且天然自带 badcase 挖掘功能——每一次重试都意味着上一次输出没被接受。
 
 ## 三、动手：Trace 与重放
 
@@ -196,6 +200,8 @@ def attribution_report(traces: list[Trace]) -> dict:
 
 
 
+重放的产出不是「这次跑通了」，而是一份按环节切分的 [[attribution-report|归因分布]]——参数错占几成、工具超时占几成、上下文膨胀占几成。这份分布才是后续改动的优先级清单：它把「失败率 12%」这个没有信息量的数字，换成了「本周该先修哪一层」。
+
 ## 四、回归门禁：让评测有约束力
 
 这是闭环里最容易被省略、也最关键的一环。没有门禁的评测只是报告。
@@ -213,13 +219,96 @@ def attribution_report(traces: list[Trace]) -> dict:
   </table>
 </div>
 
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 420" role="img" aria-label="回归门禁的四层结构：越频繁跑的层越轻、越接近发版的层越严">
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">门禁分层：越频繁跑的层越轻</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">从下往上看——跑的频率越来越低，门槛越来越严，代价只花在少数几次上</text>
+      <rect x="180" y="58" width="300" height="56" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.3"/>
+      <text x="330" y="82" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10.4" font-weight="700" fill="#9b2c2c">④ 发版候选　覆盖：回归 + 边界 + 对抗 + 保留池</text>
+      <text x="330" y="102" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">≤ 1 小时　不通过则阻塞发布（主指标回归须人工确认）</text>
+      <rect x="145" y="122" width="370" height="56" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.3"/>
+      <text x="330" y="146" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10.4" font-weight="700" fill="#8a6a1e">③ 合并到主分支后　覆盖：回归集 + 边界集</text>
+      <text x="330" y="166" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">≤ 15 分钟　产生告警并自动创建 issue，不阻塞合并</text>
+      <rect x="110" y="186" width="440" height="56" fill="#eef1f7" stroke="#345a75" stroke-width="1.3"/>
+      <text x="330" y="210" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10.4" font-weight="700" fill="#345a75">② PR 创建后　覆盖：冒烟集 10-20 条 + 静态检查</text>
+      <text x="330" y="230" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">≤ 2 分钟　不通过则阻塞合并，没有例外</text>
+      <rect x="75" y="250" width="510" height="56" fill="#eef4f1" stroke="#2f6157" stroke-width="1.3"/>
+      <text x="330" y="274" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10.4" font-weight="700" fill="#2f6157">① 本地提交前　覆盖：解析器与错误分类的单元测试</text>
+      <text x="330" y="294" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">≤ 10 秒　开发者自己发现问题，不占用 CI 资源</text>
+      <rect x="16" y="318" width="628" height="88" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.3"/>
+      <text x="30" y="340" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#9b2c2c">门槛的高度，决定它是被遵守还是被绕过</text>
+      <text x="30" y="360" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">任何一层只要耗时超过开发者能忍受的阈值，团队就会加 skip-eval 标签绕过它——门禁一旦可以被绕过，等于没有。</text>
+      <text x="30" y="380" font-family="ui-monospace, monospace" font-size="9.6" fill="#2f6157">所以严格性必须与频率成反比：越频繁跑的层越轻（秒级），越接近发版的层越重（小时级）。</text>
+      <text x="30" y="396" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">不允许下降的分层指标（尤其是对抗集）要写进配置，而不是靠人记得。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 2</b>　门禁的四层结构：越靠下越频繁、越轻；越靠上越严格、越贵。判据是<b>「这一层跑一次要多久，会不会让人想绕开」</b>——把全量评测压在 PR 阶段，换来的一定是 skip-eval 标签，而不是更好的质量。</figcaption>
+</figure>
+
 <div class="box box-warn">
   <span class="box-title">门禁设计的两个坑</span>
   <p><b>坑一：把门槛设得太高，导致人人都想办法绕过它。</b>如果 PR 阶段要跑 40 分钟，团队很快就会加 <code>skip-eval</code> 标签。正确做法是<b>分层：PR 只跑最关键的冒烟集（2 分钟内），重的评测放到合并后与发版前</b>。</p>
   <p><b>坑二：只卡「总体指标」。</b>这样很容易被「总体提升、局部退化」的改动骗过去（见第 2 章）。正确做法是<b>把哪些分层指标不允许下降写进配置</b>——尤其是对抗集，安全类的退步不能因为总体分数上升而被容忍。</p>
 </div>
 
-## 五、自测
+门禁的另一半在线上：[[rollback-condition|回滚条件]] 必须在发版前写死，而不是出事时临时决定。常用的三条是完成率跌幅超过 3 个百分点、单次成本涨幅超过 20%、用户重试率翻倍——命中任意一条即自动回滚，不等人开会。写出可自动判定的数值条件，才算写完了发版流程；需要人来解释才知道该不该触发的条件，等于没有。
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 400" role="img" aria-label="灰度发布的四个流量档位与事先写死的回滚条件">
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">灰度爬坡：每一档都要有回滚条件</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">流量按 1% → 5% → 20% → 全量推进，每档留出观察窗口再放量</text>
+      <text x="20" y="132" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">流量占比 ↑</text>
+      <line x1="90" y1="290" x2="620" y2="290" stroke="#1f1b16" stroke-width="1.2"/>
+      <rect x="120" y="266" width="76" height="24" fill="#eef4f1" stroke="#2f6157" stroke-width="1.2"/>
+      <text x="158" y="258" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#2f6157">1%</text>
+      <rect x="250" y="246" width="76" height="44" fill="#eef4f1" stroke="#2f6157" stroke-width="1.2"/>
+      <text x="288" y="238" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#2f6157">5%</text>
+      <rect x="380" y="200" width="76" height="90" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="418" y="192" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#8a6a1e">20%</text>
+      <rect x="510" y="120" width="76" height="170" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.2"/>
+      <text x="548" y="112" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#9b2c2c">全量</text>
+      <text x="158" y="308" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">阶段一 · 观察 2 小时</text>
+      <text x="288" y="308" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">阶段二 · 观察 1 天</text>
+      <text x="418" y="308" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">阶段三 · 观察 3 天</text>
+      <text x="548" y="308" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">全量 · 持续监控</text>
+      <rect x="16" y="328" width="628" height="64" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="30" y="350" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#8a6a1e">回滚条件必须在发版前写死</text>
+      <text x="30" y="370" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">完成率跌幅 &gt; 3 个百分点，或单次成本涨幅 &gt; 20%，或用户重试率翻倍——命中任意一条即自动回滚。</text>
+      <text x="30" y="386" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">小流量意味着信号弱：档位越小越安全，也越难看出问题，所以每一档都要留出观察窗口再放量。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 3</b>　灰度不是「先放 1% 试试」，而是一条带观察窗口的爬坡路径。<b>真正起作用的不是档位本身，而是事先写死的回滚条件</b>——没有它，灰度只是把全量故障推迟了几天发生。</figcaption>
+</figure>
+
+## 五、常见误区与追问
+
+### 5.1 误区：Trace 记录得越全越好（其实标准是「能不能重放」）
+
+错在哪：把「留痕」当成目标，结果日志里堆满了好看但用不上的字段。为什么自然：出问题时第一反应总是「当时记的东西不够」，于是下一次什么都记。正确做法：判据只有一个——把这条 trace 拿回来，能不能不改一行代码就在本地跑出同样的失败？不能，说明字段缺了；能，但你还想加字段，那属于过度记录。做法：优先保证完整请求体、工具调用参数与返回、上下文各部分大小这三项，其余字段按「它能让哪一类问题可归因」来决定去留。
+
+### 5.2 误区：门禁越严格越好（其实门槛过高会诱导团队绕过它）
+
+错在哪：把门禁的严格程度当成质量的唯一变量。为什么自然：「宁可多拦一点」听起来永远政治正确。正确做法：门禁的可用性和严格性必须一起设计。数字：PR 阶段如果要求跑 40 分钟全量评测，团队很快会加 skip-eval 标签；一旦出现第一个例外，门禁的约束力就开始归零。做法：让耗时与频率成反比——每次提交跑的层控制在 2 分钟内，重的评测放到合并后与发版前。
+
+### 5.3 误区：灰度就是「小流量上线」，回滚条件到时候再定
+
+错在哪：把回滚当成应急响应，而不是发布流程的一部分。为什么自然：谁都不想在发版前花时间写一份「可能用不上」的条款。正确做法：回滚条件必须在发版前写死，并且是可自动判定的数值条件。数字：完成率跌幅超过 3 个百分点、单次成本涨幅超过 20%、用户重试率翻倍——命中任意一条即自动回滚，不等人开会。判据：如果一条条件需要人来解释才知道该不该触发，那它写得还太模糊，等于没有。
+
+### 5.4 误区：归因到「失败率 12%」就算做完归因了
+
+错在哪：把总量指标当成归因结论。为什么自然：失败率是最容易算、也最容易向上汇报的数字。正确做法：失败率只回答「有多少」，不回答「为什么」；归因分布才回答「该改哪一层」。判据：如果一份失败报告读完，你说不出「这周该优先修哪一个环节」，那它就是一份没做完的归因。数字：把失败按参数错、工具超时、上下文膨胀、无进展循环四类切开，通常会看到某一类占到一半以上——那一类就是本周的改动清单。
+
+### 5.5 误区：用户重试率是体验问题，不该混进质量指标
+
+错在哪：把用户行为信号归到「产品侧」，让它和数据指标分家。为什么自然：质量指标通常由工程团队定义，用户行为由产品团队看，两者天然被切在不同的报表里。正确做法：用户重试率与中断率是最接近真相的质量指标，因为模型评分只是代理指标，用户行为才是真实结果。数字：完成率 90%、重试率 30% 的系统，实际体验远差于完成率 85%、重试率 8% 的系统。判据：把它和完成率并列观察；只提升完成率而重试率上升的改动，应当视为失败。
+
+### 5.6 误区：所有 badcase 都该进回归门禁
+
+错在哪：把「收藏问题」和「设成门槛」当成同一件事。为什么自然：每一条 badcase 看起来都值得防住。正确做法：只有能通过 Harness 改动解决的工程问题才进回归集；需要模型侧改进的研究问题单独归档，作为改进输入而不是门槛。判据：如果一条样本注定长期失败，团队就会为它开白名单、加例外；而一旦开始加例外，门禁就废了。
+
+## 六、自测
 
 <div class="quiz">
   <div class="quiz-head"><span>本章自测</span><span>第 2 题为高区分度题</span></div>
@@ -249,7 +338,7 @@ def attribution_report(traces: list[Trace]) -> dict:
   </div>
 </div>
 
-## 六、小结
+## 七、小结
 
 | 环节 | 关键要求 |
 | --- | --- |
@@ -263,3 +352,24 @@ def attribution_report(traces: list[Trace]) -> dict:
 <p class="pull-quote">评测没有接进 CI，就只是文档。文档不会挡住任何一个坏改动。<cite>本刊编辑部</cite></p>
 
 评测工程部分结束。最后一部分回到「回答必须有据可查」这个问题：知识怎么建模、怎么检索、怎么让人信。
+
+## 八、参考与延伸
+
+闭环这件事没有单一权威文档，下面几份材料各自补一块：规范、基准、编排原则，以及线上监控的实践。
+
+**先看图（建立直觉）**
+
+- [Anthropic · Building effective agents](https://www.anthropic.com/engineering/building-effective-agents) —— 讲 Agent 循环该在什么地方停下来交给人，对应本章「归因之后该改哪一层」的判断。<strong>如果团队正在争「这个失败该改提示词还是改流程」，先读它关于工作流与 Agent 分界的部分。</strong>
+
+**再看代码（动手实现）**
+
+- [tau-bench](https://github.com/sierra-research/tau-bench) —— 多轮 Agent 基准，把用户建模成模拟器、把工具建模成真实接口，它的评测协议本身就是一套 replay。<strong>想理解「重放为什么必须固定外部依赖」，看它怎么把用户与工具都做成可复现的受控对象。</strong>
+
+**最后读论文（对齐一手定义）**
+
+- [OpenTelemetry · Generative AI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) —— 目前唯一在推进「LLM 与 Agent 调用该记哪些字段」标准化的官方规范。<strong>本章第二节那张 trace 字段表，可以直接拿去和它的字段命名对照，省掉自己造一套私有 schema。</strong>
+- [SWE-bench](https://www.swebench.com/) —— 用「真实仓库的测试能不能跑通」当门禁的极端形态。<strong>想知道把门禁彻底程序化会变成什么样，看它的任务构造与判定方式。</strong>
+
+**延伸阅读**
+
+- [Hamel Husain 的博客](https://hamel.dev/) —— 线上监控与离线评测怎么接成闭环，以及「评测不接进流程就等于没做」的多次讨论。<strong>本章的门禁分层与告警阈值，可以拿他的实践清单逐条核对。</strong>

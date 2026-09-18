@@ -105,3 +105,39 @@ https://blog.vllm.ai/2023/06/20/vllm.html
 https://arxiv.org/abs/2309.06180
 https://arxiv.org/abs/2307.03172
 
+# 章级延伸阅读（Harness 工程：循环 / 工具 / 上下文）
+https://eugeneyan.com/writing/llm-patterns/
+https://www.anthropic.com/engineering/claude-code-best-practices
+https://www.anthropic.com/engineering/writing-tools-for-agents
+https://langchain-ai.github.io/langgraph/concepts/durable_execution/
+https://openai.github.io/openai-agents-python/
+https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+https://docs.vllm.ai/en/latest/features/automatic_prefix_caching.html
+
+# 章级延伸阅读（评测工程）
+https://arxiv.org/abs/2306.05685
+https://opentelemetry.io/docs/specs/semconv/gen-ai/
+
+# 章级延伸阅读（知识引擎：检索 / 嵌入 / 引用）
+https://docs.getdbt.com/docs/build/about-metricflow
+https://www.w3.org/TR/prov-o/
+https://www.anthropic.com/news/contextual-retrieval
+https://sbert.net/examples/sentence_transformer/applications/retrieve_rerank/README.html
+https://arxiv.org/abs/2005.11401
+https://www.sbert.net/docs/sentence_transformer/usage/semantic_textual_similarity.html
+https://arxiv.org/abs/1908.10084
+https://www.elastic.co/guide/en/elasticsearch/reference/current/rrf.html
+https://sbert.net/examples/cross_encoder/applications/README.html
+https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf
+https://arxiv.org/abs/2004.04906
+
+# 章级延伸阅读（大模型推理侧：KV Cache / MoE / 采样 / 优化）
+https://arxiv.org/abs/2305.13245
+https://arxiv.org/abs/2101.03961
+https://arxiv.org/abs/2401.04088
+https://arxiv.org/abs/2412.19437
+https://arxiv.org/abs/1904.09751
+https://arxiv.org/abs/2405.04434
+https://arxiv.org/abs/2211.17192
+https://lilianweng.github.io/posts/2021-01-02-controllable-text-generation/
+https://lilianweng.github.io/posts/2023-01-10-inference-optimization/

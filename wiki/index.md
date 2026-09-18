@@ -4,11 +4,13 @@
 >
 > 统计数字由 `node scripts/wiki-facts.mjs` 从正文清点得出，
 > 并由 `node scripts/wiki-lint.mjs` 在体检时核对——手改数字会被拦住。
+>
+> 本页记**有什么**（目录与体量）。要查**每章还差什么**（完善度与待办），看 [`tasks.md`](tasks.md)。
 
 **口径**：`图` = 手写 `<svg>` 数量 · `码` = 围栏代码块数量 · `节` = `##` 小节数量 ·
 `问答` = 题数（括号内为标注「高频」的题数）。
 
-| 总量 | 4 领域 | 22 章 | 28 图 | 24 段代码 | 133 小节 | 72 问（30 高频） | 约 6.4 万汉字 |
+| 总量 | 4 领域 | 22 章 | 70 图 | 24 段代码 | 176 小节 | 134 问（52 高频） | 约 10.5 万汉字 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 
 ---
@@ -22,11 +24,11 @@
 
 | # | 章节标题 | 文件 | 难度 | 时长 | 图/码/节 | 问答 | 关键标签 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Transformer 与自注意力 | `llm-01-transformer.md` | L1 | 35 | 7/1/9 | 3(1) | Self-Attention · QKV · 复杂度 · 位置编码 |
-| 2 | KV Cache：多轮对话的隐性账单 | `llm-02-kv-cache.md` | L2 | 26 | 1/2/6 | 4(3) | KV Cache · 前缀稳定性 · 成本模型 · 显存估算 |
-| 3 | MoE 与稀疏激活 | `llm-03-moe.md` | L2 | 24 | 1/1/6 | 3(1) | MoE · 路由 · 稀疏激活 · 显存 |
-| 4 | 采样、温度与确定性 | `llm-04-sampling.md` | L1 | 20 | 1/1/6 | 3(0) | Temperature · Top-P · 解码策略 · 确定性 |
-| 5 | 推理优化与成本杠杆 | `llm-05-inference-opt.md` | L3 | 30 | 1/1/6 | 3(1) | 量化 · 投机解码 · Continuous Batching · MLA |
+| 1 | Transformer 与自注意力 | `llm-01-transformer.md` | L1 | 35 | 7/1/10 | 3(1) | Self-Attention · QKV · 复杂度 · 位置编码 |
+| 2 | KV Cache：多轮对话的隐性账单 | `llm-02-kv-cache.md` | L2 | 26 | 3/2/8 | 7(5) | KV Cache · 前缀稳定性 · 成本模型 · 显存估算 |
+| 3 | MoE 与稀疏激活 | `llm-03-moe.md` | L2 | 24 | 3/1/8 | 6(2) | MoE · 路由 · 稀疏激活 · 显存 |
+| 4 | 采样、温度与确定性 | `llm-04-sampling.md` | L1 | 20 | 3/1/8 | 5(1) | Temperature · Top-P · 解码策略 · 确定性 |
+| 5 | 推理优化与成本杠杆 | `llm-05-inference-opt.md` | L3 | 30 | 3/1/8 | 6(2) | 量化 · 投机解码 · Continuous Batching · MLA |
 
 **这一领域的四根支柱**（面试里被反复问到的就这四件事）：
 注意力复杂度决定了「上下文很贵」；KV Cache 与前缀稳定性决定了「多轮很便宜」；
@@ -42,14 +44,14 @@ MoE 决定了「大模型为什么能便宜」；采样策略决定了「为什�
 
 | # | 章节标题 | 文件 | 难度 | 时长 | 图/码/节 | 问答 | 关键标签 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Harness 是什么 | `harness-01-what-is-harness.md` | L1 | 24 | 1/1/6 | 3(1) | Harness · 能力地图 · Agent 定义 |
-| 2 | Agent Loop 与终止条件 | `harness-02-agent-loop.md` | L1 | 32 | 1/1/7 | 4(2) | ReAct · 终止条件 · 循环检测 · Human-in-the-loop |
-| 3 | Tool Use 与工具契约 | `harness-03-tool-use.md` | L2 | 34 | 1/1/6 | 4(2) | Function Calling · 工具描述 · 错误分类 · MCP |
-| 4 | Context Engineering | `harness-04-context-engineering.md` | L2 | 36 | 1/1/6 | 4(3) | 上下文预算 · 上下文压缩 · 前缀稳定性 · 状态外置 |
-| 5 | Memory 记忆系统 | `harness-05-memory.md` | L2 | 30 | 1/1/6 | 3(1) | 长期记忆 · 写入策略 · 检索 · 冲突消解 |
-| 6 | Subagent 与多智能体编排 | `harness-06-multi-agent.md` | L3 | 34 | 1/1/7 | 3(1) | Subagent · Supervisor · 上下文隔离 · 结果汇总 |
-| 7 | 沙箱、权限与提示注入 | `harness-07-sandbox-security.md` | L3 | 32 | 1/1/6 | 3(2) | 沙箱 · 最小权限 · Prompt Injection · 审计 |
-| 8 | 长任务与失败恢复 | `harness-08-long-horizon.md` | L2 | 36 | 1/2/6 | 4(2) | 流式卡死 · 状态机 · 检查点 · 幂等 |
+| 1 | Harness 是什么 | `harness-01-what-is-harness.md` | L1 | 24 | 3/1/8 | 6(2) | Harness · 能力地图 · Agent 定义 |
+| 2 | Agent Loop 与终止条件 | `harness-02-agent-loop.md` | L1 | 32 | 3/1/9 | 7(3) | ReAct · 终止条件 · 循环检测 · Human-in-the-loop |
+| 3 | Tool Use 与工具契约 | `harness-03-tool-use.md` | L2 | 34 | 3/1/8 | 7(3) | Function Calling · 工具描述 · 错误分类 · MCP |
+| 4 | Context Engineering | `harness-04-context-engineering.md` | L2 | 36 | 3/1/8 | 7(4) | 上下文预算 · 上下文压缩 · 前缀稳定性 · 状态外置 |
+| 5 | Memory 记忆系统 | `harness-05-memory.md` | L2 | 30 | 3/1/8 | 6(2) | 长期记忆 · 写入策略 · 检索 · 冲突消解 |
+| 6 | Subagent 与多智能体编排 | `harness-06-multi-agent.md` | L3 | 34 | 3/1/9 | 6(2) | Subagent · Supervisor · 上下文隔离 · 结果汇总 |
+| 7 | 沙箱、权限与提示注入 | `harness-07-sandbox-security.md` | L3 | 32 | 3/1/8 | 6(3) | 沙箱 · 最小权限 · Prompt Injection · 审计 |
+| 8 | 长任务与失败恢复 | `harness-08-long-horizon.md` | L2 | 36 | 3/2/8 | 7(3) | 流式卡死 · 状态机 · 检查点 · 幂等 |
 
 **贯穿这 8 章的一条主线**：第 1 章画出能力地图 → 第 2 章是循环（骨架）→
 第 3–5 章是循环要用到的三样东西（工具、上下文、记忆）→ 第 6 章是怎么拆成多个循环 →
@@ -67,11 +69,11 @@ MoE 决定了「大模型为什么能便宜」；采样策略决定了「为什�
 
 | # | 章节标题 | 文件 | 难度 | 时长 | 图/码/节 | 问答 | 关键标签 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 评测的第一性问题 | `eval-01-first-principles.md` | L1 | 24 | 1/1/6 | 3(1) | 评测设计 · 基线 · 噪声 · 可复现 |
-| 2 | 评测集建设与防过拟合 | `eval-02-dataset.md` | L2 | 30 | 1/1/6 | 3(1) | 评测集 · 保留集 · 分层 · Badcase 回流 |
-| 3 | 办事型 Agent 的硬指标 | `eval-03-executable-metrics.md` | L2 | 30 | 1/1/6 | 3(1) | 可执行率 · 参数准确性 · 计算口径 · 指标定义 |
-| 4 | 洞察型评分与 LLM-as-Judge | `eval-04-insight-judge.md` | L3 | 34 | 1/1/5 | 3(2) | 多维评分 · Rubric · LLM-as-Judge · 偏差控制 |
-| 5 | Trace、Replay 与线上闭环 | `eval-05-trace-loop.md` | L2 | 28 | 1/1/6 | 3(1) | Trace · Replay · 回归门禁 · 灰度发布 |
+| 1 | 评测的第一性问题 | `eval-01-first-principles.md` | L1 | 24 | 3/1/8 | 6(2) | 评测设计 · 基线 · 噪声 · 可复现 |
+| 2 | 评测集建设与防过拟合 | `eval-02-dataset.md` | L2 | 30 | 3/1/8 | 6(2) | 评测集 · 保留集 · 分层 · Badcase 回流 |
+| 3 | 办事型 Agent 的硬指标 | `eval-03-executable-metrics.md` | L2 | 30 | 3/1/8 | 6(2) | 可执行率 · 参数准确性 · 计算口径 · 指标定义 |
+| 4 | 洞察型评分与 LLM-as-Judge | `eval-04-insight-judge.md` | L3 | 34 | 3/1/7 | 6(3) | 多维评分 · Rubric · LLM-as-Judge · 偏差控制 |
+| 5 | Trace、Replay 与线上闭环 | `eval-05-trace-loop.md` | L2 | 28 | 3/1/8 | 6(2) | Trace · Replay · 回归门禁 · 灰度发布 |
 
 **双轨结构**（本领域的骨架）：**办事型** Agent 看硬指标（可执行率 / 参数准确率 / 任务完成率），
 **洞察型** Agent 看多维评分（方向相关性 / 证据充分性 / 可操作性 / 表达清晰度）。
@@ -87,10 +89,10 @@ MoE 决定了「大模型为什么能便宜」；采样策略决定了「为什�
 
 | # | 章节标题 | 文件 | 难度 | 时长 | 图/码/节 | 问答 | 关键标签 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 知识建模：实体、事实、推断 | `knowledge-01-modeling.md` | L2 | 30 | 1/1/5 | 3(1) | 实体抽取 · 事实层 · 推断层 · 依据链 |
-| 2 | RAG 的链路与失效模式 | `knowledge-02-rag.md` | L2 | 32 | 1/1/5 | 3(1) | RAG · 切分 · 召回 · 失效模式 |
-| 3 | Embedding 与向量检索 | `knowledge-03-embedding.md` | L2 | 28 | 1/1/6 | 3(1) | Embedding · 余弦相似度 · ANN · 能力边界 |
-| 4 | 混合检索、Rerank 与知识可信 | `knowledge-04-hybrid-trust.md` | L3 | 34 | 1/1/5 | 4(1) | 混合检索 · Rerank · 溯源引用 · 冲突消解 |
+| 1 | 知识建模：实体、事实、推断 | `knowledge-01-modeling.md` | L2 | 30 | 3/1/7 | 6(2) | 实体抽取 · 事实层 · 推断层 · 依据链 |
+| 2 | RAG 的链路与失效模式 | `knowledge-02-rag.md` | L2 | 32 | 3/1/7 | 6(2) | RAG · 切分 · 召回 · 失效模式 |
+| 3 | Embedding 与向量检索 | `knowledge-03-embedding.md` | L2 | 28 | 3/1/8 | 6(2) | Embedding · 余弦相似度 · ANN · 能力边界 |
+| 4 | 混合检索、Rerank 与知识可信 | `knowledge-04-hybrid-trust.md` | L3 | 34 | 3/1/7 | 7(2) | 混合检索 · Rerank · 溯源引用 · 冲突消解 |
 
 **这四章的递进关系**：先定义知识的形状（三层建模）→ 再讲怎么把它取出来（RAG 链路）→
 再讲取出来靠什么算（向量检索及其边界）→ 最后把召回与精排拼成一条可信链路（混合 + Rerank + 溯源）。
@@ -124,7 +126,7 @@ I. 大模型原理 (5章)  →  II. Harness 工程 (8章)  →  III. 评测工�
 
 ## 题库索引
 
-72 问分布在 4 个领域，其中 30 题标为**高频**（`freq: 'high'`）。
+134 问分布在 4 个领域，其中 52 题标为**高频**（`freq: 'high'`）。
 高频题集中在这三处，是面试前最该过的：
 
 | 高密集区 | 高频题数 | 主题 |

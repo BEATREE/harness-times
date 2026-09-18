@@ -8,7 +8,7 @@ note: '本章开头那条纪律（评测集和调试集必须分开）是最容�
 
 ## 一、评测集必须分层
 
-不同层回答不同的问题，混在一起会导致「不知道该看哪个数」。
+不同层回答不同的问题，混在一起会导致「不知道该看哪个数」——所以才要分出[[smoke-set|冒烟集]]、回归集、边界集、对抗集这样的层次，每层有独立的通过标准与告警阈值。
 
 <div class="tbl-wrap">
   <table class="news">
@@ -23,7 +23,7 @@ note: '本章开头那条纪律（评测集和调试集必须分开）是最容�
   </table>
 </div>
 
-**回归集的核心价值不是「测得多准」，而是「钉住不许退步」。** 它的每一条样本都应该来自一个真实发生过的问题，并且带一条注释说明「这条是因为什么引入的」。
+**回归集的核心价值不是「测得多准」，而是「钉住不许退步」。** 它的每一条样本都应该来自一个真实发生过的问题，并且带一条注释说明「这条是因为什么引入的」——这套纪律防的就是[[overfitting|过拟合]]：反复在同一套题上调优，分数涨了但真实能力没变。[[regression-set|回归集]]就是用来锁住「曾经修好的东西不再坏」。
 
 ## 二、保留集：防过拟合的唯一手段
 
@@ -65,12 +65,64 @@ note: '本章开头那条纪律（评测集和调试集必须分开）是最容�
       <text x="30" y="362" font-family="ui-monospace, monospace" font-size="9.3" fill="#6b6257">② 调试池与保留池差距持续扩大 → 已经过拟合，改进没有泛化。</text>
     </svg>
   </div>
-  <figcaption><b>图 1</b>　调试池与保留池的分工。关键纪律：<b>保留池不允许看单条样本、不允许针对性优化</b>。一旦你为了修某条样本而改代码，它就必须从保留池下放到调试池——否则保留池就失去了「无偏估计」的意义。</figcaption>
+  <figcaption><b>图 1</b>　调试池与保留池的分工。关键纪律：<b>保留池不允许看单条样本、不允许针对性优化</b>。一旦你为了修某条样本而改代码，它就必须从保留池下放到调试池——否则保留池就失去了「无偏估计」的意义。  </figcaption>
+</figure>
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 320" role="img" aria-label="评测集四层：规模、频率、用途各不相同">
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">评测集为什么必须分层</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">四层回答不同的问题，频率与规模各不相同</text>
+      <rect x="16" y="60" width="628" height="46" fill="#eef4f1" stroke="#2f6157" stroke-width="1.2"/>
+      <text x="30" y="82" font-family="ui-monospace, monospace" font-size="10.5" font-weight="700" fill="#2f6157">冒烟集</text>
+      <text x="160" y="82" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">10-20 条　每次提交　100% 通过才能合（有没有低级错误）</text>
+      <rect x="16" y="112" width="628" height="46" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="30" y="134" font-family="ui-monospace, monospace" font-size="10.5" font-weight="700" fill="#8a6a1e">回归集</text>
+      <text x="160" y="134" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">100-300 条　每次发版　钉住不许退步（真实问题沉淀）</text>
+      <rect x="16" y="164" width="628" height="46" fill="#eef1f7" stroke="#345a75" stroke-width="1.2"/>
+      <text x="30" y="186" font-family="ui-monospace, monospace" font-size="10.5" font-weight="700" fill="#345a75">边界集</text>
+      <text x="160" y="186" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">50-150 条　每次发版　极端输入下不崩（超长/空值/多语言）</text>
+      <rect x="16" y="216" width="628" height="46" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.2"/>
+      <text x="30" y="238" font-family="ui-monospace, monospace" font-size="10.5" font-weight="700" fill="#9b2c2c">对抗集</text>
+      <text x="160" y="238" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">30-80 条　月度　挡住恶意输入/提示注入/诱导越权</text>
+      <text x="16" y="288" font-family="ui-monospace, monospace" font-size="9.4" fill="#6b6257">混在一层 → 不知道该看哪个数；分层 → 每类问题有独立通过标准与告警阈值。</text>
+      <text x="16" y="306" font-family="ui-monospace, monospace" font-size="9.4" fill="#9b2c2c">对抗集缺失 → 安全类问题根本不会被评测覆盖，是最危险的空白层。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 2</b>　四层评测集不是「越多越好」，而是「各管一类问题」。<b>对抗集常被省略，但一旦省略，安全类退步就彻底失去感知</b>——这正是防刷分要盯的分层之一。</figcaption>
+</figure>
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 300" role="img" aria-label="调试池与保留池分数差：过拟合的体温计">
+      <defs>
+        <marker id="ar2" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#1f1b16"/>
+        </marker>
+      </defs>
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">调试池与保留池的分数差</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">差距越大，过拟合越严重：这是评测集健康的体温计</text>
+      <line x1="100" y1="250" x2="580" y2="250" stroke="#1f1b16" stroke-width="1.2"/>
+      <text x="100" y="266" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">0</text>
+      <text x="340" y="266" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">50</text>
+      <text x="580" y="266" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">100</text>
+      <rect x="150" y="86" width="90" height="164" fill="#eef4f1" stroke="#2f6157" stroke-width="1.2"/>
+      <text x="195" y="78" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#2f6157">调试池 92%</text>
+      <rect x="420" y="142" width="90" height="108" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.2"/>
+      <text x="465" y="134" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#9b2c2c">保留池 68%</text>
+      <line x1="195" y1="68" x2="465" y2="68" stroke="#9b2c2c" stroke-width="1.2" stroke-dasharray="3 2" marker-end="url(#ar2)"/>
+      <text x="330" y="62" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.5" fill="#9b2c2c">差距 24 个百分点</text>
+      <line x1="100" y1="223" x2="580" y2="223" stroke="#9b2c2c" stroke-width="1" stroke-dasharray="4 2"/>
+      <text x="104" y="218" font-family="ui-monospace, monospace" font-size="8.8" fill="#9b2c2c">告警阈值 +15pct</text>
+      <text x="16" y="290" font-family="ui-monospace, monospace" font-size="9.4" fill="#6b6257">判据：两池差距超过 15 个百分点即视为明显过拟合；保留池是「真实泛化能力」的无偏估计，敢不敢上线看它。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 3</b>　调试池 92%、保留池 68%，24 分的差距是过拟合的典型体温。<b>保留池才是敢不敢上线的依据</b>——它的分数不会因为你对某批样本调优而水涨船高。</figcaption>
 </figure>
 
 ## 三、badcase 回流：评测集的生长机制
 
-这是本章最有价值的部分：**一个健康的评测集，其增长速度应该与线上问题发现速度相当。**
+这是本章最有价值的部分：**一个健康的评测集，其增长速度应该与线上问题发现速度相当**——这正是[[badcase-backflow|badcase 回流]]机制的设计目标：线上每一次真实的失败，都沉淀成一条可复现的回归样本。
 
 <div class="tbl-wrap">
   <table class="news">
@@ -192,7 +244,33 @@ def from_badcase(trace_id: str, expect_tool: str, expect_args: dict,
   </ul>
 </div>
 
-## 五、自测
+## 五、常见误区与追问
+
+### 5.1 误区：评测集和调试集可以共用（其实必须用两个池子）
+
+很多人把同一套题既用来调优又用来验收。错。一旦你为了修某条样本而改代码，那条样本就「被你背下来了」，它再也不能代表真实能力。[[holdout|保留池]]存在的意义就是无偏估计：平时不准看单条、不准针对性优化。判据：调试池与保留池分数差距 > 15 个百分点，即视为明显过拟合，必须补新样本稀释。
+
+### 5.2 误区：样本越多越准（其实是分层配比错了更危险）
+
+盲目堆数量不如把四层配齐。没有[[adversarial-set|对抗集]]，安全类退步完全无感知；没有[[boundary-set|边界集]]，极端输入下的崩溃没人发现。判据：先保证四层都在线（冒烟/回归/边界/对抗），再谈加量；对抗集哪怕只有 30 条，也比 500 条全是正常样本有用。
+
+### 5.3 误区：标注「期望输出文本」就够（其实它不可判定）
+
+新手常把标准答案写成一段期望文本然后做文本比对。错。同一件事有无数种正确说法，文本比对会大量误判（该对的判错），也会放过偷换说法的错。[[expected-behavior|期望行为]]要求标注「该调哪个工具、参数是什么、是否拒绝或澄清」——这些有明确对错。判据：一条样本若无法用工具/拒绝/澄清判定，禁止进入回归集。
+
+### 5.4 误区：能跑过的样本就是好样本（其实是过拟合温床）
+
+调试池能反复跑、反复调，很容易变成「针对这 80% 样本特训」。[[dev-set|调试池]]给出的是乐观估计，它的高分不能对外汇报。判据：对外结论一律以保留池为准；每次发版前必须看保留池，而不是看自己调了一下午的调试池。
+
+### 5.5 误区：样本能不能自动判定无所谓（其实决定评测能否持续）
+
+如果一条样本只能靠人读输出判断，它就没法进回归集、也没法接 CI。[[judgeability|可判定性]]是评测集可维护性的前提。判据：入库前先问「这条能不能不靠人眼判定」；不能判定的要么改写成可判定形式，要么只作人工抽检、不进自动门禁。
+
+### 5.6 误区：badcase 回流就是「把报错存下来」（其实是带溯源的结构化沉淀）
+
+把线上失败随便丢进一个文件夹，三个月后没人知道为什么留它、该怎么判。badcase 回流要求脱敏后标注期望行为、写清来源与原因、归到工程问题类。判据：缺来源或原因的样本必须拒收；无溯源的样本无法维护，等于给未来埋雷。
+
+## 六、自测
 
 <div class="quiz">
   <div class="quiz-head"><span>本章自测</span><span>第 1、3 题为高频考点</span></div>
@@ -222,7 +300,7 @@ def from_badcase(trace_id: str, expect_tool: str, expect_args: dict,
   </div>
 </div>
 
-## 六、小结
+## 七、小结
 
 | 议题 | 结论 |
 | --- | --- |
@@ -236,3 +314,21 @@ def from_badcase(trace_id: str, expect_tool: str, expect_args: dict,
 <p class="pull-quote">评测集不是一次性的资产，而是需要持续维护的基础设施。一个三个月没更新过的评测集，测的是三个月前的用户。<cite>本刊编辑部</cite></p>
 
 下一章处理办事型 Agent 最核心、也最容易口径混乱的问题：那些硬指标到底怎么算。
+
+## 八、参考与延伸
+
+评测集不是一次设计出来的，是随线上问题长出来的。下面几份材料按「建立直觉 → 动手 → 对齐一手定义」排好。
+
+**先看图（建立直觉）**
+
+- [Promptfoo 文档](https://www.promptfoo.dev/) —— 开源评测与红队框架，自带冒烟 / 回归 / 对抗多套数据集范式。**重点看它怎么把「期望行为」写成可判定的断言，正好对应本章第四节。**
+- [Eugene Yan · 评测与监控](https://eugeneyan.com/) —— 从 LLMOps 视角讲评测集如何随线上问题生长。**他关于「评测集是活的系统」的观点，和本章 badcase 回流完全同构。**
+
+**再看代码（动手实现）**
+
+- [OpenAI Evals](https://github.com/openai/evals) —— 官方评测框架，直接看数据集怎么组织、grading 怎么写。**对比本章第四节的 Dataset 类，能看出生产级框架多做了哪些版本化与回归管理。**
+
+**最后读论文（对齐一手定义）**
+
+- [HELM · 斯坦福 CRFM](https://crfm.stanford.edu/helm/latest/) —— 公开口径的评测基准，把场景、维度、指标做成一套可被复现的定义。**它示范了「评测集为什么要分层、口径为什么要公开」。**
+- [tau-bench](https://github.com/sierra-research/tau-bench) —— Agent 评测的一手基准，以「工具调用是否正确」定义完成度。**想理解「可判定样本」为什么是评测集的骨架，看它怎么构造任务就够了。**

@@ -544,6 +544,78 @@ check('配对错位已修好（不再把无关的字加粗）',
   !ch1Visible.includes('<strong>。用一个叫</strong>') &&
     ch1Visible.includes('<strong>「数 + 排列方式」</strong>'));
 
+/* ---------- 12. 每章的两节结构 + 词条质量（2026-09-19 全站铺开时新增） ----------
+ *
+ * 这一轮把第 1 章的样板做法铺到了其余 21 章，统一补了两节：
+ *   「常见误区与追问」—— 把最容易理解偏、面试最容易追问的点讲透；
+ *   「参考与延伸」  —— 给出真正值得读的深挖路径。
+ * 这两节都是**增量**内容：缺了页面照样正常渲染，正是那种
+ * 「只有人逐章翻才会发现」的问题，所以必须有断言盯着。
+ *
+ * 下半组守的是新建的 212 条术语词条的质量。按行数或条数都查不出问题 ——
+ * 数据少一条只是某张卡片缺一块，而「命名辨析写成套话」看着还挺完整。
+ * 所以这里量化三件事：命名辨析够不够长（套话一定短）、含义是不是一句话、
+ * 解释里有没有加粗强调（那是术语卡上唯一的速度锚点）。
+ */
+const chapterSrcFiles = readdirSync(chapterSrcDir).filter((f) => f.endsWith('.md')).sort();
+const noMistakes = [];
+const noRefs = [];
+for (const f of chapterSrcFiles) {
+  const src = readText(join(chapterSrcDir, f));
+  const id = f.replace(/\.md$/, '');
+  /* 「常见误区与追问」在自测之前，所以要从它的标题切到下一个小节标题为止 */
+  const h2 = /^## [^#\n]*常见误区与追问[^\n]*$/m.exec(src);
+  if (!h2) noMistakes.push(id);
+  else {
+    const rest = src.slice(h2.index + h2[0].length);
+    const next = rest.search(/^## /m);
+    const body = next < 0 ? rest : rest.slice(0, next);
+    const subs = (body.match(/^### /gm) ?? []).length;
+    if (subs < 4) noMistakes.push(`${id}(仅 ${subs} 条)`);
+  }
+  /* 「参考与延伸」在末尾 */
+  const r2 = /^## [^#\n]*参考与延伸[^\n]*$/m.exec(src);
+  if (!r2) noRefs.push(id);
+  else {
+    const urls = (src.slice(r2.index).match(/\]\(https?:\/\/[^)\s]+\)/g) ?? []).length;
+    if (urls < 3) noRefs.push(`${id}(仅 ${urls} 链接)`);
+  }
+}
+check('每章都有「常见误区与追问」节且至少 4 条', noMistakes.length === 0, noMistakes.slice(0, 6).join('、'));
+check('每章都有「参考与延伸」节且至少 3 条外链', noRefs.length === 0, noRefs.slice(0, 6).join('、'));
+
+/* 词条的 naming / meaning / explain：两种写法都要抓到 ——
+ * 早期 25 条把值写在字段名的下一行（`naming:` 单独一行 + 6 空格缩进的值），
+ * 后来批量新增的 212 条写成单行。只按单行式抓会漏掉整整 25 条，而且不报错。
+ *
+ * ⚠️ 单行式那条必须用 `[ \t]*` 而不是 `\s*`：`\s` 会把换行也吃掉，
+ * 于是它也匹配上「字段名单独一行」的那种，与第二条正则重复计数
+ * （第一次跑出来 262 = 237 + 25，正好多算 25 条）。 */
+const fieldOf = (name) => [
+  ...glossarySrc.matchAll(new RegExp(`^ {4}${name}:[ \\t]*'([^']*)',$`, 'gm')),
+  ...glossarySrc.matchAll(new RegExp(`^ {4}${name}:\\n {6}'([^']*)',$`, 'gm')),
+].map((m) => m[1]);
+
+const namings = fieldOf('naming');
+check('每个名词都写了「命名辨析」', namings.length === termIds.length,
+  `${namings.length} / ${termIds.length}`);
+const thinNaming = namings.filter((v) => v.length < 40);
+check('「命名辨析」不是套话（每条 ≥40 字）', thinNaming.length === 0,
+  `${thinNaming.length} 条过短，例如「${thinNaming[0] ?? ''}」`);
+
+const meanings = fieldOf('meaning');
+const longMeaning = meanings.filter((v) => v.length > 50);
+check('名词的「含义」都控制在一句话内（≤50 字）', longMeaning.length === 0,
+  `${longMeaning.length} 条过长，例如「${(longMeaning[0] ?? '').slice(0, 30)}…」`);
+
+const explains = fieldOf('explain');
+const noBold = explains.filter((v) => !v.includes('<b>'));
+const tooShort = explains.filter((v) => v.length < 100);
+check('每条解释都带加粗强调（卡片靠它做速读锚点）', noBold.length === 0,
+  `${noBold.length} 条没有 <b>，例如 ${noBold.length ? termIds[explains.indexOf(noBold[0])] : ''}`);
+check('每条解释都不少于 100 字（不是一行敷衍）', tooShort.length === 0,
+  `${tooShort.length} 条过短`);
+
 /* ---------- 输出 ---------- */
 let failed = 0;
 for (const r of results) {

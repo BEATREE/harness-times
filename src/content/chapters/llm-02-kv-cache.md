@@ -8,11 +8,11 @@ note: '本章是全站最重要的成本一章。读完后请务必把「前缀�
 
 ## 一、重复计算发生在哪
 
-生成式模型是自回归的：生成第 t 个 token 时，需要前面所有 token 的信息。而在 Transformer 里，每一层的信息都浓缩成两个张量——K（键）和 V（值）。
+生成式模型是[[autoregressive|自回归]]的：生成第 t 个 token 时，需要前面所有 token 的信息。而在 Transformer 里，每一层的信息都浓缩成两个张量——K（键）和 V（值）。
 
 关键点在于：**这两个张量只依赖已经出现过的前缀，与后面要生成什么完全无关。**
 
-所以第 2 轮请求里，那 2,000 个 token 的历史算出来的 K/V，和第 1 轮里算出来的**完全一样**。既然一样，就没有理由重算。把每一层的 K/V 存下来，下一轮直接复用，这就是 KV Cache。
+所以第 2 轮请求里，那 2,000 个 token 的历史算出来的 K/V，和第 1 轮里算出来的**完全一样**。既然一样，就没有理由重算。把每一层的 K/V 存下来，下一轮直接复用，这就是 [[kv-cache|KV Cache]]。
 
 <figure class="fig">
   <div class="fig-frame">
@@ -62,7 +62,7 @@ note: '本章是全站最重要的成本一章。读完后请务必把「前缀�
 
 ## 二、前缀稳定性：被忽略的成本开关
 
-KV Cache 是按**前缀逐位比对**命中的。从序列的第一个 token 开始，一旦某一位不同，其后全部失效。这个机制带来一个反直觉但极其重要的结论：
+KV Cache 是按[[prefix-stability|前缀逐位比对]]命中的。从序列的第一个 token 开始，一旦某一位不同，其后全部失效。这个机制带来一个反直觉但极其重要的结论：
 
 > **在中间插入内容，比在末尾追加内容昂贵得多。**
 
@@ -90,7 +90,7 @@ KV Cache 是按**前缀逐位比对**命中的。从序列的第一个 token 开
 
 ## 三、显存估算：缓存的代价
 
-缓存不是免费的，它占显存。估算公式不长，记住它就能在面试里立刻给出数量级。
+缓存不是免费的，它要占相当可观的[[kv-footprint|KV Cache 显存]]。估算公式不长，记住它就能在面试里立刻给出数量级。
 
 ```python title="kv_cache_footprint.py"
 def kv_cache_bytes(
@@ -107,20 +107,102 @@ def kv_cache_bytes(
 total = kv_cache_bytes(
     batch=32, seq_len=32_000, n_layers=80, n_kv_heads=8, head_dim=128
 )
-print(f"{total / 1024**3:.1f} GiB")   # 大约 31 GiB —— 仅缓存，不含权重
+print(f"{total / 1024**3:.1f} GiB")   # 大约 312 GiB —— 仅缓存，不含权重
 # 关键观察：这个数是随 seq_len 线性长的
 for s in (8_000, 32_000, 128_000):
     n = kv_cache_bytes(32, s, 80, 8, 128)
     print(f"seq_len={s:>7}: {n/1024**3:6.1f} GiB")
 ```
 
-
-
 三点必须记住：
 
 1. **KV Cache 显存随序列长度线性增长**，与注意力的算力平方增长不是同一回事。算力是平方问题，显存是线性问题——两者要分开讲。
-2. **GQA / MQA** 的工程意义就在这里：把 K/V 的头数从 h 降到 h/8 甚至 1，缓存直接缩小同样倍数。这是长上下文能跑起来的关键手段之一。
-3. **缓存有淘汰策略**。服务端不会让你无限占显存，通常按 LRU 或分页（PagedAttention）管理。这意味着**你的前缀如果排在很久不用的位置，可能已经被淘汰**——命中率还受并发与调度影响，不只看你自己。
+2. **[[gqa|GQA]] / [[mqa|MQA]]** 的工程意义就在这里：把 [[n-kv-heads|K/V 头数]] 从 h 降到 h/8 甚至 1，每个头的 [[head-dim|维度]] 不变，缓存直接缩小同样倍数。这是长上下文能跑起来的关键手段之一。
+3. **缓存有[[cache-eviction|淘汰策略]]**。服务端不会让你无限占显存，通常按 LRU 或分页（PagedAttention）管理。这意味着**你的前缀如果排在很久不用的位置，可能已经被淘汰**——命中率还受并发与调度影响，不只看你自己。这也就是[[cache-hit-rate|缓存命中率]]不完全由你决定的原因。
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 360" role="img" aria-label="KV Cache 显存随长度线性增长，注意力算力随长度平方增长">
+      <text x="16" y="20" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">同样的序列长度，两种代价</text>
+      <text x="16" y="38" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">横轴 = 序列长度 n　纵轴 = 相对成本（示意斜率，非对数刻度）</text>
+      <!-- 坐标轴 -->
+      <line x1="70" y1="60" x2="70" y2="300" stroke="#1f1b16" stroke-width="1"/>
+      <line x1="70" y1="300" x2="630" y2="300" stroke="#1f1b16" stroke-width="1"/>
+      <text x="16" y="52" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">相对成本 ↑</text>
+      <text x="560" y="318" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">序列长度 n →</text>
+      <!-- 线性：KV Cache 显存 -->
+      <polyline points="70,300 180,255 290,210 400,165 540,118" fill="none" stroke="#2f6157" stroke-width="2"/>
+      <circle cx="290" cy="210" r="3.5" fill="#2f6157"/>
+      <circle cx="540" cy="118" r="3.5" fill="#2f6157"/>
+      <!-- 平方：注意力算力 -->
+      <polyline points="70,300 150,250 230,190 330,115 430,80 540,62" fill="none" stroke="#9b2c2c" stroke-width="2"/>
+      <circle cx="330" cy="115" r="3.5" fill="#9b2c2c"/>
+      <circle cx="540" cy="62" r="3.5" fill="#9b2c2c"/>
+      <!-- 竖线标注 n=32k -->
+      <line x1="290" y1="210" x2="290" y2="300" stroke="#cfc6b6" stroke-width="1" stroke-dasharray="3 2"/>
+      <text x="296" y="312" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">n=32k</text>
+      <!-- 图例 -->
+      <rect x="360" y="150" width="14" height="14" fill="#2f6157"/>
+      <text x="380" y="161" font-family="ui-monospace, monospace" font-size="10" fill="#2f6157">KV Cache 显存 ∝ n（线性）</text>
+      <rect x="360" y="172" width="14" height="14" fill="#9b2c2c"/>
+      <text x="380" y="183" font-family="ui-monospace, monospace" font-size="10" fill="#9b2c2c">注意力算力 ∝ n²（平方）</text>
+      <!-- 底部说明 -->
+      <rect x="16" y="324" width="628" height="30" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="30" y="344" font-family="ui-monospace, monospace" font-size="10" fill="#8a6a1e">decode 每步只读取已有缓存 → 显存随长度线性；prefill 要算完 [n,n] → 算力随长度平方。两者是不同瓶颈，要分开优化。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 2</b>　把序列长度翻倍，KV Cache 显存大致翻倍，注意力算力却翻四倍。<b>所以「长上下文很贵」有两个独立的物理来源，优化时不能混为一谈。</b></figcaption>
+</figure>
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 380" role="img" aria-label="MHA、GQA、MQA 的 K/V 头数与缓存大小对比">
+      <text x="16" y="20" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">减少 K/V 头数 = 直接缩小缓存</text>
+      <text x="16" y="38" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">假设 query 头 = 64、单层；柱高 ∝ KV Cache 大小（以 MQA 为 1×）</text>
+      <!-- 三个面板 -->
+      <text x="40" y="62" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#1f1b16">MHA</text>
+      <text x="150" y="62" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">每 query 头各持一组 K/V</text>
+      <rect x="40" y="74" width="24" height="16" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1"/>
+      <rect x="70" y="74" width="24" height="16" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1"/>
+      <rect x="100" y="74" width="24" height="16" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1"/>
+      <text x="134" y="87" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">…×64</text>
+      <rect x="40" y="98" width="24" height="16" fill="#eef4f1" stroke="#2f6157" stroke-width="1"/>
+      <rect x="70" y="98" width="24" height="16" fill="#eef4f1" stroke="#2f6157" stroke-width="1"/>
+      <rect x="100" y="98" width="24" height="16" fill="#eef4f1" stroke="#2f6157" stroke-width="1"/>
+      <text x="134" y="111" font-family="ui-monospace, monospace" font-size="9.5" fill="#2f6157">…×64</text>
+      <text x="270" y="62" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#1f1b16">GQA</text>
+      <text x="380" y="62" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">多 query 头共享一组 K/V</text>
+      <rect x="270" y="74" width="24" height="16" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1"/>
+      <rect x="300" y="74" width="24" height="16" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1"/>
+      <rect x="330" y="74" width="24" height="16" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1"/>
+      <text x="364" y="87" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">×64</text>
+      <rect x="270" y="98" width="84" height="16" fill="#eef4f1" stroke="#2f6157" stroke-width="1"/>
+      <text x="312" y="111" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.5" fill="#2f6157">8 组 K/V</text>
+      <text x="500" y="62" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#1f1b16">MQA</text>
+      <text x="590" y="62" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">全部共享</text>
+      <rect x="500" y="74" width="24" height="16" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1"/>
+      <rect x="530" y="74" width="24" height="16" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1"/>
+      <rect x="560" y="74" width="24" height="16" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1"/>
+      <text x="594" y="87" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">×64</text>
+      <rect x="500" y="98" width="84" height="16" fill="#eef4f1" stroke="#2f6157" stroke-width="1"/>
+      <text x="542" y="111" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.5" fill="#2f6157">1 组 K/V</text>
+      <!-- 柱状：缓存大小 -->
+      <line x1="40" y1="330" x2="620" y2="330" stroke="#1f1b16" stroke-width="1"/>
+      <rect x="60" y="142" width="60" height="188" fill="#f3c9c9" stroke="#9b2c2c" stroke-width="1"/>
+      <text x="90" y="134" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#9b2c2c">64×</text>
+      <rect x="290" y="290" width="60" height="40" fill="#f6e2e2" stroke="#9b2c2c" stroke-width="1"/>
+      <text x="320" y="282" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#9b2c2c">8×</text>
+      <rect x="520" y="322" width="60" height="8" fill="#f6e2e2" stroke="#9b2c2c" stroke-width="1"/>
+      <text x="550" y="314" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#9b2c2c">1×</text>
+      <text x="90" y="348" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">MHA</text>
+      <text x="320" y="348" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">GQA</text>
+      <text x="550" y="348" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">MQA</text>
+      <rect x="16" y="356" width="628" height="20" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="30" y="370" font-family="ui-monospace, monospace" font-size="9.5" fill="#8a6a1e">GQA 把 K/V 头数从 64 降到 8（缓存 ÷8）；MQA 降到 1（再 ÷8）。注意力平方复杂度不变。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 3</b>　MHA 每个 query 头各存一组 K/V，缓存最大；GQA/MQA 让多个 query 头共享 K/V 头，缓存随之缩小。<b>缩小的是 n_kv_heads 这个因子，不是注意力复杂度，也不是权重体积。</b></figcaption>
+</figure>
 
 ## 四、动手：把「前缀稳定性」变成可检查的东西
 
@@ -165,7 +247,33 @@ print(fp1, fp2)   # 这里的差异是因为 history 长度变了，实际检查
   <p style="margin-top:10px">验收标准：能说出你的 Harness 里<b>至少五个</b>前缀破坏点，并指出各自的修法。</p>
 </div>
 
-## 五、自测
+## 五、常见误区与追问
+
+### 5.1 误区：命中率只由自己请求的写法决定
+
+错在哪：以为只要自己两轮请求前缀一致，KV Cache 就一定能命中。为什么自然：前缀确实按字节比对，一致就该命中。正确做法：服务端还有 LRU 或分页（PagedAttention）淘汰策略，并发高、显存紧时你的长前缀可能已被换出。给个数字：70B 级模型在 32k 上下文下单条缓存约 10 GiB，32 路并发就是 300 GiB 量级。**判据：高频复用的前缀要短而稳定，别指望超长前缀一直驻留；命中率不完全由你，要按最坏情况设计。**
+
+### 5.2 误区：GQA / MQA 缩小的是「模型」或「算力」
+
+错在哪：把 KV Cache 显存、权重体积、注意力算力混为一谈。为什么自然：它们都叫「省资源」，直觉上是一回事。正确做法：GQA/MQA 只缩小 KV Cache 里的 K/V 头数，从 64 降到 8 甚至 1；它不改变注意力 O(n²) 复杂度，也不改变权重体积。**判据：被问「GQA 解决了公式里哪个因子」时，答案必须是 n_kv_heads，而不是 n_layers、head_dim 或注意力复杂度。长上下文能跑起来，靠的是这一项的缩小。**
+
+### 5.3 误区：动态信息放 system prompt 开头无所谓
+
+错在哪：以为模型能「理解」就不影响成本。为什么自然：从语言理解角度，加一句时间确实无伤大雅。正确做法：KV Cache 按前缀逐位比对，第一个 token 不同，其后全部失效，命中率直接掉到 0。**判据：把第 1 轮与第 2 轮请求体打印出来，比对字节前缀，看第一个不同字符的偏移量；如果偏移量落在前 1% 内，说明缓存基本作废。纪律：时间、用户名、记忆等动态内容一律放尾部。**
+
+### 5.4 误区：KV Cache 显存和注意力算力都是「随长度增长」，一起优化即可
+
+错在哪：把两种增长当成同一种瓶颈。为什么自然：都和序列长度正相关，容易合并思考。正确做法：前者线性（∝n），后者平方（∝n²），是两套独立瓶颈、两套独立手段。**判据：算 seq_len 翻倍时两者各自变化倍率——显存约 ×2，算力约 ×4；优化时一个靠减 n_kv_heads / 量化 / 分页，另一个靠 FlashAttention / 分块 / 稀疏。把「长上下文优化」说成单一手段，是面试里最容易被追问的点。**
+
+### 5.5 误区：缓存越大越好，把整个历史都留着
+
+错在哪：认为多留历史只会更准，没有代价。为什么自然：上下文越长，模型可利用的信息越多，看似有益。正确做法：KV Cache 显存 = 2·B·L·n_layers·n_kv_heads·head_dim·bytes，是硬预算；超了就 OOM 或被淘汰。**判据：单条 32k、fp16 约 10 GiB，64 并发就 600 GiB 量级，还不算权重。结论：历史要外置（放文件 / 工具），上下文只留指针；「全留着」既不经济也可能因淘汰而失效。**
+
+### 5.6 误区：前缀缓存（Harness 侧）和 KV Cache 是一回事
+
+错在哪：把两个层次的复用混为一谈。为什么自然：名字都带「缓存」，效果都是省重算。正确做法：前缀缓存是 Harness 在请求级复用相同前缀的计算结果（如 system + 工具定义），KV Cache 是推理引擎在层内缓存 K/V 张量；前者靠字节稳定命中、由应用侧保证，后者由引擎管理、还受淘汰影响。**判据：前者你能完全控制（稳定序列化），后者只能间接影响（短前缀 + 高命中）。两者协同，但归属不同层。**
+
+## 六、自测
 
 <div class="quiz">
   <div class="quiz-head"><span>本章自测</span><span>本章为 DeepSeek 类岗位高频考点</span></div>
@@ -179,11 +287,11 @@ print(fp1, fp2)   # 这里的差异是因为 history 长度变了，实际检查
   </div>
   <div class="q-item" data-qid="llm02-q2" data-answer="0">
     <div class="q-text"><span class="idx">Q2</span>某模型 80 层、K/V 头数 8、head_dim 128、fp16 存储。单条 32k 上下文的 KV Cache 大约多大？</div>
-    <button class="opt" data-i="0"><span class="tick">A</span><span>约 1 GiB</span></button>
-    <button class="opt" data-i="1"><span class="tick">B</span><span>约 32 GiB</span></button>
+    <button class="opt" data-i="0"><span class="tick">A</span><span>约 10 GiB</span></button>
+    <button class="opt" data-i="1"><span class="tick">B</span><span>约 5 GiB</span></button>
     <button class="opt" data-i="2"><span class="tick">C</span><span>约 8 MiB</span></button>
-    <button class="opt" data-i="3"><span class="tick">D</span><span>约 128 GiB</span></button>
-    <div class="explain"><b>A。</b>代入公式：<code>2 × 1 × 32000 × 80 × 8 × 128 × 2 = 2.6×10⁹</code> 字节 ≈ 1.05 GiB。关键是别漏掉那个 <code>2</code>（K 和 V 各一份）。<b>面试时能当场笔算出这个数，比说出「很大」有价值得多。</b></div>
+    <button class="opt" data-i="3"><span class="tick">D</span><span>约 80 GiB</span></button>
+    <div class="explain"><b>A。</b>代入公式：<code>2 × 1 × 32000 × 80 × 8 × 128 × 2 = 1.05×10¹⁰</code> 字节 ≈ 9.8 GiB。两个最容易漏的因子：最前面的 <code>2</code>（K 和 V 各一份，漏了就得到 5 GiB），以及 <code>n_layers</code>（每一层都要各存一份）。<b>面试时能当场笔算出这个数，比说出「很大」有价值得多。</b></div>
   </div>
   <div class="q-item" data-qid="llm02-q3" data-answer="3">
     <div class="q-text"><span class="idx">Q3</span>GQA（分组查询注意力）主要解决什么问题？</div>
@@ -195,7 +303,7 @@ print(fp1, fp2)   # 这里的差异是因为 history 长度变了，实际检查
   </div>
 </div>
 
-## 六、小结
+## 七、小结
 
 <div class="tbl-wrap">
   <table class="news">
@@ -212,3 +320,21 @@ print(fp1, fp2)   # 这里的差异是因为 history 长度变了，实际检查
 <p class="pull-quote">前缀稳定性是那种「懂了就能立刻省一半钱、不懂也完全不知道自己在亏」的知识。面试里能主动提起它，说明你真的在为自己的系统付过账。<cite>本刊编辑部</cite></p>
 
 下一章换一个角度：既然总参数可以很大而激活参数可以很小，成本结构还能再动一次手脚。
+
+## 八、参考与延伸
+
+本章的机制部分只讲到「够用」为止。想往下深挖，下面这几份材料按「先看图、再看代码、最后读论文」的顺序排好了。全站不做原文转载，这里只登记链接与「为什么值得读」。
+
+**先看图（建立直觉）**
+
+- [vLLM：用 PagedAttention 把 LLM 服务做到又快又省](https://blog.vllm.ai/2023/06/20/vllm.html) —— 这篇博客把 KV Cache 碎片问题讲得最直白，还配了显存占用的对比图。<strong>读本章第三节「淘汰策略」卡住时，来这儿看 PagedAttention 怎么消灭碎片最快。</strong>
+- [Lilian Weng · The Transformer Family v2.0](https://lilianweng.github.io/posts/2023-01-27-the-transformer-family-v2/) —— 把各种注意力变体（稀疏、线性、GQA/MQA）按「改了什么」整理成谱系。<strong>想理解「长上下文优化都有哪几条路」，读这一篇的目录结构就够了。</strong>
+
+**再看代码（动手实现）**
+
+- [动手学深度学习（中文，zh.d2l.ai）](https://zh.d2l.ai/) —— 配套可跑代码，把注意力、缓存、序列长度的关系用 NumPy 实现了一遍。<strong>把本章的显存估算公式照着敲一遍，比看十遍都记得牢。</strong>
+
+**最后读论文（对齐一手定义）**
+
+- [GQA：Training Generalized Multi-Query Transformer Models（arXiv:2305.13245）](https://arxiv.org/abs/2305.13245) —— GQA/MQA 的一手来源。<strong>重点看它怎么把 K/V 头数降下来，以及为什么 MQA 训练更难、GQA 是它的折中。</strong>
+- [Efficient Memory Management for Large Language Model Serving with PagedAttention（arXiv:2309.06180）](https://arxiv.org/abs/2309.06180) —— PagedAttention 原论文，也是 vLLM 的基础。<strong>想搞清楚「服务端淘汰」到底按什么粒度发生，看它的 KV 块管理那节。</strong>

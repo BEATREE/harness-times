@@ -8,7 +8,7 @@ note: '本章是全站篇幅最长的一章，因为它同时影响效果上限�
 
 ## 一、上下文的四种成分
 
-把一次请求的上下文拆开，实际上只有四类内容。分清这四类，预算该给谁就有答案了。
+把一次请求的上下文拆开，实际上只有四类内容。分清这四类，[[context-engineering|上下文工程]] 的 [[context-budget|上下文预算]] 该给谁就有答案了——而真实判断依据的占比，就是 [[signal-to-noise|信噪比]]：
 
 <div class="tbl-wrap">
   <table class="news">
@@ -91,9 +91,55 @@ note: '本章是全站篇幅最长的一章，因为它同时影响效果上限�
   <figcaption><b>图 1</b>　上下文的「越跑越笨」不是模型退化，而是<b>信噪比下降</b>：真实判断依据的占比从 18% 被稀释到 10%，同时成本涨了十几倍。三种压缩策略要组合使用——短任务用滚动窗口，中长任务用阶段摘要，长任务必须叠加状态外置。</figcaption>
 </figure>
 
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 360" role="img" aria-label="上下文按稳定度递减排列，最大化前缀缓存命中">
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">稳定度递减排序，同时最大化前缀缓存命中</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">变化越少越靠前——前面不变，每轮共享同一个缓存前缀。</text>
+      <rect x="70" y="60" width="520" height="38" fill="#1f1b16" stroke="#1f1b16"/>
+      <text x="84" y="84" font-family="ui-monospace, monospace" font-size="9.6" fill="#ffffff">① 系统指令、行为约束（最稳定）</text>
+      <rect x="70" y="102" width="520" height="38" fill="#2f6157" stroke="#2f6157"/>
+      <text x="84" y="126" font-family="ui-monospace, monospace" font-size="9.6" fill="#ffffff">② 工具定义（顺序固定、字节稳定）</text>
+      <rect x="70" y="144" width="520" height="38" fill="#3b6f63" stroke="#3b6f63"/>
+      <text x="84" y="168" font-family="ui-monospace, monospace" font-size="9.6" fill="#ffffff">③ 长期知识 / 知识库摘要</text>
+      <rect x="70" y="186" width="520" height="38" fill="#b8944b" stroke="#b8944b"/>
+      <text x="84" y="210" font-family="ui-monospace, monospace" font-size="9.6" fill="#ffffff">④ 本任务目标与约束</text>
+      <rect x="70" y="228" width="520" height="38" fill="#c9a85a" stroke="#c9a85a"/>
+      <text x="84" y="252" font-family="ui-monospace, monospace" font-size="9.6" fill="#1f1b16">⑤ 已完成步骤的结构化摘要</text>
+      <rect x="70" y="270" width="520" height="38" fill="#eef4f1" stroke="#2f6157" stroke-width="1"/>
+      <text x="84" y="294" font-family="ui-monospace, monospace" font-size="9.6" fill="#2f6157">⑥ 本轮新信息（变化最频繁，放最后）</text>
+      <line x1="50" y1="60" x2="50" y2="266" stroke="#9b2c2c" stroke-width="1.4"/>
+      <text x="46" y="164" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" font-weight="700" fill="#9b2c2c" transform="rotate(-90 46 164)">每轮共享的前缀（命中缓存）</text>
+    </svg>
+  </div>
+  <figcaption><b>图 2</b>　同样的上下文，换一下顺序，每轮的 KV Cache 命中率可以从近乎为零变成几乎全中。<b>把动态内容放前面，等于每轮都废掉前缀</b>——这是「上下文很贵」最容易被忽略的来源。</figcaption>
+</figure>
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 320" role="img" aria-label="知识三层级 fact/inference/opinion 的处理规则与信任度">
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">给知识标层级：fact / inference / opinion 处理不同</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">同一条检索内容，层级不同，模型该不该采信完全不同。</text>
+      <rect x="16" y="58" width="628" height="70" fill="#eef4f1" stroke="#2f6157" stroke-width="1.3"/>
+      <text x="30" y="80" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#2f6157">fact（事实）</text>
+      <text x="30" y="100" font-family="ui-monospace, monospace" font-size="9.4" fill="#1f1b16">可溯源：可直接作为结论依据，附来源链接</text>
+      <text x="560" y="80" font-family="ui-monospace, monospace" font-size="9.4" font-weight="700" fill="#2f6157">信任度 高</text>
+      <rect x="16" y="134" width="628" height="70" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.3"/>
+      <text x="30" y="156" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#8a6a1e">inference（推断）</text>
+      <text x="30" y="176" font-family="ui-monospace, monospace" font-size="9.4" fill="#1f1b16">带依据链：只能提供视角，不能当事实结论</text>
+      <text x="560" y="156" font-family="ui-monospace, monospace" font-size="9.4" font-weight="700" fill="#8a6a1e">信任度 中</text>
+      <rect x="16" y="210" width="628" height="70" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.3"/>
+      <text x="30" y="232" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#9b2c2c">opinion（观点）</text>
+      <text x="30" y="252" font-family="ui-monospace, monospace" font-size="9.4" fill="#1f1b16">用户/第三方说法：标注立场，降低权重</text>
+      <text x="560" y="232" font-family="ui-monospace, monospace" font-size="9.4" font-weight="700" fill="#9b2c2c">信任度 低</text>
+    </svg>
+  </div>
+  <figcaption><b>图 3</b>　不标层级，模型会把「某人随口说的观点」和「系统记录的事实」同等采信。<b>标注层级是把「可信度判断」所需的输入补给模型</b>，也是治理幻觉最有效的手段之一。</figcaption>
+</figure>
+
 ## 二、顺序会影响成本：前缀稳定性
 
-在第 5 章（KV Cache）里我们已经知道了规则，这里给出它在 Harness 里的落地版排序原则：
+在第 5 章（KV Cache）里我们已经知道了规则，这里给出它在 Harness 里的落地版排序原则——排序的核心目的之一是让 [[prefix-cache|前缀缓存]] 命中率最大化：
 
 <div class="tbl-wrap">
   <table class="news">
@@ -118,7 +164,7 @@ note: '本章是全站篇幅最长的一章，因为它同时影响效果上限�
 
 ## 三、给知识加来源标注
 
-检索到的内容如果不带来源，模型无从判断可信度，也无法在回答里给出可验证的引用。最小可行的做法是给每段知识打三个标签：
+检索到的内容如果不带来源，模型无从判断可信度，也无法在回答里给出可验证的引用。最小可行的做法是给每段知识打三个标签，也就是按 [[knowledge-tier|知识层级]] 标注它是事实、推断还是观点：
 
 ```python title="context_builder.py"
 from dataclasses import dataclass
@@ -190,7 +236,7 @@ def summarize_progress(steps: list[dict]) -> str:
 
 ## 四、什么时候该压缩：三个触发信号
 
-不要等上下文满了才压——那时候往往已经来不及（压缩本身要花一次模型调用，而你已经没有余量了）。三个提前量信号：
+不要等上下文满了才压——那时候往往已经来不及（压缩本身要花一次模型调用，而你已经没有余量了）。三个提前量信号对应三种策略：短任务用 [[rolling-window|滚动窗口]]，中长任务用 [[phase-summary|阶段摘要]]，长任务还要叠加 [[state-externalization|状态外置]]；单条超长结果则做 [[head-tail-truncation|头尾保留裁剪]]。这些都属于 [[compression-trigger|压缩触发信号]]：
 
 <div class="tbl-wrap">
   <table class="news">
@@ -213,7 +259,33 @@ def summarize_progress(steps: list[dict]) -> str:
   <p style="margin-top:10px"><b>验收标准：</b>能说出你的系统在 128k 窗口下、第 20 轮时的上下文构成（四类成分各占多少），并说明压缩在什么位置触发。</p>
 </div>
 
-## 五、自测
+## 五、常见误区与追问
+
+### 5.1 误区：等上下文快满了再压缩也来得及
+
+错在哪：把压缩当成一个不花成本的本地操作。为什么自然：压缩就是删内容，删东西怎么会来不及。判据：压缩本身要发起一次模型调用，而它要读的恰恰是那段已经很满的上下文——压缩的输入就是那个逼近上限的输入。<strong>数字：128k 窗口下，60% 触发时还有约 51k 余量，从容；90% 触发时只剩 12.8k，而摘要必须把 115k 读一遍，一旦按总长校验就直接失败。</strong>所以取值依据不是「还能塞多少」，而是「压缩动作本身要花掉多少」——按 60% 触发，并为摘要预留一次完整调用。
+
+### 5.2 误区：窗口到 1M 了，上下文越长效果越好
+
+错在哪：把「模型收得下」当成「模型用得上」。为什么自然：上下文越多，可用信息看起来越多，何况现在真有一百万的窗口。判据：效果变量是真实判断依据的占比，不是总长度——把十万 token 里真正被引用的那部分数出来，占比从约 18% 被稀释到 10% 时，任务从第 15 轮前后开始跑偏。**可操作的验证：同一个任务跑两组，A 组带全量历史，B 组只带结构化结论摘要；如果完成率没有下降，说明你原来塞的那些过程性内容本来就没被用到——直接砍掉，既提效果又降成本。**
+
+### 5.3 误区：上下文治理的重点是「知识」，所以先去优化检索
+
+错在哪：把注意力放在检索片段上，放过了真正的大头。为什么自然：检索结果看起来才是「内容」，历史消息只是聊天记录，不像能吃预算的东西。判据：先量再说，按四类成分逐个数 token 占比。<strong>典型分布是：一次检索 3–8k token，而十几轮之后的历史消息加工具返回值可以到 20 万 token 量级，指令与工具定义合计往往不到 10%。</strong>所以第一刀应该砍向状态：中间产物外置、历史压成结构化摘要、单条超长结果做头尾保留裁剪——先优化检索是小马拉大车。
+
+### 5.4 误区：压缩就是把内容变短
+
+错在哪：把压缩当成一次自由发挥的改写。为什么自然：摘要嘛，写短一点就算完成了任务。判据：自由文本摘要会「越摘越糊」——每压一次丢一部分细节，压上三次往往连任务目标都变形了。正确做法是让摘要结构化，固定四段：目标 / 已完成 / 关键结论 / 待办；并且必须保留可回查的指针（文件路径、轮次号、来源链接），需要细节时能按指针回读。**判据：压完之后拿摘要做一次「无原历史」的任务续跑，如果模型还能说清任务目标与已完成的步骤，这次压缩合格；如果说不出，说明它压掉的不是过程而是结论。**
+
+### 5.5 误区：状态外置就是把中间产物写进文件
+
+错在哪：只做了「写文件」，没做「让模型知道文件在哪、要不要读」。为什么自然：外置听起来就是找个地方存起来。判据：外置的验收标准有两条——上下文里只剩指针，且指针是可读、可发现的。文件名如果叫 tmp_001.json，模型既不知道里面是什么，也没理由去读，等于没外置；叫 orders-2025-删除影响分析.md，模型看一眼就知道该不该打开。<strong>数字：20 万 token 的中间产物外置之后，上下文里应该只剩一份三五行的目录清单（约 200 token）。</strong>
+
+### 5.6 误区：标了来源就不会有引用幻觉
+
+错在哪：把「给了判断依据」当成「已经校验过」。为什么自然：每条知识都带了来源与层级，看起来已经足够严谨。判据：来源只让幻觉变得可被发现，并不阻止它发生——模型完全可能标注一个证据清单里根本不存在的来源，或者把 opinion 层的内容当成 fact 用。所以要补一步后置校验：生成完成后，把回答里每一条引用回查一遍，看它在证据清单里是否真实存在、层级有没有被升格；对不上就降级或删掉引用。**判据：随机抽 20 条带引用的回答逐条点开核对，如果存在对不上的编号，说明你的引用体系目前只是装饰。**
+
+## 六、自测
 
 <div class="quiz">
   <div class="quiz-head"><span>本章自测</span><span>第 3 题为面试高频题</span></div>
@@ -243,7 +315,7 @@ def summarize_progress(steps: list[dict]) -> str:
   </div>
 </div>
 
-## 六、小结
+## 七、小结
 
 | 议题 | 结论 |
 | --- | --- |
@@ -256,3 +328,21 @@ def summarize_progress(steps: list[dict]) -> str:
 <p class="pull-quote">效果上限不是由提示词的精妙程度决定的，而是由「该给的信息有没有给、不该给的噪音有没有删」决定的。<cite>本刊编辑部</cite></p>
 
 下一章处理一个更长期的问题：如果这些信息不该每一轮都重新塞进去，那该存在哪里、什么时候取出来。
+
+## 八、参考与延伸
+
+这一层的实践材料比理论多。下面按「先看原则、再看机制、最后看极端案例」排好。全站不做原文转载，这里只登记链接与「为什么值得读」。
+
+**先看原则（该给什么、不该给什么）**
+
+- [Anthropic · Effective Context Engineering for AI Agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) —— 把上下文工程从「提示词怎么写」里彻底拆出来，讲成一件「在有限的注意力预算下做取舍」的事，并且明确说上下文会「腐烂」（信息还在，但已经不该信了）。<strong>本章第一节的四类成分与它是同一件事的两种表述；如果你要给自己的项目定一份预算比例，先看它给的原则再看自己的数。</strong>
+- [Anthropic · Prompt Engineering Overview](https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/overview) —— 与上一份对着读：哪些属于措辞问题、哪些属于信息供给问题。<strong>如果你的团队还在用「优化提示词」去解决「该给的信息没给」的问题，把这一页发给对方，比争论有用。</strong>
+
+**再看机制（前缀到底怎么被复用）**
+
+- [vLLM · Automatic Prefix Caching](https://docs.vllm.ai/en/latest/features/automatic_prefix_caching.html) —— 服务端视角的前缀复用：以块为单位做哈希命中，能命中多少取决于前缀里有多少个完整块逐字节相同。<strong>本章第二节说「把变化频率当排序键」，这里能让你看到它背后的匹配粒度——为什么首部改一个字符不是「慢一点」，而是整段作废。</strong>
+- [vLLM 博客：用 PagedAttention 把大模型服务做到又快又省](https://blog.vllm.ai/2023/06/20/vllm.html) —— 重点看显存碎片与块管理那几张图。<strong>理解「前缀会被淘汰」之后，你就不会把「又长又稳定」当成缓存友好的默认答案：长前缀反而更容易在并发压力下被换出。</strong>
+
+**最后看极端案例（长上下文到底能干什么）**
+
+- [Efficient Memory Management for Large Language Model Serving with PagedAttention（arXiv:2309.06180）](https://arxiv.org/abs/2309.06180) —— 只读它的 KV 块管理一节即可。<strong>它解释了一个反直觉现象的成因：为什么你在应用层把前缀写得再稳定，命中率依然不完全由你决定——调度与淘汰也在你之外发生。</strong>

@@ -19,7 +19,7 @@ note: '本章的核心判断题（为什么用 Subagent 而不是长上下文单
   </table>
 </div>
 
-**注意：只有第一种收益是「结构性」的**——它解决了单 Agent 无法解决的问题（上下文容量）。第二种收益可以用并发工具调用实现，第三种收益可以用工具级权限控制实现。所以真正必须上多 Agent 的场景，比想象中少。
+**注意：只有第一种收益是「结构性」的**——它来自 [[subagent|子 Agent]] 的 [[context-isolation|上下文隔离]]，解决了单 Agent 无法解决的问题（上下文容量）。第二种收益可以用并发工具调用实现，第三种收益可以用工具级权限控制实现。所以 [[multi-agent|多 Agent]] 真正必须上的场景，比想象中少。
 
 ## 二、为什么用 Subagent，而不是长上下文的单 Agent
 
@@ -45,7 +45,7 @@ note: '本章的核心判断题（为什么用 Subagent 而不是长上下文单
       <text x="36" y="212" font-family="ui-monospace, monospace" font-size="8.6" fill="#6b6257">…… 文档 30 全文（4,000）</text>
       <text x="30" y="238" font-family="ui-monospace, monospace" font-size="9.2" fill="#9b2c2c">共 12 万 token，其中真正需要的结论约 500 字</text>
       <text x="30" y="256" font-family="ui-monospace, monospace" font-size="9.2" fill="#9b2c2c">每一轮都要重新送一遍 → 成本平方级上涨</text>
-      <text x="30" y="274" font-family="ui-monospace, monospace" font-size="9.2" fill="#9b2c2c">信噪比 0.4%，注意力被 99.6% 的噪音稀释</text>
+      <text x="30" y="274" font-family="ui-monospace, monospace" font-size="9.2" fill="#9b2c2c">信噪比 0.5%，注意力被 99.5% 的噪音稀释</text>
       <!-- 多 Agent -->
       <text x="336" y="46" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#2f6157">B · Subagent 拆分</text>
       <rect x="336" y="56" width="308" height="230" fill="#eef4f1" stroke="#2f6157" stroke-width="1.3"/>
@@ -85,7 +85,87 @@ note: '本章的核心判断题（为什么用 Subagent 而不是长上下文单
       <text x="30" y="396" font-family="ui-monospace, monospace" font-size="9.4" fill="#9b2c2c">代价必须一起说：上下文传递有信息损失、结果汇总可能冲突、调试与 trace 难度显著上升。</text>
     </svg>
   </div>
-  <figcaption><b>图 1</b>　关键差别不在「有几个 Agent」，而在<b>父 Agent 的上下文里装的是什么</b>。A 装的是 12 万 token 的原始材料（信噪比 0.4%），B 装的是 600 token 的结论（信噪比接近 100%）。这个对比本身就是这道题的答案。</figcaption>
+  <figcaption><b>图 1</b>　关键差别不在「有几个 Agent」，而在<b>父 Agent 的上下文里装的是什么</b>。A 装的是 12 万 token 的原始材料（信噪比 0.5%），B 装的是 600 token 的结论（信噪比接近 100%）。这个对比本身就是这道题的答案。</figcaption>
+</figure>
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 330" role="img" aria-label="三种编排形态：主管制、流水线、评审制的拓扑与失控方式">
+      <defs>
+        <marker id="ar1" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#1f1b16"/>
+        </marker>
+      </defs>
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">三种编排形态：拓扑决定失控方式</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">形状不同 → 失败时出问题的位置不同</text>
+      <text x="16" y="62" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#2f6157">① 主管制 Supervisor</text>
+      <rect x="250" y="50" width="90" height="24" fill="#ffffff" stroke="#2f6157" stroke-width="1.2"/>
+      <text x="295" y="67" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#2f6157">父 Agent</text>
+      <rect x="150" y="88" width="56" height="22" fill="#eef4f1" stroke="#2f6157" stroke-width="1"/>
+      <text x="178" y="103" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" fill="#2f6157">子1</text>
+      <rect x="276" y="88" width="56" height="22" fill="#eef4f1" stroke="#2f6157" stroke-width="1"/>
+      <text x="304" y="103" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" fill="#2f6157">子2</text>
+      <rect x="402" y="88" width="56" height="22" fill="#eef4f1" stroke="#2f6157" stroke-width="1"/>
+      <text x="430" y="103" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" fill="#2f6157">子3</text>
+      <line x1="270" y1="74" x2="178" y2="88" stroke="#2f6157" stroke-width="1" marker-end="url(#ar1)"/>
+      <line x1="295" y1="74" x2="304" y2="88" stroke="#2f6157" stroke-width="1" marker-end="url(#ar1)"/>
+      <line x1="320" y1="74" x2="430" y2="88" stroke="#2f6157" stroke-width="1" marker-end="url(#ar1)"/>
+      <text x="478" y="70" font-family="ui-monospace, monospace" font-size="8.4" fill="#9b2c2c">失控：父成单点瓶颈；</text>
+      <text x="478" y="84" font-family="ui-monospace, monospace" font-size="8.4" fill="#9b2c2c">汇总时压缩损失</text>
+      <text x="16" y="132" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#8a6a1e">② 流水线 Pipeline</text>
+      <rect x="120" y="120" width="50" height="22" fill="#ffffff" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="145" y="135" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" fill="#8a6a1e">A</text>
+      <rect x="230" y="120" width="50" height="22" fill="#ffffff" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="255" y="135" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" fill="#8a6a1e">B</text>
+      <rect x="340" y="120" width="50" height="22" fill="#ffffff" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="365" y="135" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" fill="#8a6a1e">C</text>
+      <line x1="170" y1="131" x2="228" y2="131" stroke="#b8944b" stroke-width="1.2" marker-end="url(#ar1)"/>
+      <line x1="280" y1="131" x2="338" y2="131" stroke="#b8944b" stroke-width="1.2" marker-end="url(#ar1)"/>
+      <text x="478" y="128" font-family="ui-monospace, monospace" font-size="8.4" fill="#9b2c2c">失控：上游错误被放大；</text>
+      <text x="478" y="142" font-family="ui-monospace, monospace" font-size="8.4" fill="#9b2c2c">一环卡住整体阻塞</text>
+      <text x="16" y="202" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#9b2c2c">③ 评审制 Critic</text>
+      <rect x="200" y="188" width="70" height="22" fill="#ffffff" stroke="#9b2c2c" stroke-width="1.2"/>
+      <text x="235" y="203" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" fill="#9b2c2c">生成者</text>
+      <rect x="200" y="228" width="70" height="22" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.2"/>
+      <text x="235" y="243" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8" fill="#9b2c2c">评审者</text>
+      <path d="M270,199 C300,199 300,188 270,188" fill="none" stroke="#9b2c2c" stroke-width="1.1" marker-end="url(#ar1)"/>
+      <path d="M270,239 C300,239 300,250 270,250" fill="none" stroke="#9b2c2c" stroke-width="1.1" marker-end="url(#ar1)"/>
+      <text x="478" y="206" font-family="ui-monospace, monospace" font-size="8.4" fill="#9b2c2c">失控：来回修改无实质</text>
+      <text x="478" y="220" font-family="ui-monospace, monospace" font-size="8.4" fill="#9b2c2c">提升，预算被烧光</text>
+      <rect x="16" y="282" width="628" height="40" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1.2"/>
+      <text x="30" y="302" font-family="ui-monospace, monospace" font-size="9" fill="#1f1b16">共同代价：上下文传递有信息损失、结果汇总可能冲突、调试与 trace 难度显著上升——所以「先单 Agent 跑通，再按需拆分」。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 2</b>　三种形态的<b>拓扑形状直接对应各自的失控方式</b>：主管制的父是瓶颈、流水线的上游错误被放大、评审制容易陷入无进展循环。选形态前先想清楚会怎么坏。</figcaption>
+</figure>
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 260" role="img" aria-label="子 Agent 协议：回传必须带结论、证据、来源、置信度">
+      <defs>
+        <marker id="ar2" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#2f6157"/>
+        </marker>
+      </defs>
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">子 Agent 协议：回传必须自解释</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">父 Agent 只拿到结构化的「结论 + 最小证据」，才能判断要不要采信</text>
+      <rect x="16" y="54" width="300" height="60" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.2"/>
+      <text x="30" y="74" font-family="Georgia, serif" font-size="10.5" font-weight="700" fill="#9b2c2c">✗ 自由文本</text>
+      <text x="30" y="94" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">「我觉得这个方案大概可行，</text>
+      <text x="30" y="106" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">不过也有些问题……」</text>
+      <rect x="344" y="54" width="300" height="150" fill="#eef4f1" stroke="#2f6157" stroke-width="1.2"/>
+      <text x="358" y="74" font-family="Georgia, serif" font-size="10.5" font-weight="700" fill="#2f6157">✓ SubResult 协议</text>
+      <text x="358" y="92" font-family="ui-monospace, monospace" font-size="8.8" fill="#1f1b16">conclusion: 已确认 X 可行</text>
+      <text x="358" y="108" font-family="ui-monospace, monospace" font-size="8.8" fill="#1f1b16">evidence: [依据1, 依据2]</text>
+      <text x="358" y="124" font-family="ui-monospace, monospace" font-size="8.8" fill="#1f1b16">sources: [doc-12, doc-30]</text>
+      <text x="358" y="140" font-family="ui-monospace, monospace" font-size="8.8" fill="#1f1b16">confidence: 0.82</text>
+      <text x="358" y="156" font-family="ui-monospace, monospace" font-size="8.8" fill="#2f6157">caveats: 未覆盖 Y 场景</text>
+      <text x="358" y="190" font-family="ui-monospace, monospace" font-size="8.6" fill="#6b6257">低置信度(&lt;0.7) 不进主结论，只作参考</text>
+      <line x1="316" y1="84" x2="342" y2="120" stroke="#1f1b16" stroke-width="1.2" marker-end="url(#ar2)"/>
+      <text x="318" y="100" font-family="ui-monospace, monospace" font-size="8" fill="#6b6257">改造</text>
+    </svg>
+  </div>
+  <figcaption><b>图 3</b>　子 Agent 的产出必须自解释：<b>带结论、带最小证据、带来源、带置信度</b>。缺任何一项，父 Agent 都无法判断该不该采信，只能靠「看起来有道理」盲信。</figcaption>
 </figure>
 
 ## 三、编排形态：三种模式与各自的坑
@@ -109,11 +189,11 @@ note: '本章的核心判断题（为什么用 Subagent 而不是长上下文单
 
 ## 四、结果汇总：比想象中难
 
-多 Agent 的成果最终要合到一起，这里有三个具体的坑：
+多 Agent 的成果最终要合到一起，这里有三个具体的坑——它们都指向同一件事：[[result-merge|结果汇总]] 必须显式处理，而不能交给模型「自由发挥」。
 
-**第一，格式不一致。** 三个子 Agent 返回三种结构，父 Agent 得先做格式归一。**解法**：子 Agent 的输出必须强制结构化（固定字段的 JSON），而不是自由文本。
+**第一，格式不一致。** 三个子 Agent 返回三种结构，父 Agent 得先做格式归一。**解法**：子 Agent 的输出必须强制结构化——这正是 [[subagent-protocol|子 Agent 协议]] 要解决的：固定字段的 JSON，而不是自由文本。
 
-**第二，结论冲突。** 两个子 Agent 对同一问题给出相反结论。**解法**：不要静默选一个，要让父 Agent 显式处理——要么用可判定的依据（时间、来源权威性）裁决，要么在最终产物里同时呈现两种观点及其依据。
+**第二，结论冲突。** 两个子 Agent 对同一问题给出相反结论。**解法**：不要静默选一个，要让父 Agent 显式处理——这正是 [[conflict-exposure|冲突暴露]]：要么用可判定的依据（时间、来源权威性）裁决，要么在最终产物里同时呈现两种观点及其依据。
 
 **第三，信息损失。** 子 Agent 的结论太简略，父 Agent 无法判断其可信度。**解法**：结论里必须带最小必要证据——一句话的依据、来源标识、以及该子任务的置信度。
 
@@ -211,7 +291,24 @@ def contradicts(a: str, b: str) -> bool:
   </table>
 </div>
 
-## 六、自测
+## 六、常见误区与追问
+
+### 6.1 误区：任务一复杂就上多 Agent
+最常见的直觉错误。多 Agent 引入了进程间通信、上下文传递损失、结果汇总冲突、调试难度指数上升四项成本。判据：只有当「上下文隔离 / 并行提速 / 权限隔离」至少一个成立时才值得拆；三项都说不清具体是哪一项，答案就是不拆。成本量级上，每多一层派生就多出一次上下文传递与一次结果汇总，固定开销约等于一次完整的模型调用——子任务体量小于这个开销时，拆分必亏。
+
+### 6.2 误区：编排形态随便选，反正都能跑
+三种形态各有固定的失控方式：[[supervisor|主管制]] 下父 Agent 是瓶颈与单点，汇总时信息压缩损失；[[pipeline|流水线]] 上游错误被逐级放大、一环卡住整体阻塞；[[critic|评审制]] 容易陷入「改了又改」的无进展循环。选型前先想清楚「它会怎么坏」，再配对应的护栏。判据：三种形态各配一条硬护栏——主管制给父 Agent 的汇总结果设 token 上限，流水线每一环加校验与错误回流，评审制设轮数上限并检查每轮是否真有可枚举的改动点。
+
+### 6.3 误区：子 Agent 汇总让模型自己合并文本就行
+让模型自由地把几个子结论揉成一段，等于把冲突消解交给了概率。正确做法是结果汇总显式处理：格式强制结构化、低置信度结论降为参考、冲突显式暴露交父 Agent 或用户裁决，绝不静默选边。判据：把子 Agent 的输出约束成固定字段（结论 / 证据 / 来源 / 置信度），缺字段直接判为不可用并重跑；自由文本一律不进主结论，只能进参考项。
+
+### 6.4 误区：多 Agent 不需要权限隔离
+一旦开了多 Agent，某个被提示注入说服的写操作 Agent 就能直接破坏生产库。[[permission-isolation|权限隔离]] 要求读数据与写生产库的操作由不同 Agent 持有不同工具集，且权限在工具内部强制执行——即使某个 Agent 被攻破，它也没有越权的钥匙。判据：读工具与写工具必须落在不同 Agent 的工具集里，权限检查写在工具实现内部；把系统提示词整段删掉后 Agent 仍然越不了权，这份隔离才算成立。
+
+### 6.5 误区：评审制多跑几轮总能收敛
+没有上限的评审循环，每一轮改动都「看起来有道理」，但实际质量不提升，预算被无声烧掉。修法三件套：明确通过标准（rubric）加轮数上限加每轮必须有可枚举的实质改动，否则判无进展直接退出。判据：轮数上限取 2–3 轮，与第 2 章的无进展检测同一思路——改进幅度落在波动区间内就不算改进，此时退出并返回当前最优版本，而不是继续烧预算。
+
+## 七、自测
 
 <div class="quiz">
   <div class="quiz-head"><span>本章自测</span><span>第 1 题来自真实面经</span></div>
@@ -241,7 +338,7 @@ def contradicts(a: str, b: str) -> bool:
   </div>
 </div>
 
-## 七、小结
+## 八、小结
 
 | 议题 | 结论 |
 | --- | --- |
@@ -255,3 +352,21 @@ def contradicts(a: str, b: str) -> bool:
 <p class="pull-quote">多 Agent 不是能力升级，是上下文管理的一种手段。把它当成能力升级来用，就会在不需要的地方引入三个新的失败面。<cite>本刊编辑部</cite></p>
 
 下一章处理把能力交出去之后必须面对的问题：怎么守住边界。
+
+## 九、参考与延伸
+
+本章的机制部分只讲到「够用」为止。想往下深挖，下面这几份材料按「先看图、再看代码、最后读规范」的顺序排好了。全站不做原文转载，这里只登记链接与「为什么值得读」。
+
+**先看图（建立直觉）**
+
+- [Anthropic · Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents) —— 官方对「何时该用多步 / 多 Agent」的判断。<strong>它明确把「上下文管理」放在「加 Agent」之前，和本章的核心判据一致。</strong>
+
+**再看代码（动手实现）**
+
+- [LangGraph 文档](https://langchain-ai.github.io/langgraph/) —— 用图表达 Agent 编排的主流框架。<strong>重点看 supervisor / 子图 / 人工介入节点，对应本章主管制与权限隔离。</strong>
+- [AutoGen 文档](https://microsoft.github.io/autogen/stable/) —— 多 Agent 对话编排的参考实现。<strong>看它的 GroupChat 与 Critic 模式，能直观理解「评审制为什么会陷入无进展循环」。</strong>
+- [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) —— 轻量多 Agent 原语。<strong>它的 handoff 机制是「上下文隔离」的最小可用实现。</strong>
+
+**最后读规范（对齐一手定义）**
+
+- [Model Context Protocol](https://modelcontextprotocol.io/) —— 工具供给的标准化协议。<strong>理解它能帮你想清「子 Agent 之间该共享什么、隔离什么」。</strong>

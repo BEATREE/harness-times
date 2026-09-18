@@ -10,6 +10,8 @@ note: '本章的 Rubric 设计与偏差控制是评测工程的深水区。第 1
 
 「这篇分析很有洞察」是一个整体印象。要让它可评，必须拆到每一维都能独立回答「是/否」的程度。
 
+这份 [[rubric]] 把「好不好」拆成四个互不包含的维度：[[direction-relevance|方向相关性]]——答的是不是用户真正关心的问题；[[evidence-sufficiency|证据充分性]]——每条结论有没有可核验的依据；[[actionability|可操作性]]——看完能不能直接动手。拆分是否成立，有一条判据就能验：能不能构造出一份「方向对、证据足、表达清楚，但完全没说该做什么」的输出？能构造，说明可操作性是一维独立的能力；构造不出，说明它和前两维其实是一件事。
+
 <div class="tbl-wrap">
   <table class="news">
     <caption>洞察型输出的四维 Rubric</caption>
@@ -110,7 +112,7 @@ note: '本章的 Rubric 设计与偏差控制是评测工程的深水区。第 1
 
 ## 二、LLM-as-Judge：能用，但要认清它的偏差
 
-让模型来打分是必要手段（人工成本太高），但它的四类偏差必须被系统性地处理。
+让模型来打分是必要手段（人工成本太高），但它的四类偏差必须被系统性地处理——这套做法通称 [[llm-as-judge|LLM-as-Judge]]。
 
 <div class="tbl-wrap">
   <table class="news">
@@ -144,6 +146,53 @@ note: '本章的 Rubric 设计与偏差控制是评测工程的深水区。第 1
     </tbody>
   </table>
 </div>
+
+四类偏差里，[[position-bias|位置偏差]] 最容易自测：把 A、B 交换位置再跑一次，结论翻转就说明它存在。[[length-bias|长度偏差]] 最隐蔽，因为它和「详尽」在训练语料里天然相关，只看分数看不出来，必须单独统计「长度 × 得分」的相关系数。[[self-preference|自我偏好]] 只在生成模型与评审模型同源时出现，换一个模型家族重跑就能验证。[[format-bias|格式偏好]] 则表现为排版漂亮的答案分数更高——评分前剥掉 Markdown 装饰，就能把它隔离掉。
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 430" role="img" aria-label="LLM-as-Judge 四类偏差各怎么验出来、各怎么压下去">
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">四类偏差：先验出来，再压下去</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">每一类都有「一眼可测」的对照实验：测不出量级，就不必为它改评分标准</text>
+      <text x="30" y="70" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#1f1b16">偏差</text>
+      <text x="170" y="70" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#1f1b16">怎么验出来</text>
+      <text x="410" y="70" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#1f1b16">怎么压下去</text>
+      <line x1="16" y1="78" x2="644" y2="78" stroke="#cfc6b6" stroke-width="1"/>
+      <rect x="16" y="84" width="628" height="68" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1"/>
+      <text x="30" y="112" font-family="ui-monospace, monospace" font-size="10.4" font-weight="700" fill="#9b2c2c">位置偏差</text>
+      <text x="30" y="130" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">偏向先出现的那一个</text>
+      <text x="170" y="112" font-family="ui-monospace, monospace" font-size="9.6" fill="#1f1b16">交换 A/B 顺序再评一次</text>
+      <text x="170" y="130" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">翻转率 = 偏差的强度</text>
+      <text x="410" y="112" font-family="ui-monospace, monospace" font-size="9.6" fill="#2f6157">两次一致才采信，不一致记平局</text>
+      <text x="410" y="130" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">不要试图「校正偏移量」</text>
+      <rect x="16" y="156" width="628" height="68" fill="#fdf6e8" stroke="#b8944b" stroke-width="1"/>
+      <text x="30" y="184" font-family="ui-monospace, monospace" font-size="10.4" font-weight="700" fill="#8a6a1e">长度偏差</text>
+      <text x="30" y="202" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">长而啰嗦的得分更高</text>
+      <text x="170" y="184" font-family="ui-monospace, monospace" font-size="9.6" fill="#1f1b16">统计「长度 × 得分」相关系数</text>
+      <text x="170" y="202" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">正相关 → 在给长答案加分</text>
+      <text x="410" y="184" font-family="ui-monospace, monospace" font-size="9.6" fill="#2f6157">写「简洁且信息密度高者得高分」</text>
+      <text x="410" y="202" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">并按长度分桶看平均分</text>
+      <rect x="16" y="228" width="628" height="68" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1"/>
+      <text x="30" y="256" font-family="ui-monospace, monospace" font-size="10.4" font-weight="700" fill="#9b2c2c">自我偏好</text>
+      <text x="30" y="274" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">偏袒同源模型的风格</text>
+      <text x="170" y="256" font-family="ui-monospace, monospace" font-size="9.6" fill="#1f1b16">换一个模型家族重跑</text>
+      <text x="170" y="274" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">分数系统性下降 → 存在</text>
+      <text x="410" y="256" font-family="ui-monospace, monospace" font-size="9.6" fill="#2f6157">评审模型与生成模型不同源</text>
+      <text x="410" y="274" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">关键样本人工复核</text>
+      <rect x="16" y="300" width="628" height="68" fill="#fdf6e8" stroke="#b8944b" stroke-width="1"/>
+      <text x="30" y="328" font-family="ui-monospace, monospace" font-size="10.4" font-weight="700" fill="#8a6a1e">格式偏好</text>
+      <text x="30" y="346" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">排版漂亮就加分</text>
+      <text x="170" y="328" font-family="ui-monospace, monospace" font-size="9.6" fill="#1f1b16">同一份内容换两种排版各评一次</text>
+      <text x="170" y="346" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">内容不变、分数却变 → 存在</text>
+      <text x="410" y="328" font-family="ui-monospace, monospace" font-size="9.6" fill="#2f6157">评分前统一剥掉 Markdown 装饰</text>
+      <text x="410" y="346" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">或把「格式」单列成一个维度</text>
+      <rect x="16" y="376" width="628" height="48" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1.2"/>
+      <text x="30" y="398" font-family="ui-monospace, monospace" font-size="9.6" fill="#1f1b16">先量偏差，再改标准。位置、长度、自我偏好这三项，都能用一两次对照实验测出量级。</text>
+      <text x="30" y="416" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">测不出量级，就不必为它改评分标准；测出来明显，改标准也压不下去——要从流程上解决。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 2</b>　四类偏差对应的对照实验与缓解手段。注意验证方法一栏：<b>它们都是「换个条件再跑一次」的对照实验，不是靠读模型给的分数去猜</b>。先把偏差量出来，才知道该不该动评分标准。</figcaption>
+</figure>
 
 <div class="box box-key">
   <span class="box-title">判断机器打分是否可信的三步校准</span>
@@ -260,7 +309,72 @@ def pairwise_stable(a: str, b: str, call_model) -> dict:
   <p><b>要求：评审模型与生成模型不同源；并且每轮评测都要抽样人工复核，用人工结论定期校准机器结论。</b>机器打分是用来降低人工成本的，不是用来替代人的判断的。</p>
 </div>
 
-## 四、自测
+把这条要求落到流程上，需要三样东西：[[circular-reasoning|循环论证]] 的检查——生成模型与评审模型必须不同源；稳定性过滤——同一份输出多次打分，加权分差超过 0.8 的样本转人工；以及 [[pairwise-comparison|两两对比]] 的顺序交换——两次结论一致才采信，不一致记平局，而不是把两次结果平均。
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 360" role="img" aria-label="同源生成评审的自证链路与异源评审加人工校准的对照">
+      <defs>
+        <marker id="ar1" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#1f1b16"/>
+        </marker>
+      </defs>
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">评审者换不换成别人，是可信与自证的分界</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">左边分数更漂亮，右边分数更低——但只有右边能迁移到真实用户</text>
+      <rect x="16" y="54" width="308" height="212" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.3"/>
+      <text x="30" y="76" font-family="Georgia, serif" font-size="10.8" font-weight="700" fill="#9b2c2c">自证：同源生成 + 同源评审</text>
+      <rect x="36" y="88" width="248" height="32" fill="#f6e2e2" stroke="#9b2c2c" stroke-width="1"/>
+      <text x="160" y="109" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" fill="#9b2c2c">A 模型生成洞察</text>
+      <line x1="160" y1="120" x2="160" y2="136" stroke="#1f1b16" stroke-width="1.2" marker-end="url(#ar1)"/>
+      <rect x="36" y="138" width="248" height="32" fill="#f6e2e2" stroke="#9b2c2c" stroke-width="1"/>
+      <text x="160" y="159" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" fill="#9b2c2c">A 模型评审</text>
+      <text x="30" y="196" font-family="ui-monospace, monospace" font-size="9.6" fill="#9b2c2c">分数漂亮、内部高度一致</text>
+      <text x="30" y="214" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">但它只证明了「A 与自己一致」</text>
+      <text x="30" y="234" font-family="ui-monospace, monospace" font-size="9.6" fill="#9b2c2c">换一批用户偏好后突然失灵</text>
+      <rect x="344" y="54" width="300" height="212" fill="#eef4f1" stroke="#2f6157" stroke-width="1.3"/>
+      <text x="358" y="76" font-family="Georgia, serif" font-size="10.8" font-weight="700" fill="#2f6157">可信：异源评审 + 人工校准</text>
+      <rect x="378" y="88" width="232" height="30" fill="#d6e5de" stroke="#2f6157" stroke-width="1"/>
+      <text x="494" y="108" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" fill="#2f6157">A 模型生成洞察</text>
+      <line x1="494" y1="118" x2="494" y2="132" stroke="#1f1b16" stroke-width="1.2" marker-end="url(#ar1)"/>
+      <rect x="378" y="134" width="232" height="30" fill="#d6e5de" stroke="#2f6157" stroke-width="1"/>
+      <text x="494" y="154" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" fill="#2f6157">B 模型（不同家族）评审</text>
+      <line x1="494" y1="164" x2="494" y2="178" stroke="#1f1b16" stroke-width="1.2" marker-end="url(#ar1)"/>
+      <rect x="378" y="180" width="232" height="30" fill="#d6e5de" stroke="#2f6157" stroke-width="1"/>
+      <text x="494" y="200" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" fill="#2f6157">人工抽检校准（同向率 ≥ 75%）</text>
+      <text x="358" y="234" font-family="ui-monospace, monospace" font-size="9.6" fill="#2f6157">分数会低一些，但可迁移</text>
+      <text x="358" y="252" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">换用户、换模型都还站得住</text>
+      <rect x="16" y="278" width="628" height="64" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="30" y="300" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#8a6a1e">判据：生成模型与评审模型必须不同源</text>
+      <text x="30" y="320" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">每轮评测抽 30-50 条人工打分，人工与机器同向率低于 75% 时，机器分数不得用于决策。</text>
+      <text x="30" y="336" font-family="ui-monospace, monospace" font-size="9.6" fill="#9b2c2c">机器打分是用来降低人工成本的，不是用来替代人的判断的。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 3</b>　同源生成-评审会形成自证闭环：分数漂亮且内部一致，但它只证明了「模型与自己一致」。<b>把评审者换成另一个模型家族、再加人工抽检，分数会下降，换来的却是可迁移性。</b></figcaption>
+</figure>
+
+## 四、常见误区与追问
+
+### 4.1 误区：四维分别打分之后，取平均就是总评（其实平均会掩盖短板）
+
+错在哪：把四个维度当成可以互相补偿的项。为什么自然：平均是最省事的合成方式，还显得「全面、客观」。正确做法：洞察的价值结构不可补偿——一份方向对、证据足、表达清楚，但没说「该做什么」的分析，业务方拿到手里等于零。判据：先看有没有哪一维低于 2 分，有就直接判不合格，平均分根本不参与合成；剩下的才按权重算（方向相关性 0.35）。数字：4/4/1/4 与 3/3/3/3 的平均分都在 3.0 上下，但前者实质不可交付。这条规则叫 [[veto-rule|一票否决]]，它不是保险栓，而是对「洞察的价值来自可行动」这件事的直接编码。
+
+### 4.2 误区：Rubric 写得越细，机器打分就越准（其实偏差来自模型，不来自标准）
+
+错在哪：把「评分不准」全部归因于评分标准写得不清楚。为什么自然：rubric 是唯一能直接改的东西，改起来最有掌控感，于是每次分数不对就去抠措辞。正确做法：先量偏差，再改标准。位置偏差用交换顺序测——同一对输出跑两次，结论翻转的比例就是它的强度；长度偏差用「长度 × 得分」的相关系数测，明显为正说明模型在给长答案加分；自我偏好用换模型家族重跑来测，分数系统性下降即说明同源偏好存在。判据：这三项都测过且量级可接受，再去抠 rubric 的措辞；否则你只是在给一把有偏的尺子刻更细的刻度。
+
+### 4.3 误区：两两对比比绝对打分更可靠，所以不用交换顺序
+
+错在哪：以为「A 与 B 谁更好」这种相对判断天然免疫位置效应。为什么自然：相对判断确实比绝对打分稳定，这条共识容易被顺推成「不需要额外保护」。正确做法：两两对比恰恰是位置偏差最严重的地方——它只给模型两个选项，「先看到谁」的影响被放大。判据：同一对输出按 A-B 与 B-A 各跑一次，两次结论一致才采信，不一致记平局；不要取平均，也不要挑其中一次用。数字：在两个能力接近的输出上，顺序翻转率常常达到两成以上——每五对里就有一对的胜负是顺序决定的。
+
+### 4.4 误区：生成模型换成更强的，就不用再花力气做评审校准了
+
+错在哪：把「生成质量」和「评审可信度」揉成一件事。为什么自然：更强的模型写出来的分析确实更好，看起来问题已经被解决了。正确做法：生成能力与评审能力是两件事，而且同源生成-评审会形成自证——分数漂亮且内部高度一致，但它只证明了「A 与 A 自己一致」，换一批用户偏好就会失灵。判据：评审模型与生成模型必须不同源；每轮评测抽 30-50 条人工打分，人工与机器同向率低于 75% 时，机器分数不得用于决策。
+
+### 4.5 误区：稳定性检查跑两遍、分数差不多就够了
+
+错在哪：只看了两次分数的差值，没看分差的分布。为什么自然：跑两次取均值，看起来已经处理了随机性。正确做法：真正要盯的是「分差大的样本占比」，而不是你随手抽出来对比的那一两条。判据：同一份输出重复打分，加权分差超过 0.8 的样本占比应低于 10%；超过就说明 rubric 描述不清，要去修标准，而不是怪模型不稳。做法：对不可靠的样本取中位数而非均值，并把它们转人工——把「模型自己都分不清」的样本留在自动决策里，等于把噪声当信号。
+
+## 五、自测
 
 <div class="quiz">
   <div class="quiz-head"><span>本章自测</span><span>第 1、3 题为高频追问</span></div>
@@ -290,7 +404,7 @@ def pairwise_stable(a: str, b: str, call_model) -> dict:
   </div>
 </div>
 
-## 五、小结
+## 六、小结
 
 | 议题 | 结论 |
 | --- | --- |
@@ -305,3 +419,20 @@ def pairwise_stable(a: str, b: str, call_model) -> dict:
 <p class="pull-quote">机器打分是用来降低人工成本的，不是用来替代人的判断的。这两件事在长期看差别巨大。<cite>本刊编辑部</cite></p>
 
 下一章把前面所有测评工作接成闭环：怎么让评测真正影响线上质量，而不是变成一份没人看的报告。
+
+## 七、参考与延伸
+
+洞察型评测没有「跑一遍就知道对错」的捷径，下面是几条能真正提高判断质量的材料。
+
+**先看图（建立直觉）**
+
+- [Hamel Husain 的博客](https://hamel.dev/) —— 长期写 LLM 评测方法，其中「评测者与被评者的角色要分清」「评分标准要能被第二个人复现」这两条，正对应本章的四维拆分与三步校准。<strong>如果你只想读一篇，读他讲 rubric 设计边界的那几篇。</strong>
+
+**再看代码（动手实现）**
+
+- [Anthropic Engineering](https://www.anthropic.com/engineering) —— 官方工程博客，评审类提示词（让模型输出结构化评分与理由）的写法在这里有第一手示范。<strong>对照本章第三节的 RUBRIC 模板，能看出生产版在约束输出格式上多做了哪些事。</strong>
+
+**最后读论文（对齐一手定义）**
+
+- [Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena（arXiv:2306.05685）](https://arxiv.org/abs/2306.05685) —— 位置偏差、长度偏差、自我偏好这三类偏差的命名与量化出处。<strong>读完你会知道「交换顺序跑两次」不是经验技巧，而是有实验数据支撑的标准做法。</strong>
+- [Eugene Yan 的博客](https://eugeneyan.com/) —— 从 LLMOps 视角讲离线评审怎么与人工校准配合，以及「机器评审的分数什么时候不能用来做决策」。<strong>本章三步校准里的同向率阈值，读他的实践总结会更有底气。</strong>

@@ -27,7 +27,7 @@ note: '本章是全站最贴近真实面试考点的一章。如果你只能读�
 
 ## 一、流式卡死：最常见的线上事故
 
-先说现象。流式响应可能以多种方式「卡住」：完全没有数据返回；返回了几个 token 后停住；返回了内容但没有结束标记；连接还活着但服务端不吐字。
+先说现象。[[long-horizon|长任务]] 在流式阶段最容易出的事故就是 [[streaming-stall|流式卡死]]：流式响应可能以多种方式「卡住」——完全没有数据返回；返回了几个 token 后停住；返回了内容但没有结束标记；连接还活着但服务端不吐字。检测它靠两个阈值：[[ttfb|首字节时延]]和 [[inter-chunk-timeout|字节间超时]]。
 
 **这些现象背后是不同的原因，但处理策略可以统一。** 关键在于：你的 Harness 必须有一套与「模型是否合作」无关的检测与恢复机制。
 
@@ -38,9 +38,9 @@ note: '本章是全站最贴近真实面试考点的一章。如果你只能读�
       <!-- 检测信号 -->
       <rect x="16" y="38" width="308" height="150" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.3"/>
       <text x="30" y="58" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#9b2c2c">检测：三个独立的心跳信号</text>
-      <text x="30" y="80" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">① 首字节超时（TTFB &gt; 15s）</text>
+      <text x="30" y="80" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">① 首字节超时（TTFB &gt; 30s）</text>
       <text x="30" y="96" font-family="ui-monospace, monospace" font-size="9.2" fill="#a49a8c">　说明请求可能都没被接住</text>
-      <text x="30" y="118" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">② 字节间超时（&gt; 20s 无新 chunk）</text>
+      <text x="30" y="118" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">② 字节间超时（&gt; 15s 无新 chunk）</text>
       <text x="30" y="134" font-family="ui-monospace, monospace" font-size="9.2" fill="#a49a8c">　说明生成中途停住（最常见）</text>
       <text x="30" y="156" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">③ 总时长超时（&gt; 上限）</text>
       <text x="30" y="172" font-family="ui-monospace, monospace" font-size="9.2" fill="#a49a8c">　兜底，防止缓慢但持续的消耗</text>
@@ -100,9 +100,78 @@ note: '本章是全站最贴近真实面试考点的一章。如果你只能读�
   <figcaption><b>图 1</b>　流式卡死的完整处理链。<b>最容易漏掉的是「字节间超时」</b>——只设总超时的实现在「服务端每 60 秒吐一个字」的情况下会一直等下去，看起来没超时，实际上任务永远不会完成。</figcaption>
 </figure>
 
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 300" role="img" aria-label="上下文分层：不可压缩区与可压缩区">
+      <defs>
+        <marker id="ar1" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#1f1b16"/>
+        </marker>
+      </defs>
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">上下文分层：钉住不可压缩区</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">只压缩下半部分；上半部分只追加、不压缩，并放在最前（契合前缀稳定）</text>
+      <rect x="16" y="54" width="628" height="110" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.4"/>
+      <text x="30" y="74" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#8a6a1e">不可压缩区（钉住，永不压缩）</text>
+      <rect x="30" y="84" width="180" height="30" fill="#ffffff" stroke="#b8944b" stroke-width="1"/>
+      <text x="120" y="104" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#1f1b16">原始任务目标</text>
+      <rect x="226" y="84" width="200" height="30" fill="#ffffff" stroke="#b8944b" stroke-width="1"/>
+      <text x="326" y="104" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#1f1b16">用户明确约束（如口径）</text>
+      <rect x="442" y="84" width="180" height="30" fill="#ffffff" stroke="#b8944b" stroke-width="1"/>
+      <text x="532" y="104" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#1f1b16">已确认关键结论</text>
+      <text x="30" y="146" font-family="ui-monospace, monospace" font-size="8.8" fill="#8a6a1e">放在最前 → 前缀稳定，缓存命中率高；且不会被后续压缩吞掉</text>
+      <rect x="16" y="172" width="628" height="100" fill="#eef4f1" stroke="#2f6157" stroke-width="1.4"/>
+      <text x="30" y="192" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#2f6157">可压缩区（过程性内容）</text>
+      <rect x="30" y="200" width="180" height="26" fill="#ffffff" stroke="#2f6157" stroke-width="1"/>
+      <text x="120" y="218" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.4" fill="#6b6257">旧步骤摘要</text>
+      <rect x="226" y="200" width="180" height="26" fill="#ffffff" stroke="#2f6157" stroke-width="1"/>
+      <text x="316" y="218" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.4" fill="#6b6257">超长观测裁剪</text>
+      <rect x="422" y="200" width="200" height="26" fill="#ffffff" stroke="#2f6157" stroke-width="1"/>
+      <text x="522" y="218" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.4" fill="#6b6257">最近几轮原文</text>
+      <text x="30" y="252" font-family="ui-monospace, monospace" font-size="8.8" fill="#2f6157">这一步可被单条裁剪 / 摘要 / 钉住 三步自动压缩</text>
+      <path d="M600,222 C620,222 620,150 600,150" fill="none" stroke="#9b2c2c" stroke-width="1.2" stroke-dasharray="3 2" marker-end="url(#ar1)"/>
+      <text x="470" y="150" font-family="ui-monospace, monospace" font-size="8.4" fill="#9b2c2c">压缩只作用于此</text>
+    </svg>
+  </div>
+  <figcaption><b>图 2</b>　压缩最常犯的错误是<b>把关键约束与结论一起压掉</b>。解法是分层：不可压缩区（目标 / 约束 / 已确认结论）只追加、放最前；可压缩区才被裁剪与摘要。</figcaption>
+</figure>
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 260" role="img" aria-label="软超时与硬超时的触发时机与对应动作">
+      <defs>
+        <marker id="ar2" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#1f1b16"/>
+        </marker>
+      </defs>
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">软超时 vs 硬超时</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">软超时触发降级，硬超时才判定失败并返回部分结果</text>
+      <line x1="60" y1="110" x2="610" y2="110" stroke="#1f1b16" stroke-width="1.2" marker-end="url(#ar2)"/>
+      <text x="612" y="114" text-anchor="end" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">时间 →</text>
+      <circle cx="80" cy="110" r="4" fill="#1f1b16"/>
+      <text x="80" y="132" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#6b6257">开始</text>
+      <line x1="260" y1="110" x2="260" y2="80" stroke="#8a6a1e" stroke-width="1.2"/>
+      <circle cx="260" cy="110" r="4" fill="#8a6a1e"/>
+      <text x="260" y="74" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" font-weight="700" fill="#8a6a1e">软超时</text>
+      <rect x="150" y="140" width="220" height="40" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="260" y="158" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#1f1b16">降级：缩小输出 / 跳可选步</text>
+      <text x="260" y="172" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#8a6a1e">任务继续，不失败</text>
+      <line x1="500" y1="110" x2="500" y2="80" stroke="#9b2c2c" stroke-width="1.2"/>
+      <circle cx="500" cy="110" r="4" fill="#9b2c2c"/>
+      <text x="500" y="74" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" font-weight="700" fill="#9b2c2c">硬超时</text>
+      <rect x="390" y="140" width="220" height="40" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.2"/>
+      <text x="500" y="158" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#1f1b16">判定失败，返回部分结果</text>
+      <text x="500" y="172" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#9b2c2c">只有硬超时导致失败</text>
+      <rect x="16" y="200" width="628" height="44" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1.2"/>
+      <text x="30" y="220" font-family="Georgia, serif" font-size="10.5" font-weight="700" fill="#1f1b16">判据</text>
+      <text x="30" y="236" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">软/硬阈值按「用户耐心」与「预算上限」分别设；恢复策略：切 provider / 降长度 / 关流式 / 换模型。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 3</b>　把超时拆成两级：<b>软超时触发降级（任务不失败），硬超时才返回部分结果</b>。只设一个总超时会让「缓慢但持续吐字」的卡死永远等不到边界。</figcaption>
+</figure>
+
 ## 二、上下文自动压缩：让长任务能跑完
 
-第 4 章讲了压缩策略，这里讲**怎么把它做成一个自动机制**，因为手动触发在长任务里不现实。
+第 4 章讲了压缩策略，这里讲**怎么把它做成一个自动机制**，因为手动触发在长任务里不现实。这套机制的核心是 [[context-compaction|上下文自动压缩]]，而最关键的一步是 [[pinned-conclusion|结论钉住]]——把不可丢失的结论排除在压缩之外。
 
 ```python title="auto_compact.py"
 import hashlib, json
@@ -193,7 +262,7 @@ def fingerprint(text: str) -> str:
 
 ## 三、崩溃恢复：检查点与幂等
 
-长任务会跨越进程生命周期。用户会关窗口、机器会重启、部署会滚动更新。任务必须能在中断后接上。
+长任务会跨越进程生命周期。用户会关窗口、机器会重启、部署会滚动更新。任务必须能在中断后接上——靠的是显式的 [[state-machine|状态机]] 与落盘的 [[checkpoint|检查点]]。
 
 <div class="tbl-wrap">
   <table class="news">
@@ -271,13 +340,33 @@ def resume(task_id: str, current_tools: set[str]) -> tuple[Checkpoint, list[str]
 
 ## 四、三个常被忽略的稳定性问题
 
-**第一，provider 切换。** 不要假设只有一个模型供应商。做到两点：把所有调用收敛到一个适配层（换 provider 只改一处）；并且用「能力探测」而不是「硬编码模型名」来决定用哪个模型（例如不支持工具调用的模型要自动降级为纯文本模式）。
+**第一，[[provider-abstraction|provider 适配层]]。** 不要假设只有一个模型供应商。做到两点：把所有调用收敛到一个适配层（换 provider 只改一处）；并且用「能力探测」而不是「硬编码模型名」来决定用哪个模型（例如不支持工具调用的模型要自动降级为纯文本模式）。
 
 **第二，输出解析的宽容度。** 模型可能返回带 Markdown 代码块包裹的 JSON、尾随逗号、单引号、注释。**解析器要能容忍这些常见变体**，而不是直接抛异常。宽容解析 + 严格校验的组合，比严格解析 + 宽容校验有效得多。
 
-**第三，时间与预算的耦合。** 用户的等待耐心和你的预算上限不是同一件事。建议分别设：**软超时**（触发降级策略，比如缩小输出规模、跳过可选步骤）和**硬超时**（直接返回部分结果）。只有硬超时会导致任务失败。
+**第三，时间与预算的耦合。** 用户的等待耐心和你的预算上限不是同一件事。建议分别设：[[soft-hard-timeout|软超时与硬超时]]——**软超时**触发降级策略（缩小输出规模、跳过可选步骤），**硬超时**才直接返回部分结果并判定失败。只有硬超时会导致任务失败。
 
-## 五、自测
+## 五、常见误区与追问
+
+### 5.1 误区：任务跑不动就怪模型 long-horizon 能力不足
+面试里最贵的教训：把工程问题答成研究问题。模型推理不足、幻觉、目标漂移是研究问题，得靠训练与数据；而换 provider 的成本、流式卡死恢复、上下文自动压缩是「不管模型多聪明都会发生、只能靠系统设计」的工程问题。判据：这个问题是否「换了更强的模型就消失」？会消失的是研究问题，不会的是工程问题。
+
+### 5.2 误区：只设总响应超时就够了
+总超时测的是「总时长」，而卡死的特征往往是「长时间没有新数据」。服务端每 60 秒吐一个字，总超时永远不触发，任务实际已死。必须同时设首字节时延（TTFB）与字节间超时两个独立阈值。数字上可以这样定：TTFB 30–60 秒、字节间 10–20 秒、总时长按用户耐心上限（如 5 分钟），三者独立触发，触发后的动作也不同——前两级中断后重试，第三级直接返回部分结果。
+
+### 5.3 误区：上下文压缩就是截断
+直接丢掉最早的 token，会把用户最初给的约束、已确认的关键结论一起删掉，后续推理整体跑偏。正确做法是上下文自动压缩配合分层与结论钉住：不可压缩区只追加、放最前。判据：压缩完成后回查三样东西还在不在——原始任务目标、用户明确给出的约束、已确认的关键结论；少任意一样，这次压缩就是在制造跑偏。
+
+### 5.4 误区：崩溃后从头重跑最稳
+从头重跑会重复执行已产生副作用的步骤（重复发邮件、重复下单）。正确做法是检查点加幂等键：只重放未完成步骤，已发生的副作用通过幂等键识别并跳过。判据：恢复前先查副作用日志，给每个待执行步骤算一次幂等键（任务 ID + 步骤序号），命中记录就跳过——做不到这一步，「重跑」就是重复下单。
+
+### 5.5 误区：工具调用值得无限重试
+已发生副作用的调用不能整段重试，否则重复下单。判据：重试次数上限 2–3 次且退避；已发生副作用时必须靠幂等键判重或改为断点续跑。数字上超过 2–3 次往往就不是网络抖动了，而是输入或工具本身有问题，继续重试只是把预算烧光，应该转人工或换方案。
+
+### 5.6 误区：provider 写死模型名无所谓
+硬编码模型名，换供应商就要改代码、重测、可能回归。正确做法是收敛到 provider 适配层，并用「能力探测」而非模型名决定走哪条路径（不支持工具调用的模型自动降级纯文本）。判据：在业务代码里搜一遍模型名与端点，出现即说明适配层没做——正确形态是业务代码只表达「要什么能力」，由适配层决定用哪个模型、走哪条路径。
+
+## 六、自测
 
 <div class="quiz">
   <div class="quiz-head"><span>本章自测</span><span>本章三题全部为真实面试高频题</span></div>
@@ -307,7 +396,7 @@ def resume(task_id: str, current_tools: set[str]) -> tuple[Checkpoint, list[str]
   </div>
 </div>
 
-## 六、小结
+## 七、小结
 
 | 问题 | 工程解法 | 关键细节 |
 | --- | --- | --- |
@@ -321,3 +410,21 @@ def resume(task_id: str, current_tools: set[str]) -> tuple[Checkpoint, list[str]
 <p class="pull-quote">「换 provider、卡死恢复、上下文压缩」这三个答案之所以被面试官认可，是因为它们都满足同一个条件：不管模型多聪明，这些问题都会发生，而且只能靠系统设计解决。<cite>本刊编辑部</cite></p>
 
 Harness 工程部分到此结束。接下来进入一个更少人认真做、也更能体现系统思维的部分：怎么证明你的改动真的让系统变好了。
+
+## 八、参考与延伸
+
+本章的机制部分只讲到「够用」为止。想往下深挖，下面这几份材料按「先看图、再看代码、最后读规范」的顺序排好了。全站不做原文转载，这里只登记链接与「为什么值得读」。
+
+**先看图（建立直觉）**
+
+- [Simon Willison · LLM notes](https://simonwillison.net/) —— 大量「长任务跑飞 / 流式中断 / 工具超时」的真实记录。<strong>翻他的 agent 与 tool-use 标签，能建立「工程问题 vs 研究问题」的直觉。</strong>
+
+**再看代码（动手实现）**
+
+- [SWE-bench](https://github.com/SWE-bench/SWE-bench) —— 长任务 Agent 的评测基座。<strong>看它的任务分片与重放机制，理解「为什么需要检查点与可恢复」。</strong>
+- [τ-bench](https://github.com/sierra-research/tau-bench) —— 多步工具调用可靠性的评测。<strong>它的「用户中途介入」设定，正是本章人工确认 / 状态机要解决的问题。</strong>
+
+**最后读规范（对齐一手定义）**
+
+- [Anthropic · Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents) —— 官方对长任务编排的建议。<strong>它把「流式、工具、恢复」当成一等公民，和本章的超时三级、检查点直接对应。</strong>
+- [OpenAI Platform 文档](https://platform.openai.com/docs/overview) —— 模型调用的官方能力说明。<strong>看它怎么描述流式、函数调用与超时，作为把本章机制落地的依据。</strong>

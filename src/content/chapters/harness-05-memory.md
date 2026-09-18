@@ -8,7 +8,7 @@ note: '本章的核心判据只有一句话：能被解释、能被更正、能�
 
 ## 一、先分清三种「记忆」
 
-很多人把三件不同的事都叫记忆，导致设计混乱。它们应该分开存、分开管。
+很多人把 [[working-memory|工作记忆]]、[[episodic-memory|情节记忆]]、[[semantic-memory|语义记忆]] 三件不同的事都叫记忆，导致设计混乱。它们应该分开存、分开管。
 
 <div class="tbl-wrap">
   <table class="news">
@@ -25,7 +25,7 @@ note: '本章的核心判据只有一句话：能被解释、能被更正、能�
 
 ## 二、写入时机：三个触发器
 
-写入是记忆系统最容易失控的环节。**最常见的事故是写入过多**——把每一轮对话都写进去，结果记忆库充满噪音，召回质量急剧下降。
+写入是记忆系统最容易失控的环节。**最常见的事故是写入过多**——把每一轮对话都写进去，结果记忆库充满噪音，[[memory-recall|召回]]质量急剧下降。真正决定「写不写」的是 [[write-trigger|写入触发器]]：只有显式指令、任务固化、受控自动抽取三类事件才允许落库。
 
 <figure class="fig">
   <div class="fig-frame">
@@ -72,9 +72,89 @@ note: '本章的核心判据只有一句话：能被解释、能被更正、能�
   <figcaption><b>图 1</b>　写入侧四个校验 + 召回侧三条纪律。<b>注意触发器 ③ 的标注</b>：自动抽取是记忆系统噪音的主要来源，绝大多数「记忆让效果变差」的案例都出在这里——不是记忆没用，而是自动抽取把一次性信息固化了。</figcaption>
 </figure>
 
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 320" role="img" aria-label="四类记忆冲突与各自的处理原则对照">
+      <defs>
+        <marker id="ar1" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#1f1b16"/>
+        </marker>
+      </defs>
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">四类冲突，四套原则</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">时序用「取代」、来源用「权威性」、层级用「越临时越优先」、真伪用「暴露」</text>
+      <rect x="16" y="54" width="628" height="22" fill="#1f1b16"/>
+      <text x="28" y="69" font-family="ui-monospace, monospace" font-size="9.6" font-weight="700" fill="#fdf6e8">冲突类型</text>
+      <text x="170" y="69" font-family="ui-monospace, monospace" font-size="9.6" font-weight="700" fill="#fdf6e8">典型示例</text>
+      <text x="430" y="69" font-family="ui-monospace, monospace" font-size="9.6" font-weight="700" fill="#fdf6e8">处理原则</text>
+      <rect x="16" y="78" width="628" height="54" fill="#fdf6e8" stroke="#b8944b" stroke-width="1"/>
+      <text x="28" y="100" font-family="Georgia, serif" font-size="10.5" font-weight="700" fill="#8a6a1e">时序冲突</text>
+      <text x="28" y="120" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">A 负责 → 半年后 B 负责</text>
+      <text x="170" y="100" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">新事实取代旧事实，旧值</text>
+      <text x="170" y="114" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">保留为历史版本并标记失效</text>
+      <text x="430" y="100" font-family="ui-monospace, monospace" font-size="8.8" fill="#2f6157">按时间取最新；软删除</text>
+      <text x="430" y="114" font-family="ui-monospace, monospace" font-size="8.8" fill="#2f6157">保留证据，不物理删除</text>
+      <rect x="16" y="134" width="628" height="54" fill="#eef4f1" stroke="#2f6157" stroke-width="1"/>
+      <text x="28" y="156" font-family="Georgia, serif" font-size="10.5" font-weight="700" fill="#2f6157">来源冲突</text>
+      <text x="28" y="176" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">口述 X vs 文档 Y</text>
+      <text x="170" y="156" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">系统文档优先作为事实；</text>
+      <text x="170" y="170" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">口述作补充或待确认</text>
+      <text x="430" y="156" font-family="ui-monospace, monospace" font-size="8.8" fill="#1f1b16">按来源权威性裁决</text>
+      <text x="430" y="170" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">（文档 &gt; 口述）</text>
+      <rect x="16" y="190" width="628" height="54" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1"/>
+      <text x="28" y="212" font-family="Georgia, serif" font-size="10.5" font-weight="700" fill="#9b2c2c">层级冲突</text>
+      <text x="28" y="232" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">长期「详细」vs 本次「简洁」</text>
+      <text x="170" y="212" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">越临时的越优先：本次指令</text>
+      <text x="170" y="226" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">覆盖长期偏好，且不改长期</text>
+      <text x="430" y="212" font-family="ui-monospace, monospace" font-size="8.8" fill="#9b2c2c">不修改长期偏好</text>
+      <text x="430" y="226" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">（否则永久污染画像）</text>
+      <rect x="16" y="246" width="628" height="54" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1.2"/>
+      <text x="28" y="268" font-family="Georgia, serif" font-size="10.5" font-weight="700" fill="#1f1b16">真伪冲突</text>
+      <text x="28" y="288" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">两条相反且无时间差</text>
+      <text x="170" y="268" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">两条都标「存在冲突」，</text>
+      <text x="170" y="282" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">在回答时显式暴露</text>
+      <text x="430" y="268" font-family="ui-monospace, monospace" font-size="8.8" fill="#1f1b16">不选边；交用户裁决</text>
+      <text x="430" y="282" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">并沉淀高置信新记忆</text>
+    </svg>
+  </div>
+  <figcaption><b>图 2</b>　四类冲突用四套原则，不能混用。<b>第四行（真伪冲突）最容易被做错</b>：绝大多数系统会「取相似度高的那条」或「取新的那条」，都是在假装自己知道答案。正确做法是保留冲突并暴露。</figcaption>
+</figure>
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 240" role="img" aria-label="记忆版本链：软删除保留历史，任何时刻可解释">
+      <defs>
+        <marker id="ar2" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#2f6157"/>
+        </marker>
+      </defs>
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">记忆版本链：软删除而非物理删除</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">同 key 的多个版本按时间排开；superseded_at 标出失效时刻，active 永远唯一</text>
+      <line x1="60" y1="100" x2="610" y2="100" stroke="#1f1b16" stroke-width="1.2" marker-end="url(#ar2)"/>
+      <text x="612" y="104" text-anchor="end" font-family="ui-monospace, monospace" font-size="8.8" fill="#6b6257">时间 →</text>
+      <rect x="40" y="78" width="150" height="44" fill="#eef4f1" stroke="#2f6157" stroke-width="1.2"/>
+      <text x="115" y="98" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.4" font-weight="700" fill="#2f6157">v1 生效</text>
+      <text x="115" y="113" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.4" fill="#6b6257">2025-03-12 写入</text>
+      <rect x="255" y="78" width="150" height="44" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="330" y="98" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.4" font-weight="700" fill="#8a6a1e">v2 生效</text>
+      <text x="330" y="113" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.4" fill="#6b6257">2025-09-01 写入</text>
+      <line x1="115" y1="122" x2="330" y2="150" stroke="#9b2c2c" stroke-width="1.2" stroke-dasharray="3 2" marker-end="url(#ar2)"/>
+      <text x="150" y="142" font-family="ui-monospace, monospace" font-size="8.4" fill="#9b2c2c">v1.superseded_at</text>
+      <rect x="470" y="78" width="150" height="44" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="545" y="98" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.4" font-weight="700" fill="#8a6a1e">v3 生效</text>
+      <text x="545" y="113" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.4" fill="#6b6257">2026-01-15 写入</text>
+      <line x1="330" y1="122" x2="545" y2="150" stroke="#9b2c2c" stroke-width="1.2" stroke-dasharray="3 2" marker-end="url(#ar2)"/>
+      <rect x="16" y="168" width="628" height="52" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1.2"/>
+      <text x="30" y="188" font-family="Georgia, serif" font-size="10.5" font-weight="700" fill="#1f1b16">可解释性：任何时刻都能回答「系统为什么曾这么认为」</text>
+      <text x="30" y="206" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">v1 仍可被 explain() 打印：「2025-03-12 由 A 提供，2025-09-01 被 B 的新口径取代」——信任由此建立。</text>
+      <text x="30" y="219" font-family="ui-monospace, monospace" font-size="9" fill="#9b2c2c">用户要求删除时，forget(hard=True) 彻底清除包括历史版本。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 3</b>　软删除让版本链始终可追溯：<b>失效的不是被抹掉，而是被打上 superseded_at</b>。这既满足合规（可解释），又保留用户行使删除权的能力（硬删除）。</figcaption>
+</figure>
+
 ## 三、冲突消解：两条记忆打架怎么办
 
-这是记忆系统最难的部分，也是面试里最容易问到的深层问题。
+这是记忆系统最难的部分，也是面试里最容易问到的深层问题。它的正式名字是 [[conflict-resolution|冲突消解]]，难点不在「判断」，而在「判断之后要不要假装知道答案」。
 
 <div class="tbl-wrap">
   <table class="news">
@@ -96,7 +176,7 @@ note: '本章的核心判据只有一句话：能被解释、能被更正、能�
 
 ## 四、让记忆可解释、可更正、可删除
 
-这三件事是记忆系统的底线，也是产品能不能被信任的前提。
+这三件事是记忆系统的底线，也是产品能不能被信任的前提。其中 [[soft-delete|软删除]] 保证「忘得掉」，[[memory-explainability|记忆可解释性]] 保证「说得清」——二者合起来，用户才敢用。
 
 ```python title="memory_store.py"
 from dataclasses import dataclass, field
@@ -127,12 +207,15 @@ class MemoryStore:
         """
         同 key 的旧版本不删除，只标记 superseded_at。
         这保证了「可解释」——任何时候都能回答「为什么系统会这么认为」。
+        去重按内容指纹判断，而不是字符串相等：同一事实会有无数种表述，
+        直接比字符串几乎永远为假（见误区 5.3）。
         """
         chain = self._items.setdefault(m.key, [])
+        fp = memory_fingerprint(m.content)
         for old in chain:
-            if old.active and old.content == m.content:
+            if old.active and memory_fingerprint(old.content) == fp:
                 return "duplicate"
-            if old.active and old.content != m.content:
+            if old.active:
                 old.superseded_at = m.written_at     # 软删除，保留证据
         chain.append(m)
         return "written"
@@ -191,7 +274,24 @@ def memory_fingerprint(text: str) -> str:
   </ul>
 </div>
 
-## 五、自测
+## 五、常见误区与追问
+
+### 5.1 误区：自动抽取最省事，开着就好
+很多团队把「每轮自动判断有无值得记的」当成默认开启的能力。错在这会把一次性、临时的信息固化成长期记忆：用户随口说「这次简洁点」会被写成长期偏好，某次错误的推断会被当成事实。判据很硬：当记忆库里一次性信息的比例超过 30%，召回的信噪比会明显跌破可用线，模型开始「越跑越笨」。修法是给自动抽取设稳定性阈值（这条信息一个月后还成立吗？）加定期清理，且优先用显式指令触发写入。
+
+### 5.2 误区：新旧事实冲突，直接覆盖旧的就行
+直觉是「新的覆盖旧的，干掉旧的省事」。这是 [[temporal-conflict|时序冲突]] 的典型误处理：直接覆盖会丢掉可解释性——你再也无法回答「系统为什么曾经认为口径是 X」。正确做法是旧值保留为历史版本并标记 superseded_at（软删除），新值成为唯一 active 版本。代价只是多一点存储，换来的是任何时候都能把演变链打印出来。
+
+### 5.3 误区：记忆去重靠字符串相等判断
+实现上常写「如果内容等于已有记忆就跳过」。但同一事实会有无数种表述，字符串相等几乎永远为假，于是语义重复的记忆被反复写入，冲突与噪音随之而来。正确做法是用 [[memory-fingerprint|内容指纹]]（对内容取哈希）做跨库去重，更新时改旧版本的 superseded_at 而不是新建一条。
+
+### 5.4 误区：用户说删记忆，删掉当前值就够了
+只删当前 active 值，历史版本仍在，既不满足合规删除权（如 GDPR 的被遗忘权），也会让过期结论在审计里重现。系统必须同时支持软删除（标记失效，保留证据）与硬删除（彻底清除含历史版本）。这两件事不矛盾：日常用软删除保可解释，用户行使权利时用硬删除彻底清除。
+
+### 5.5 误区：记忆越多，Agent 越聪明
+反直觉但真实：记忆是资产还是污染源，取决于信噪比。召回上限建议 5 条以内，且必须带写入时间，让模型自己判断时效性。过量召回会挤占上下文、把无关信息变成干扰，结果不是「更懂你」，而是「更常被旧信息带偏」。判据：统计一次召回里有几条真正被写进答案，命中率低于一半就先按实体与主题收窄召回键，而不是继续加大 top-k；记忆出问题几乎都是召得太宽，而不是记得太少。
+
+## 六、自测
 
 <div class="quiz">
   <div class="quiz-head"><span>本章自测</span><span>第 3 题区分度最高</span></div>
@@ -221,7 +321,7 @@ def memory_fingerprint(text: str) -> str:
   </div>
 </div>
 
-## 六、小结
+## 七、小结
 
 | 问题 | 答案要点 |
 | --- | --- |
@@ -235,3 +335,20 @@ def memory_fingerprint(text: str) -> str:
 <p class="pull-quote">记忆的价值不在于记得多，而在于记得准、说得清、忘得掉。<cite>本刊编辑部</cite></p>
 
 下一章处理一个常见的设计抉择：当任务复杂到一定程度，是该开更多 Agent，还是把上下文做得更好？
+
+## 八、参考与延伸
+
+本章的机制部分只讲到「够用」为止。想往下深挖，下面这几份材料按「先看图、再看代码、最后读博客」的顺序排好了。全站不做原文转载，这里只登记链接与「为什么值得读」。
+
+**先看图（建立直觉）**
+
+- [Anthropic · Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents) —— 把「记忆 / 检索 / 工具」当成 Agent 的状态组件来设计。<strong>重点看它怎么把记忆作为结构化状态而不是聊天历史，和本章的「分层存储」直接对应。</strong>
+
+**再看代码（动手实现）**
+
+- [Datawhale · hugging-llm](https://github.com/datawhalechina/hugging-llm) —— 中文社区对 LLM 应用工程的系统梳理。<strong>其中记忆与检索相关章节，可对照本章的「写入触发器 / 冲突消解」动手实现一遍。</strong>
+
+**最后读博客（对齐一手定义）**
+
+- [Eugene Yan · Blog](https://eugeneyan.com/) —— Eugene 的长期实践帖覆盖记忆、检索与个性化。<strong>他关于「把用户偏好当长期状态管理」的讨论，正是本章语义记忆要解决的问题。</strong>
+- [Simon Willison · LLM and AI notes](https://simonwillison.net/) —— Simon 大量记录「Agent 跑飞 / 工具误用」的真实案例。<strong>翻他的 agent 标签，能看到记忆与权限失控的真实事故。</strong>

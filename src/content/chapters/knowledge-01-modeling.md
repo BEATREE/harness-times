@@ -40,7 +40,7 @@ note: '本章的「三层知识结构」是知识引擎部分的地基，后面�
   </table>
 </div>
 
-**三层混在一起的后果**，就是开头那个例子：半年前的「判断」被当成了「事实」，而模型无从分辨——因为它们在库里长得一模一样。
+**三层混在一起的后果**，就是开头那个例子：半年前的「判断」被当成了[[fact-layer|事实]]，而模型无从分辨——因为它们在库里长得一模一样。更隐蔽的是：一段[[inference-layer|推断]]如果没带[[evidence-chain|依据链]]，和一条事实在库里也毫无区别，却可能被当成结论直接给出。
 
 <figure class="fig">
   <div class="fig-frame">
@@ -89,13 +89,13 @@ note: '本章的「三层知识结构」是知识引擎部分的地基，后面�
 
 ## 二、实体层：解决「说的是同一个东西吗」
 
-这一层最容易被跳过，但它是检索准确率的第一道关。三个具体的必要性：
+[[entity-layer|实体层]]这一层最容易被跳过，但它是检索准确率的第一道关。三个具体的必要性：
 
-**第一，别名归一。** 用户说「华东」「东区」「East China」，系统里只有 `east`。不做归一，检索会漏掉大部分相关内容。
+**第一，别名归一。** 用户说「华东」「东区」「East China」，系统里只有 `east`。不做[[alias-normalization|归一]]，检索会漏掉大部分相关内容。
 
-**第二，歧义消解。** 「转化率」在不同业务线可能指不同指标。实体层要能根据上下文（哪个业务线、哪个页面）确定具体指向哪一个——这正是办事型 Agent 里 NL2DSL 的核心难点之一。
+**第二，歧义消解。** 「转化率」在不同业务线可能指不同指标。[[disambiguation|歧义消解]]要能根据上下文确定具体指向哪一个——这正是办事型 Agent 里[[nl2dsl]]的核心难点之一。
 
-**第三，层级关系。** 「华东区的销售额」是否包含「华东区下各城市的销售额」？这依赖实体层的层级定义。没有这层关系，聚合查询会算错。
+**第三，层级关系。** 实体层本质是[[master-data|主数据]]（组织架构、元数据等权威基础数据）。「华东区的销售额」是否包含「华东区下各城市的销售额」？这依赖实体层的层级定义。没有这层关系，聚合查询会算错。
 
 <div class="tbl-wrap">
   <table class="news">
@@ -119,6 +119,40 @@ note: '本章的「三层知识结构」是知识引擎部分的地基，后面�
 - 实际上 Q4 换了更严格的口径（剔除退款），两个数字不可比。
 
 **这不是检索问题，是建模问题。** 而它造成的后果比检索错更严重——用户会基于错误的对比做出决策。
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 380" role="img" aria-label="同一个指标在两个口径版本下的数值不可直接比较">
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">同一个「转化率」，两个不可比的口径</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">两个数值都真实、都出自同一张表，但分母定义不同 → 放在一起比就是错的</text>
+      <rect x="16" y="56" width="290" height="126" fill="#eef4f1" stroke="#2f6157" stroke-width="1.3"/>
+      <text x="28" y="76" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#2f6157">口径 v2 · 含退款订单</text>
+      <text x="28" y="94" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">生效 2025-03 ~ 2025-08</text>
+      <text x="28" y="110" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">下单数 ÷ 访问数，不剔退款</text>
+      <text x="28" y="142" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">2025Q2 =</text>
+      <text x="108" y="144" font-family="Georgia, serif" font-size="18" font-weight="700" fill="#2f6157">4.2%</text>
+      <text x="28" y="170" font-family="ui-monospace, monospace" font-size="9.6" fill="#2f6157">在库里，它与右边的数字长得一模一样</text>
+      <rect x="354" y="56" width="290" height="126" fill="#eef4f1" stroke="#2f6157" stroke-width="1.3"/>
+      <text x="366" y="76" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#2f6157">口径 v3 · 剔除退款</text>
+      <text x="366" y="94" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">生效 2025-09 起</text>
+      <text x="366" y="110" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">剔退款后成交数 ÷ 访问数</text>
+      <text x="366" y="142" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">2025Q4 =</text>
+      <text x="446" y="144" font-family="Georgia, serif" font-size="18" font-weight="700" fill="#2f6157">3.1%</text>
+      <text x="366" y="170" font-family="ui-monospace, monospace" font-size="9.6" fill="#2f6157">口径变更这件事只写在元数据里</text>
+      <line x1="330" y1="50" x2="330" y2="188" stroke="#9b2c2c" stroke-width="1.2" stroke-dasharray="3 2"/>
+      <text x="330" y="208" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.6" fill="#9b2c2c">2025-09 口径变更：分母改为「剔除退款订单」——这一点之后，两条曲线的含义不同了</text>
+      <rect x="16" y="222" width="628" height="68" fill="#f6e2e2" stroke="#9b2c2c" stroke-width="1.2"/>
+      <text x="30" y="242" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#9b2c2c">✗ 界面上看到的：4.2% → 3.1%，一年「下滑 26%」</text>
+      <text x="30" y="260" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">两个数的分母不同：一个含退款、一个剔退款。数字都是真的，对比是假的。</text>
+      <text x="30" y="278" font-family="ui-monospace, monospace" font-size="9.6" fill="#9b2c2c">系统不会报错也不会提示——用户据此排期、复盘、写进汇报，错误一路向下游传播。</text>
+      <rect x="16" y="298" width="628" height="70" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="30" y="318" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#8a6a1e">✓ 让「可比性」变成数据可判定的属性</text>
+      <text x="30" y="336" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">每条数值事实都带「来源 + 口径版本 + 更新时间」；口径版本不同的两个值禁止直接比较。</text>
+      <text x="30" y="354" font-family="ui-monospace, monospace" font-size="9.6" fill="#6b6257">必须跨口径看趋势时：按旧口径重算一版，或在界面上标出断点并写明「口径变更，不可比」。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 2</b>　口径版本不同的两个数值，在数据层看起来完全一样，在业务上却是两个指标。<b>把口径版本写进每一条事实，等于把「这两个数能不能比」从一个需要人判断的问题，变成一个代码能判定的问题。</b></figcaption>
+</figure>
 
 ```python title="knowledge_model.py"
 from dataclasses import dataclass, field
@@ -219,7 +253,91 @@ def render_for_prompt(facts: list[Fact], inferences: list[Inference],
 
 
 
-## 四、自测
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 408" role="img" aria-label="两条知识冲突时的五步裁决顺序">
+      <defs>
+        <marker id="arC" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#6b6257"/>
+        </marker>
+      </defs>
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">两条知识冲突时，按这五个判据依次裁决</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">顺序不能颠倒：先判层次，再判可比性，最后才比时间——跳过前两步直接比时间，是最常见的错</text>
+      <rect x="16" y="52" width="628" height="30" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1.3"/>
+      <text x="330" y="72" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" fill="#1f1b16">入口：同一个问题下，检索回了两条互相矛盾的结论</text>
+      <rect x="16" y="94" width="246" height="48" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="28" y="111" font-family="Georgia, serif" font-size="10.6" font-weight="700" fill="#b8944b">① 层次不同</text>
+      <text x="28" y="129" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">事实 vs 推断</text>
+      <line x1="264" y1="118" x2="296" y2="118" stroke="#b8944b" stroke-width="1.2" marker-end="url(#arC)"/>
+      <rect x="300" y="94" width="344" height="48" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="312" y="111" font-family="Georgia, serif" font-size="10.6" font-weight="700" fill="#b8944b">信事实，推断让步</text>
+      <text x="312" y="127" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">推断标记为「与最新事实不符，可能已过时」，</text>
+      <text x="312" y="139" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">仍可展示，但必须标明它只是视角，不是依据</text>
+      <rect x="16" y="148" width="246" height="48" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1.2"/>
+      <text x="28" y="165" font-family="Georgia, serif" font-size="10.6" font-weight="700" fill="#1f1b16">② 层内 · 指标不同</text>
+      <text x="28" y="183" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">如转化率 vs 留存率</text>
+      <line x1="264" y1="172" x2="296" y2="172" stroke="#1f1b16" stroke-width="1.2" marker-end="url(#arC)"/>
+      <rect x="300" y="148" width="344" height="48" fill="#f0ebe1" stroke="#1f1b16" stroke-width="1.2"/>
+      <text x="312" y="165" font-family="Georgia, serif" font-size="10.6" font-weight="700" fill="#1f1b16">不可比 → 不裁决</text>
+      <text x="312" y="181" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">两个数值分开呈现，都不作为结论依据，</text>
+      <text x="312" y="193" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">更不要用相似度或时间戳强行选一个</text>
+      <rect x="16" y="202" width="246" height="48" fill="#f6e2e2" stroke="#9b2c2c" stroke-width="1.2"/>
+      <text x="28" y="219" font-family="Georgia, serif" font-size="10.6" font-weight="700" fill="#9b2c2c">③ 层内 · 口径版本不同</text>
+      <text x="28" y="237" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">v2 含退款 vs v3 剔退款</text>
+      <line x1="264" y1="226" x2="296" y2="226" stroke="#9b2c2c" stroke-width="1.2" marker-end="url(#arC)"/>
+      <rect x="300" y="202" width="344" height="48" fill="#f6e2e2" stroke="#9b2c2c" stroke-width="1.2"/>
+      <text x="312" y="219" font-family="Georgia, serif" font-size="10.6" font-weight="700" fill="#9b2c2c">不可比 → 暴露冲突</text>
+      <text x="312" y="235" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">提示「口径不同，数值不可直接比较」，</text>
+      <text x="312" y="247" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">请用户确认该按哪个口径回答</text>
+      <rect x="16" y="256" width="246" height="48" fill="#f6e2e2" stroke="#9b2c2c" stroke-width="1.2"/>
+      <text x="28" y="273" font-family="Georgia, serif" font-size="10.6" font-weight="700" fill="#9b2c2c">④ 层内 · 同期同口径</text>
+      <text x="28" y="291" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">期相同、值不同</text>
+      <line x1="264" y1="280" x2="296" y2="280" stroke="#9b2c2c" stroke-width="1.2" marker-end="url(#arC)"/>
+      <rect x="300" y="256" width="344" height="48" fill="#f6e2e2" stroke="#9b2c2c" stroke-width="1.2"/>
+      <text x="312" y="273" font-family="Georgia, serif" font-size="10.6" font-weight="700" fill="#9b2c2c">数据源冲突 → 交给人</text>
+      <text x="312" y="289" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">两个来源各写各的，系统不静默选边，</text>
+      <text x="312" y="301" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">把两条的来源与更新时间一起给用户</text>
+      <rect x="16" y="310" width="246" height="48" fill="#d6e5de" stroke="#2f6157" stroke-width="1.2"/>
+      <text x="28" y="327" font-family="Georgia, serif" font-size="10.6" font-weight="700" fill="#2f6157">⑤ 层内 · 期不同</text>
+      <text x="28" y="345" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">如 Q2 vs Q4</text>
+      <line x1="264" y1="334" x2="296" y2="334" stroke="#2f6157" stroke-width="1.2" marker-end="url(#arC)"/>
+      <rect x="300" y="310" width="344" height="48" fill="#d6e5de" stroke="#2f6157" stroke-width="1.2"/>
+      <text x="312" y="327" font-family="Georgia, serif" font-size="10.6" font-weight="700" fill="#2f6157">取更新的，旧值留档</text>
+      <text x="312" y="343" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">取 updated_at 更大的那条作为当前值，</text>
+      <text x="312" y="355" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">旧值软删除并记失效时间，保留可解释性</text>
+      <rect x="16" y="368" width="628" height="32" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="28" y="383" font-family="Georgia, serif" font-size="10.6" font-weight="700" fill="#8a6a1e">能被自动裁决的只有一部分：①②③④里有两类必须交给人。</text>
+      <text x="28" y="396" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">所以「同级冲突不能裁决时必须暴露冲突」不是保守，而是唯一不会让错误静默通过的选法。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 3</b>　裁决顺序本身就是一层信息：<b>先问「是不是同一层」，再问「是不是同一个指标、同一个口径」，只有这两步都过了，才轮到比时间。</b>把顺序写死成代码（见上一节的 <code>resolve_conflict</code>），就不会因为「新的看起来更可信」而误判。</figcaption>
+</figure>
+
+## 四、常见误区与追问
+
+这一章的结论很容易被点头同意，然后在工程里被忘掉。下面五条，都是「听起来对、做起来错」的典型。
+
+### 4.1 误区：把「知识库」当成「文档库 + 向量化」
+
+错在哪：以为把文档切块、嵌入、入库，知识就建好了。为什么自然：几乎所有 RAG 教程都从「切块—嵌入—检索」讲起，看起来那就是全部工作。**但向量库只回答「哪段文字语义相近」，不回答「这条信息是不是事实、值不值得信」。** 判据：随机抽 10 条检索结果，如果你不能在 10 秒内为每条说出「它是事实还是推断 / 来自哪个源系统 / 口径版本是什么」，那么你缺的是建模，不是更好的嵌入模型。一条不带来源的数值和一条带来源的数值，在上下文里长得完全一样，前者的错误要等到用户拿它做决策时才暴露。
+
+### 4.2 误区：口径版本是数据团队的事，与检索和 Agent 无关
+
+错在哪：把它当成数仓内部的元数据约定。为什么自然：口径确实由业务方定义，落库时也常常只写在表注释里。**但对 Agent 来说，口径版本是判断「两个数能不能比」的唯一依据，必须一路带到上下文里。** 判据（可操作）：把两个口径不同的季度值同时放进上下文，看模型会不会主动做对比、甚至算出「下滑 26%」——会，就说明 [[caliber-version|口径版本]] 没有跟着知识块进上下文，或者提示词里没有写「口径不同的数值不可直接比较」这条硬规则。这类错误不需要模型犯错，只需要它足够勤快地做对比。
+
+### 4.3 误区：有依据链，推断就可以当事实用
+
+错在哪：把「可溯源」直接当成「可信」。为什么自然：依据链确实提升了可验证性，看起来比一条裸结论可靠得多。**但它只证明「结论是从这些事实推出来的」，不证明「推理本身成立」。** 判据两条：依据链是否覆盖了全部关键前提；前提是否仍然有效（未过期、未因口径变更而失效）。缺任何一条，这条推断就只能作为视角呈现，不能作为结论依据。这也是 [[provenance|可溯源]] 的边界——它保证你能回到源头，不保证源头支持你的结论。
+
+### 4.4 误区：别名表一次建好就够
+
+错在哪：把别名归一当成一次性数据清洗。为什么自然：别名看起来是静态词典，建表时穷举一遍就完了。**但它会持续增长：新简称、新外文写法、错别字变体、组织改名。** 判据可操作：每周从检索日志里捞出「出现过但没有映射到任何实体 id」的名词提及，做成未命中列表；累计超过 50 条就补一次表。同时给每条别名加「生效期」与「上下级」两个字段——改过的别名不要删除，只标记失效时间，否则历史问题会莫名其妙地对不上实体。
+
+### 4.5 误区：三层分完就一劳永逸
+
+错在哪：以为分好实体、事实、推断，建好表这件事就结束了。为什么自然：结构定下来之后，日常只剩往里写数据。**但三层的边界会被时间侵蚀**：一份 Q3 的分析报告，到 Q4 变成「过时推断」，新口径发布后又变成「口径不同的事实」。判据：给推断层加一个「复核时间」字段，并在每次口径版本变更时扫描所有引用了该指标的推断，批量标记为「依据已变更，待复核」。没有这一步，系统会长期沉淀一批「看起来有依据」的历史结论，而它们比没有依据更危险。
+
+## 五、自测
 
 <div class="quiz">
   <div class="quiz-head"><span>本章自测</span><span>第 1、3 题是核心考点</span></div>
@@ -249,7 +367,7 @@ def render_for_prompt(facts: list[Fact], inferences: list[Inference],
   </div>
 </div>
 
-## 五、小结
+## 六、小结
 
 | 层 | 必须带什么 | 用途 | 冲突时 |
 | --- | --- | --- | --- |
@@ -262,3 +380,19 @@ def render_for_prompt(facts: list[Fact], inferences: list[Inference],
 <p class="pull-quote">知识建模的本质，是把「可信度」这个属性从人的判断变成数据结构。做成了，系统才可能「有据可查」。<cite>本刊编辑部</cite></p>
 
 建模清楚了，下一章看检索的完整链路——以及那条链上六个环节各自能怎样把结果做错。
+
+## 七、参考与延伸
+
+这一章的方法论没有单一一手论文可读，所以下面按「先对齐概念、再看工业实现、最后读规范」排了三份材料。全站不做原文转载，这里只登记链接与「为什么值得读」。
+
+**先看概念（把「指标口径」想清楚）**
+
+- [dbt 官方文档 · About MetricFlow](https://docs.getdbt.com/docs/build/about-metricflow) —— 工业界怎么把「指标」定义成可版本化、可复用的声明式对象。<strong>读本章第三节卡住时来这儿最快：它把「同一个指标名 + 不同定义」当成一等公民处理，而不是把它塞进表注释。</strong>
+
+**再看实现（别人把校验放在哪一层）**
+
+- [Eugene Yan · Patterns for Building LLM-based Systems & Products](https://eugeneyan.com/writing/llm-patterns/) —— 从评测、RAG 到 guardrails 的工程模式总览。<strong>重点看「数据校验与输出约束」落在流水线的哪一段——本章的实体／事实／推断分层，正是这类校验的依据来源。</strong>
+
+**最后读规范（对齐一手定义）**
+
+- [W3C · PROV-O: The PROV Ontology](https://www.w3.org/TR/prov-o/) —— 「来源（provenance）」这件事的官方本体定义：Entity、Activity、Agent 三类核心对象及其派生关系。<strong>只需要看核心类与 <code>prov:wasDerivedFrom</code> 这一个关系——本章说的「依据链」，在规范里就是它的传递闭包。</strong>

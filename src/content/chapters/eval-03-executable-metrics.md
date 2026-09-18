@@ -8,7 +8,7 @@ note: '本章的核心是「口径」二字。建议读完把三张表存下来�
 
 ## 一、第一个坑：分母
 
-这是最常见、影响最大的问题。看一个具体的例子：
+这是最常见、影响最大的问题。看一个具体的例子：把[[executable-rate|可执行率]]的三种口径摆出来——
 
 <div class="tbl-wrap">
   <table class="news">
@@ -21,7 +21,7 @@ note: '本章的核心是「口径」二字。建议读完把三张表存下来�
   </table>
 </div>
 
-三个数字都「对」，但含义完全不同。**关键纪律是：报一个数字时必须同时报它的分母定义。** 而且在同一份对比报告里，口径不能变——这次用 B、下次用 A 来显示进步，是典型的指标作弊。
+三个数字都「对」，但含义完全不同。关键纪律是：报一个数字时必须同时报它的分母定义——这正是[[end-to-end-rate|端到端完成率]]（分母 = 全样本）之所以最值得对外汇报的原因。而且在同一份对比报告里，口径不能变——这次用 B、下次用 A 来显示进步，是典型的指标作弊。
 
 <div class="box box-key">
   <span class="box-title">推荐的做法：分层报告，而不是选一个口径</span>
@@ -36,7 +36,7 @@ note: '本章的核心是「口径」二字。建议读完把三张表存下来�
 
 ## 二、第二个坑：什么叫「参数准确」
 
-「参数准确率」听起来是最客观的指标——毕竟参数有明确的值。但只要细看就会发现问题成堆。
+「参数准确率」听起来是最客观的指标——毕竟参数有明确的值。但只要细看就会发现问题成堆，最核心的是[[metric-granularity|比对粒度]]没事先定好。
 
 <figure class="fig">
   <div class="fig-frame">
@@ -93,12 +93,62 @@ note: '本章的核心是「口径」二字。建议读完把三张表存下来�
       <text x="30" y="398" font-family="ui-monospace, monospace" font-size="9.3" fill="#9b2c2c">把两者混在一起算一个「参数准确率」，得到的数既不能反映结构正确性，也不能反映语义正确性。</text>
     </svg>
   </div>
-  <figcaption><b>图 1</b>　参数准确率的四种粒度。选择原则很简单：<b>指标粒度应该与「业务会不会因此出错」对齐</b>——如果大小写不影响执行结果，就不该判错；如果阈值写错会导致查错数据，就必须判错。</figcaption>
+  <figcaption><b>图 1</b>　参数准确率的四种粒度。选择原则很简单：<b>指标粒度应该与「业务会不会因此出错」对齐</b>——如果大小写不影响执行结果，就不该判错；如果阈值写错会导致查错数据，就必须判错。  </figcaption>
+</figure>
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 320" role="img" aria-label="同一系统三种分母口径给出三个不同的可执行率">
+      <defs>
+        <marker id="ar2" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#1f1b16"/>
+        </marker>
+      </defs>
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">同一系统，三种分母，三个数</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">可执行率：89% / 67% / 78%——差 22 个百分点，全是分母不同</text>
+      <line x1="100" y1="270" x2="600" y2="270" stroke="#1f1b16" stroke-width="1.2"/>
+      <text x="100" y="286" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">0</text>
+      <text x="350" y="286" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">50</text>
+      <text x="600" y="286" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">100</text>
+      <rect x="130" y="110" width="110" height="160" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.2"/>
+      <text x="185" y="102" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#9b2c2c">A 89%</text>
+      <text x="185" y="300" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#6b6257">只看成功样本</text>
+      <rect x="300" y="149" width="110" height="121" fill="#eef4f1" stroke="#2f6157" stroke-width="1.2"/>
+      <text x="355" y="141" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#2f6157">B 67%</text>
+      <text x="355" y="300" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#6b6257">全样本（推荐对外）</text>
+      <rect x="470" y="130" width="110" height="140" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="525" y="122" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#8a6a1e">C 78%</text>
+      <text x="525" y="300" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#6b6257">排除不可解样本</text>
+      <text x="16" y="312" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">A 把「没产出」的样本排除在分母外，等于把失败藏起来。报数必须连带分母；对比时口径不能变，否则差距只是分母游戏。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 2</b>　三个团队测同一个系统能得出差 22 个百分点的数，且都「没错」。<b>识别方法永远是三问：分子、分母、边界怎么算</b>——这一问，大多数「我们更强」的争论会自己结束。</figcaption>
+</figure>
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 300" role="img" aria-label="不可解样本必须单列指标，否则硬猜被端到端完成率掩盖">
+      <text x="16" y="22" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">不可解样本必须单列指标</text>
+      <text x="16" y="40" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">一个把不可解问题也硬答的系统：端到端完成率虚高，但不可解处理率暴露了真相</text>
+      <line x1="100" y1="250" x2="600" y2="250" stroke="#1f1b16" stroke-width="1.2"/>
+      <text x="100" y="266" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">0</text>
+      <text x="350" y="266" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">50</text>
+      <text x="600" y="266" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9" fill="#6b6257">100</text>
+      <rect x="150" y="97" width="120" height="153" fill="#eef4f1" stroke="#2f6157" stroke-width="1.2"/>
+      <text x="210" y="89" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#2f6157">端到端 85%</text>
+      <text x="210" y="288" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#6b6257">看起来不错</text>
+      <rect x="390" y="200" width="120" height="50" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.2"/>
+      <text x="450" y="192" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#9b2c2c">不可解处理 20%</text>
+      <text x="450" y="288" text-anchor="middle" font-family="ui-monospace, monospace" font-size="8.6" fill="#9b2c2c">实际在硬猜</text>
+      <text x="16" y="290" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">判据：不可解处理率必须独立成指标；端到端高但不可解处理低 = 系统把「不知道」也硬答了，体验更差。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 3</b>　只看端到端完成率，这个系统能拿 85 分；但它在不可解问题上基本靠硬猜（仅 20% 正确处理）。<b>单列不可解处理率，才拦得住「硬猜」这种最隐蔽的退化。</b></figcaption>
 </figure>
 
 ## 三、第三个坑：任务完成率怎么判
 
-「任务完成」是最难判定的指标，因为它通常需要人来看结果。可行的做法是按任务类型分三档：
+「任务完成」是最难判定的指标，因为它通常需要人来看结果。可行的做法是按任务类型分三档，能用程序判定的优先程序化——这直接关系到[[task-completion-rate|任务完成率]]怎么算才不虚高：
 
 <div class="tbl-wrap">
   <table class="news">
@@ -226,7 +276,33 @@ RULES = {
   <p><b>做法：把 <code>RULES</code> 当成代码一样纳入版本管理，规则变更时在报告里显式标注「口径已更新」，并且不要在规则变更的同一版里对比新旧数据。</b>这是评测工程的专业性所在，也是「口径不清等于没有指标」这句话的具体表现。</p>
 </div>
 
-## 五、自测
+## 五、常见误区与追问
+
+### 5.1 误区：可执行率只要能跑就行（其实「可执行」含「跑对」）
+
+很多人把「输出能被解析」就当成功。错。可执行率的「可执行」必须包含「跑出正确结果」——否则语法对但字段名错的情况会被算作成功，指标系统性虚高。判据：把三种口径（解析 / 引擎接受 / 结果正确）分开报；只报最宽松口径的团队，分数至少虚高 15-25 个百分点。
+
+### 5.2 误区：参数准确率用一种粒度就够了（其实枚举和自由文本天差地别）
+
+用字段级严格比对处理自由文本，等价表达（「华东」vs「east」）会被判错；用语义比对处理枚举，该抓的错被放过。[[arg-accuracy|参数准确率]]的比对粒度必须按参数类型选：枚举走字段级，自由文本走语义级。判据：把两个粒度都算出来，两者差值大说明模型偏好非标准表达——这本身是一条优化线索。
+
+### 5.3 误区：不可解样本也该硬答（其实是硬猜）
+
+信息不足、根本不该答的问题，系统却给了一个看似合理的答案，端到端完成率反而更高。[[unsolvable-sample|不可解样本]]的正确处理是拒绝或追问澄清。判据：必须把[[refusal-handling|不可解处理率]]单列成指标；该拒绝却硬答的样本要当作失败计入，而不是当成「完成了一次回答」。
+
+### 5.4 误区：字符串「归一化」和向量「归一化」是一回事（其实完全不同）
+
+评测里说的[[string-normalization|字符串规范化]]是统一大小写、单位、同义词后再比对；而向量语境的「归一化」是把向量缩放到单位长度。混用这两个词会导致规则写错、比对失效。判据：凡涉及参数比对，明确写「字符串规范化」；涉及 embedding 相似度再谈向量归一化，二者不 crossover。
+
+### 5.5 误区：两个写法不同就是错（其实是语义等价）
+
+「2025年3月」和「2025-03」表达的是同一个时间，字段级比对会判错。[[semantic-equivalence|语义等价]]要求规范化后判定两者是否同义。判据：维护一张显式的同义词与单位映射表，把「华东/East」这类都归一；但映射必须经人工审阅，不能「遇不一致就放宽」，否则指标失去意义。
+
+### 5.6 误区：规范化规则改了无所谓（其实历史指标立刻不可比）
+
+把「华东区」加入同义词后参数准确率会突然上升——但这不代表系统变好，只是评判标准变了。[[rule-versioning|规则版本化]]要求把规范化规则当代码管，变更时显式标注「口径已更新」，且不在变更同版对比新旧数据。判据：规则一改，新旧指标必须打上不同版本号，禁止直接相减。
+
+## 六、自测
 
 <div class="quiz">
   <div class="quiz-head"><span>本章自测</span><span>第 2 题是真实面试题</span></div>
@@ -256,7 +332,7 @@ RULES = {
   </div>
 </div>
 
-## 六、小结
+## 七、小结
 
 | 指标 | 关键口径问题 |
 | --- | --- |
@@ -270,3 +346,21 @@ RULES = {
 <p class="pull-quote">指标的全部价值在于「能被复现」。一个别人复现不出来的数字，无论多么精确，都只是个人观点。<cite>本刊编辑部</cite></p>
 
 下一章处理更棘手的问题：当输出是「洞察」而不是「结果」，怎么评？
+
+## 八、参考与延伸
+
+办事型指标的核心不是「算出一个数」，而是「这个数能不能被复现、口径有没有写清」。下面按「建立直觉 → 动手 → 对齐一手定义」排好。
+
+**先看图（建立直觉）**
+
+- [Promptfoo 文档](https://www.promptfoo.dev/) —— 开源评测框架，支持把「期望行为」写成可执行断言（含参数比对、语义等价）。**重点看它怎么定义不同严格度的断言，正好对应本章的粒度阶梯。**
+- [Hamel Hussain 博客](https://hamel.dev/) —— 大量 LLM 评测实战，尤其「可执行指标怎么写才不骗人」。**他反复强调的「先定义什么是正确，再谈怎么测」，正是分母与口径纪律的来由。**
+
+**再看代码（动手实现）**
+
+- [OpenAI Evals](https://github.com/openai/evals) —— 官方评测框架，grading 函数与 rubric 怎么表达「结果级」判定。**对比本章第四节的 MetricReport，能看出生产级框架多做了哪些分层与版本管理。**
+
+**最后读论文（对齐一手定义）**
+
+- [SWE-bench](https://github.com/SWE-bench/SWE-bench) —— 以「能否跑通测试」定义任务完成度的一手基准。**它是「端到端完成率」最硬核的样本：不可解的不算，跑错的算失败。**
+- [HELM · 斯坦福 CRFM](https://crfm.stanford.edu/helm/latest/) —— 公开口径的指标基准，把场景与指标做成可被复现的定义。**想理解「为什么口径必须版本化」，看它怎么维护指标定义最直观。**

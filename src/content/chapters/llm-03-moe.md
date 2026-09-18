@@ -4,11 +4,13 @@ lead: '一个 671B 总参数的模型，为什么在成本上能和几十 B 的�
 note: '本章最容易答错的是一道看似简单的推理题：稀疏激活省的是算力还是显存？请务必读到最后一节。'
 ---
 
-<p class="dropcap">模型参数有两个口径，混用会让人得出完全相反的结论。第一个是总参数量——模型文件有多大，要占多少显存去装。第二个是激活参数量——每生成一个 token，实际参与计算的有多少。稠密模型里这两个数字相等；MoE（混合专家）把它们拆开了。</p>
+<p class="dropcap">模型参数有两个口径，混用会让人得出完全相反的结论。</p>
+
+第一个是 [[total-params|总参数量]]——模型文件有多大，要占多少显存去装。第二个是 [[active-params|激活参数量]]——每生成一个 token，实际参与计算的有多少。[[dense-model|稠密模型]]里这两个数字相等；[[moe]]把它们拆开了。
 
 ## 一、两个数字之间的缝
 
-设一个 MoE 模型有 256 个专家，每个专家约 2.6B 参数，每层路由激活其中 8 个。
+设一个 MoE 模型有 256 个[[expert|专家]]，每个专家约 2.6B 参数，每层路由[[sparse-activation|稀疏激活]]其中 8 个。
 
 <div class="tbl-wrap">
   <table class="news">
@@ -23,7 +25,7 @@ note: '本章最容易答错的是一道看似简单的推理题：稀疏激活�
   </table>
 </div>
 
-一句话概括 MoE 的交易：**用显存和通信换算力效率**。参数总量上去了（容量变大），但每个 token 的计算量没跟着上去。
+一句话概括 MoE 的交易：**用显存和通信换算力效率**。参数总量上去了（容量变大），但每个 token 的计算量没跟着上去——由[[gating-network|门控网络]]在运行时挑出少数专家来算。
 
 <p class="pull-quote">MoE 不是让模型变小，而是让「不参与计算的参数」变得便宜。<cite>本刊编辑部</cite></p>
 
@@ -100,8 +102,80 @@ note: '本章最容易答错的是一道看似简单的推理题：稀疏激活�
 由此衍生出几个工程结论：
 
 - **MoE 的部署门槛是显存，不是算力。** 这就是为什么 MoE 模型通常只在云端大规模集群上跑，很难本地化。
-- **MoE 的延迟优势不如吞吐优势明显。** 单请求延迟受 All-to-All 通信影响，可能反而比同激活量的稠密模型更慢；但吞吐（单位时间处理 token 数）会好很多。
-- **MoE 对 batch 敏感。** batch 越大，专家利用率越高，单位成本越低。这解释了为什么小 batch 场景下 MoE 的性价比优势会缩水。
+- **MoE 的延迟优势不如吞吐优势明显。** 单请求延迟受 [[all-to-all|All-to-All 通信]] 影响，可能反而比同激活量的稠密模型更慢；但吞吐（单位时间处理 token 数）会好很多。
+- **MoE 对 batch 敏感。** batch 越大，专家利用率越高，单位成本越低。这解释了为什么小 batch 场景下 MoE 的性价比优势会缩水（也更容易出现[[routing-collapse|路由坍缩]]，需要[[load-balancing-loss|负载均衡损失]]来对抗）。
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 340" role="img" aria-label="总参数量与激活参数量之间的缝">
+      <defs>
+        <marker id="ar1" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#1f1b16"/>
+        </marker>
+      </defs>
+      <text x="16" y="20" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">总参数与激活参数之间，那道缝</text>
+      <text x="16" y="38" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">条宽 ∝ 参数量（同一比例）；缝 = 没被激活的参数</text>
+      <!-- 总参数条 -->
+      <rect x="60" y="80" width="380" height="44" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.4"/>
+      <text x="70" y="107" font-family="ui-monospace, monospace" font-size="11" font-weight="700" fill="#9b2c2c">总参数量 671B（容量）→ 决定显存下限</text>
+      <!-- 激活参数条 -->
+      <rect x="60" y="150" width="21" height="44" fill="#eef4f1" stroke="#2f6157" stroke-width="1.4"/>
+      <text x="92" y="164" font-family="ui-monospace, monospace" font-size="10" font-weight="700" fill="#2f6157">激活 37B</text>
+      <text x="92" y="180" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">每 token 算力 ≈ 37B 稠密模型（仅 5.5%）</text>
+      <!-- 箭头：路由只激活 top-k -->
+      <line x1="250" y1="124" x2="250" y2="150" stroke="#1f1b16" stroke-width="1.2" marker-end="url(#ar1)"/>
+      <text x="262" y="140" font-family="ui-monospace, monospace" font-size="9.5" fill="#8a6a1e">路由只激活 top-8 / 256</text>
+      <!-- 缝标注 -->
+      <text x="100" y="135" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#8a6a1e">↑ 这道缝就是 MoE 的性价比来源</text>
+      <!-- 底部说明 -->
+      <rect x="16" y="220" width="628" height="100" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="30" y="244" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#8a6a1e">一句话：容量看总数，算力看激活，显存看总数</text>
+      <text x="30" y="266" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">总参数量（671B）决定「模型文件多大、显存下限多少」——权重必须全部装下。</text>
+      <text x="30" y="286" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">激活参数量（37B）决定「每生成一个 token 要算多少」——这是单 token 成本与吞吐的来源。</text>
+      <text x="30" y="306" font-family="ui-monospace, monospace" font-size="10" fill="#9b2c2c">所以 MoE 让「参数容量」和「单 token 算力」解耦：你能拥有 671B 的容量，却只付 37B 的算力账。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 2</b>　同是 671B 的 MoE，每 token 实际只跑约 37B 的算力。<b>这道「缝」就是 MoE 的全部性价比：容量上去了，单 token 账单没上去——但显存下限仍由 671B 决定。</b></figcaption>
+</figure>
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 360" role="img" aria-label="理想均匀路由与路由坍缩的对照">
+      <defs>
+        <marker id="ar2" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#1f1b16"/>
+        </marker>
+      </defs>
+      <text x="16" y="20" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">路由坍缩：容量是怎么被浪费的</text>
+      <text x="16" y="38" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">左：理想均匀　右：少数专家占满、其余闲置</text>
+      <!-- 左：均匀 -->
+      <text x="40" y="64" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#2f6157">理想：均匀使用</text>
+      <rect x="40" y="80" width="260" height="36" fill="#eef4f1" stroke="#2f6157" stroke-width="1.2"/>
+      <text x="170" y="103" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10" fill="#2f6157">256 个专家，使用率接近均匀（各 ≈ 1/256）</text>
+      <rect x="40" y="124" width="260" height="14" fill="#d6e5de" stroke="#2f6157" stroke-width="1"/>
+      <text x="170" y="151" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.5" fill="#6b6257">每个专家都被训练到 → 671B 容量全用上</text>
+      <!-- 右：坍缩 -->
+      <text x="360" y="64" font-family="Georgia, serif" font-size="11.5" font-weight="700" fill="#9b2c2c">坍缩：少数占满</text>
+      <rect x="360" y="80" width="60" height="120" fill="#f3c9c9" stroke="#9b2c2c" stroke-width="1.2"/>
+      <text x="390" y="74" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.5" font-weight="700" fill="#9b2c2c">E1 高</text>
+      <rect x="430" y="100" width="60" height="100" fill="#f6e2e2" stroke="#9b2c2c" stroke-width="1"/>
+      <text x="460" y="94" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.5" fill="#9b2c2c">E2</text>
+      <rect x="500" y="120" width="60" height="80" fill="#f6e2e2" stroke="#9b2c2c" stroke-width="1"/>
+      <text x="530" y="114" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.5" fill="#9b2c2c">E3</text>
+      <rect x="570" y="196" width="14" height="4" fill="#f5f2ec" stroke="#cfc6b6" stroke-width="1"/>
+      <rect x="588" y="196" width="14" height="4" fill="#f5f2ec" stroke="#cfc6b6" stroke-width="1"/>
+      <rect x="606" y="196" width="14" height="4" fill="#f5f2ec" stroke="#cfc6b6" stroke-width="1"/>
+      <text x="360" y="214" font-family="ui-monospace, monospace" font-size="9.5" fill="#a49a8c">其余 253 个专家使用率 ≈ 0</text>
+      <!-- 底部说明 -->
+      <rect x="16" y="250" width="628" height="94" fill="#fdf6e8" stroke="#b8944b" stroke-width="1.2"/>
+      <text x="30" y="274" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#8a6a1e">门控正反馈是坍缩的根因</text>
+      <text x="30" y="296" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">某些专家偶然表现更好 → 门控更偏向它们 → 它们被训练得更好 → 进一步被偏向。</text>
+      <text x="30" y="316" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">结果：花 671B 显存，只用上约 37B 有效容量。解法：加负载均衡损失强制使用率均匀。</text>
+      <text x="30" y="336" font-family="ui-monospace, monospace" font-size="10" fill="#9b2c2c">判据：看每个专家的使用次数分布，若少数专家占比极高即已坍缩。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 3</b>　左图每个专家都参与训练，容量不浪费；右图少数专家承担绝大多数 token，其余形同虚设。<b>坍缩不是网络崩溃，而是容量被白白浪费——这是 MoE 训练里最该监控的指标。</b></figcaption>
+</figure>
 
 ## 四、动手：三十行感受一次路由
 
@@ -152,7 +226,33 @@ print('专家使用次数:', layer.last_usage)   # 观察是否集中在少数�
   </ul>
 </div>
 
-## 五、自测
+## 五、常见误区与追问
+
+### 5.1 误区：MoE 因为只激活部分专家，所以显存也省了
+
+错在哪：把「不计算」等同于「不占显存」。为什么自然：直觉上「没用到的东西就不用准备」，符合常识。正确做法：路由是运行时按输入动态决定的，你无法预知下一个 token 会走哪个专家，所以**所有专家权重必须常驻显存**。MoE 压的是每 token 的 FLOPs，不是权重的存储体积。**判据：被问「未激活专家能不能卸载到磁盘省显存」时，答案是否定的——除非你能接受极慢的换入换出，否则显存下限仍由总参数量（671B）决定。**
+
+### 5.2 误区：拿总参数量去和稠密模型比成本
+
+错在哪：用 671B 的总参数去断言「这个模型比 70B 稠密贵一个量级」。为什么自然：总参数确实大一个量级，直觉成立。正确做法：比单 token 成本要看**激活参数量（37B）**，比容量/显存才看总参数（671B）。**判据：比成本比激活，比容量比总参；一句话说清「这模型单 token 算力≈一个 37B 稠密，但显存门槛≈一个 671B 稠密」。混用两个口径必然得出相反结论。**
+
+### 5.3 误区：稀疏激活 ≈ 稀疏注意力
+
+错在哪：把「稀疏」两个字当成同一种技术。为什么自然：中文都叫稀疏，容易并类。正确做法：MoE 的稀疏是**参数/专家层面的稀疏激活**（每个 token 只走少数专家），稀疏注意力是**注意力矩阵层面的稀疏**（只算部分位置对）。两者解决不同瓶颈、属于不同技术线，不能互相替代。**判据：问「它改的是哪一步」——MoE 改的是 FFN/专家选择，稀疏注意力改的是 QKᵀ 的 [n,n] 计算。**
+
+### 5.4 误区：路由坍缩只是训练不稳，不影响上线
+
+错在哪：认为坍缩只是训练期现象，推理时无所谓。为什么自然：推理时路由照常工作，输出看起来正常。正确做法：坍缩意味着少数专家承担了绝大多数 token，**其余专家形同虚设——等于你付了 671B 显存，只用了约 37B 的有效容量**。这是纯粹的成本浪费，且会让容量上限被悄悄锁死。**判据：上线前统计各专家在真实流量上的使用次数分布；若基尼系数高（少数专家占比超 80%），说明已坍缩，需要回炉训练加负载均衡损失。**
+
+### 5.5 误区：MoE 延迟一定比同激活量稠密模型更低
+
+错在哪：把「吞吐高」等同于「延迟低」。为什么自然：单位时间处理更多 token，听起来更快。正确做法：单请求延迟受 **All-to-All 跨设备通信** 拖累，往往比同激活量的稠密模型更慢；MoE 的优势在**吞吐**（高并发下单位成本更低），不在单请求延迟。**判据：高并发、可批量 → 用 MoE 划算；低并发、强延迟敏感、要本地化 → 稠密模型反而更合适。**
+
+### 5.6 误区：每个专家是一个「领域专家」
+
+错在哪：按字面把 expert 理解成「懂金融的专家」「懂代码的专家」。为什么自然：中文「专家」自带领域含义。正确做法：专家只是层内的一个**前馈子网络**，门控网络按 token 的表示动态选 top-k，并不按主题分工；同一个专家在不同 token 上可能扮演不同角色。<strong>判据：想验证，就看消融实验——打乱专家分配标签，模型表现基本不变，说明专家没有稳定的「主题身份」。</strong>
+
+## 六、自测
 
 <div class="quiz">
   <div class="quiz-head"><span>本章自测</span><span>第 1 题是高频陷阱题</span></div>
@@ -182,7 +282,7 @@ print('专家使用次数:', layer.last_usage)   # 观察是否集中在少数�
   </div>
 </div>
 
-## 六、小结
+## 七、小结
 
 | 你要能回答的问题 | 一句话答案 |
 | --- | --- |
@@ -193,3 +293,20 @@ print('专家使用次数:', layer.last_usage)   # 观察是否集中在少数�
 | 与 KV Cache 的关系 | 完全独立：KV Cache 管的是历史复用，MoE 管的是参数复用 |
 
 下一章换个更贴近日常的问题：既然输出是采样出来的，那「同一个问题问两次答案不同」到底该不该修，以及怎么修。
+
+## 八、参考与延伸
+
+本章机制部分只讲到「够用」为止。想往下深挖，下面按「先看图、再看代码、最后读论文」的顺序排好了。全站不做原文转载，这里只登记链接与「为什么值得读」。
+
+<strong>先看图（建立直觉）</strong>
+
+- [Switch Transformers（arXiv:2101.03961）](https://arxiv.org/abs/2101.03961) —— 先只看它的 Figure 1：token → 门控 → top-k 专家 → 加权，MoE 层最经典的那张结构图就在这里。<strong>对着它再看本章第二节的图 1，「未选中的专家仍然占着显存、只是不参与计算」会立刻变具体；负载均衡损失与专家容量这两个概念也出自这篇，想深挖再读正文。</strong>
+
+<strong>再看代码（动手实现）</strong>
+
+- [动手学深度学习（中文，zh.d2l.ai）](https://zh.d2l.ai/) —— 配套可跑代码，把注意力、路由、专家选择都实现了一遍。<strong>把本章的 MoE 路由脚本照着敲一遍，比看十遍都记得牢。</strong>
+
+<strong>最后读论文（对齐一手定义）</strong>
+
+- [Mixtral of Experts（arXiv:2401.04088）](https://arxiv.org/abs/2401.04088) —— 开源 MoE 模型的一手技术报告。<strong>重点看它怎么设置每 token 激活的专家数（top-k），以及稀疏激活比例怎么影响成本；本章「激活参数量只占总量一小部分」在它身上有具体数字。</strong>
+- [DeepSeek-V3 Technical Report（arXiv:2412.19437）](https://arxiv.org/abs/2412.19437) —— 本章那组「671B 总参 / 37B 激活」的数字就出自这里。它用的是 DeepSeekMoE + MLA，并提出 <strong>auxiliary-loss-free 的负载均衡策略</strong>——不加辅助损失也能压住坍缩。<strong>想知道工业界怎么在保住吞吐的前提下平衡专家负载，看它第 4 节。</strong>
