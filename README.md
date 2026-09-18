@@ -20,11 +20,14 @@ Astro 静态站，学习进度全部存在**你自己的浏览器**里（localSt
 | 结构 | 说明 |
 | --- | --- |
 | 导读 | 一句话说清这章要解决什么 |
+| 名词卡 | 正文术语标成可点开的卡片（中英对照 + 命名辨析 + 延伸阅读），全站共用一份词库 |
 | 正文 | 原理拆解，报纸式排版（首字下沉、双栏、三线表、pull quote） |
-| 图解 | 内联 SVG 手绘示意图，随图附图注结论（**不提供 CSV 之类的数据附件**） |
+| 图解 | ≥3 张内联 SVG 手绘示意图，随图附图注结论（**不提供 CSV 之类的数据附件**） |
 | 实操 | 可直接跑的代码，不是伪代码 |
-| 面试官会怎么问 | 3–4 组问答，含追问链 |
+| 面试官会怎么问 | 3–7 组问答，含追问链 |
+| 常见误区与追问 | ≥4 条，把「看着成立、其实错」的说法挑明 |
 | 自测题 | 3 道单选题，答完即时给解析 |
+| 参考与延伸 | ≥3 条外链，并说明「什么时候该读它」 |
 
 ---
 
@@ -36,7 +39,8 @@ Astro 静态站，学习进度全部存在**你自己的浏览器**里（localSt
 | 文件 | 一句话 |
 | --- | --- |
 | [`wiki/README.md`](wiki/README.md) | 三层结构（原始 / 知识 / 规则）、三个操作（ingest / query / lint）、**不变量清单** |
-| [`wiki/index.md`](wiki/index.md) | 知识目录：4 领域 / 22 章 / 72 问，每章一行含统计与关键标签 |
+| [`wiki/index.md`](wiki/index.md) | 知识目录：4 领域 / 22 章 / 134 问，每章一行含统计与关键标签 |
+| [`wiki/tasks.md`](wiki/tasks.md) | 迭代进度看板：逐章完善度与已知缺口 |
 | [`wiki/schema.md`](wiki/schema.md) | 契约：frontmatter、正文骨架、图解规范、代码块、术语表、禁止事项 |
 | [`wiki/sources.md`](wiki/sources.md) | 原始层：取材原则、外链台账（29 条）、归属章节、已知偏差 |
 | [`wiki/log.md`](wiki/log.md) | 追加式变更日志 |
@@ -88,7 +92,8 @@ npm run content:fix     # 自动删除 HTML 块内部的空行
 src/
 ├── data/
 │   ├── curriculum.ts        # 4 大领域 / 22 章元数据（编号、难度、时长、关键词）
-│   └── interview.ts         # 题库：22 章 × 3–4 题，含高频标记与追问
+│   ├── interview.ts         # 题库：22 章 × 3–7 题，含高频标记与追问
+│   └── glossary.ts          # 名词库：全站术语的唯一来源（含义/场景/命名辨析/解释/例子/外链）
 ├── content/
 │   ├── chapters/*.md        # 22 章正文
 │   └── content.config.ts     # 内容集合 schema
@@ -97,7 +102,6 @@ src/
 │   └── ChapterLayout.astro  # 章节阅读框架 + 进度/笔记/自评控件
 ├── components/              # Masthead / Sidebar / QA / InterviewSection
 │                            # + TermCard / TermCardBody（名词卡片：弹窗与名词库页共用一套模板）
-├── data/glossary.ts         # 名词库：全站术语的唯一来源（含义/场景/命名辨析/解释/例子/外链）
 ├── lib/progress.ts          # 存储层（localStorage，带版本号与迁移）
 ├── lib/glossary-terms.ts    # remark 插件：把 [[id]] 展开成术语链接，并在本章首次出现处补英文原名
 ├── pages/
@@ -111,7 +115,8 @@ src/
 
 wiki/                        # 知识库：内容维护的唯一入口（先读 wiki/README.md）
 ├── README.md                # 三层结构 + 三个操作 + 不变量清单
-├── index.md                 # 知识目录：4 领域 / 22 章 / 72 问
+├── index.md                 # 知识目录：4 领域 / 22 章 / 134 问
+├── tasks.md                 # 迭代进度看板：逐章完善度与已知缺口
 ├── schema.md                # 契约：写作、图解、代码、命名、术语
 ├── sources.md               # 取材原则 + 外链台账 + 归属章节
 └── log.md                   # 追加式变更日志

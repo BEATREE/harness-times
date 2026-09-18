@@ -12,6 +12,7 @@
  *     · index.md 的难度 / 时长 / 标题 ←→ curriculum.ts
  *     · index.md 的章节顺序 ←→ CHAPTERS 数组顺序（防止章节被塞错领域）
  *     · index.md 的总量行 ←→ 全部实测值
+ *     · tasks.md 的逐章进度表 ←→ tasks-facts 现数一遍的结果（手改了表就红）
  *     · schema.md 里那些「必须」←→ 正文是否真的满足
  *
  * 用法：node scripts/wiki-lint.mjs
@@ -20,6 +21,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { chapterFacts, interviewFacts } from './wiki-facts.mjs';
+import { renderAutoBlock } from './tasks-facts.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const wikiDir = join(root, 'wiki');
@@ -41,7 +43,7 @@ const results = [];
 const check = (name, pass, detail = '') => results.push({ name, pass, detail });
 
 /* ---------- 0. 目录结构 ---------- */
-for (const f of ['README.md', 'index.md', 'schema.md', 'sources.md', 'log.md']) {
+for (const f of ['README.md', 'index.md', 'schema.md', 'sources.md', 'log.md', 'tasks.md']) {
   check(`wiki/${f} 存在`, existsSync(join(wikiDir, f)));
 }
 if (results.some((r) => !r.pass)) {
@@ -267,6 +269,25 @@ const dupTitles = logEntries
 check('log.md 没有重复的条目标题', dupTitles.length === 0, dupTitles.join(' | '));
 
 check('log.md 条目数合理', dated.length >= 5, `解析到 ${dated.length} 条`);
+
+/* ---------- 11. tasks.md 的自动区 ----------
+ *
+ * tasks.md 的逐章进度表与 index.md 的统计是同一类东西：手写必然漂。
+ * 所以它由 scripts/tasks-facts.mjs 从正文里数出来，这里核对「文件里那一份」
+ * 与「此刻重数一遍」的结果是否一致 —— 手改了表、或改完正文忘了 `--write`，都会在这里变红。
+ * 比对的是整块文本（含表头与合计行），所以连列的顺序、合计都对上了才算过。
+ */
+const tasksMd = readText(join(wikiDir, 'tasks.md'));
+const AUTO_B = '<!-- AUTO:BEGIN -->';
+const AUTO_E = '<!-- AUTO:END -->';
+const tb = tasksMd.indexOf(AUTO_B);
+const te = tasksMd.indexOf(AUTO_E);
+const tasksInFile = tb !== -1 && te > tb ? tasksMd.slice(tb + AUTO_B.length, te).trim() : '';
+check(
+  'tasks.md 的逐章进度表与实测一致',
+  tasksInFile === renderAutoBlock().trim(),
+  '跑 `node scripts/tasks-facts.mjs --write` 刷新自动区'
+);
 
 /* ---------- 输出 ---------- */
 let failed = 0;

@@ -25,6 +25,8 @@
     "verify:build": "node scripts/verify-build.mjs",
     "wiki:facts": "node scripts/wiki-facts.mjs",
     "wiki:lint": "node scripts/wiki-lint.mjs",
+    "tasks": "node scripts/tasks-facts.mjs",
+    "tasks:write": "node scripts/tasks-facts.mjs --write",
     "audit": "node tools/audit.mjs",
     "probe": "node tools/probe.mjs",
     "bisect": "node tools/bisect.mjs"
