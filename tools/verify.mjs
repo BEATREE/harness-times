@@ -448,8 +448,19 @@ try {
         toolbarLeft: Math.round(toolbar.left),
       };
     };
+    const sb = document.querySelector('.sidebar').getBoundingClientRect();
+    const rp = document.querySelector('.page-rail.rail-prev').getBoundingClientRect();
+    const rn = document.querySelector('.page-rail.rail-next').getBoundingClientRect();
     return { prev: info('.page-rail.rail-prev'), next: info('.page-rail.rail-next'),
-             vw: document.documentElement.clientWidth };
+             vw: document.documentElement.clientWidth,
+             // 侧栏 268px 是 fixed 的、脱离文档流，翻页区靠 .main 的 margin-left 让开它。
+             // 两者一重叠就说明让位量算错了，而截图缩放到 75% 后那点重叠是看不出来的。
+             sidebarOverlapsRailPrev: sb.right > rp.left + 0.5,
+             // 不只是「没出视口」，而是「留了呼吸位」：
+             // 上一版 padding-right: 0 时右侧面板正好贴在屏幕最右缘，
+             // 1px 描边 + 2px 圆角看起来像被裁掉了。
+             railPrevGutter: Math.round(rp.left - document.querySelector('.sidebar').getBoundingClientRect().right),
+             railNextGutter: Math.round(document.documentElement.clientWidth - rn.right) };
   })()`);
 
   check('1440px 下两侧翻页区都可见',
@@ -459,6 +470,11 @@ try {
     rails.prev.w >= 140 && rails.prev.h >= 300,
     `${rails.prev.w}×${rails.prev.h}`);
   check('左右翻页区不压住正文', !rails.prev.overlapsProse && !rails.next.overlapsProse);
+  check('侧栏不压住左侧翻页区（.main 的让位量正确）', !rails.sidebarOverlapsRailPrev,
+    `左间隙 ${rails.railPrevGutter}px`);
+  check('左右翻页区都留了呼吸位（不是贴边）',
+    rails.railPrevGutter >= 16 && rails.railNextGutter >= 16,
+    `左 ${rails.railPrevGutter}px / 右 ${rails.railNextGutter}px`);
   check('上一章链接指向 harness-01',
     rails.prev.href === '/harness/harness-01-what-is-harness/', rails.prev.href);
   check('下一章链接指向 harness-03',

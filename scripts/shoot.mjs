@@ -35,7 +35,11 @@ const arg = (k, d) => process.argv.find((a) => a.startsWith(`--${k}=`))?.slice(k
 const CHROME =
   process.env.HT_CHROME ||
   'C:\\Users\\BEATREE\\AppData\\Local\\ms-playwright\\chromium-1223\\chrome-win64\\chrome.exe';
-const BASE = arg('base', 'http://127.0.0.1:4321').replace(/\/$/, '');
+/*
+ * 用 localhost 而不是 127.0.0.1：astro preview 在 Windows 上默认只绑 IPv6 回环（::1），
+ * 写死 127.0.0.1 会截到空白页（Chrome 连不上，但不会报错）。localhost 两个族都会试。
+ */
+const BASE = arg('base', 'http://localhost:4321').replace(/\/$/, '');
 const W = Number(arg('w', 1440));
 const H = Number(arg('h', 900));
 const ONLY = arg('only', '');
@@ -66,10 +70,11 @@ const SHOTS = [
     js: 'document.body.classList.add("is-leaving")',
     wait: 95,
   },
-  // 正文两侧的切换按钮：hover 展开卡片这一步只能靠真实的鼠标移动触发
+  // 正文两侧的大翻页区：hover 态的底色/描边/位移变化只能靠真实鼠标移动触发
   // （CSS 里就是 :hover），所以走 CDP 的 Input.dispatchMouseEvent。
-  { name: '15-sidepager-prev', path: '/harness/harness-02-agent-loop/', hoverSel: '.sp-prev' },
-  { name: '16-sidepager-next', path: '/harness/harness-02-agent-loop/', hoverSel: '.sp-next' },
+  // 面板本身够大（150×315），不需要滚动就整块在视口内。
+  { name: '15-rail-prev', path: '/harness/harness-02-agent-loop/', hoverSel: '.page-rail.rail-prev' },
+  { name: '16-rail-next', path: '/harness/harness-02-agent-loop/', hoverSel: '.page-rail.rail-next' },
   // 图解的流向动效：必须开着动效抓，否则只能看到静止的图。
   // wait 要足够长：入场动画是「按序号递增延迟」的，元素多的图要 1.3s 才走完，
   // 这时候抓到的图才是最后静止的样子（不然拍到的是一张半空的纸）。
@@ -106,6 +111,9 @@ const SHOTS = [
   },
   { name: '19-about-cta', path: '/about/', js: 'document.querySelector(".cta-row")?.scrollIntoView({block:"start"})' },
   { name: '20-chapter-1440', path: '/harness/harness-02-agent-loop/', w: 1440, h: 900 },
+  // 1280px：翻页区整体退场，翻页能力交给章尾 .pager（滚到页尾才看得到）。
+  // 和 20 号并排看，能一眼确认「断点确实在 1300 而不是别处」。
+  { name: '23-chapter-1280-no-rail', path: '/harness/harness-02-agent-loop/', w: 1280, h: 900, js: 'window.scrollTo(0, document.body.scrollHeight)' },
 ];
 
 if (!existsSync(CHROME)) {

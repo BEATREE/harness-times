@@ -78,9 +78,11 @@
    */
   --sheet-pad: 56px;
 
-  /* 正文两侧翻页区的宽度与它和纸面之间的间隙（见「正文两侧的大翻页区」一节） */
+  /* 正文两侧翻页区的宽度、它与纸面之间的间隙、以及面板自己的内边距
+     （见「正文两侧的大翻页区」一节） */
   --rail-w: 150px;
   --rail-gap: 24px;
+  --rail-pad: 20px;
 }
 
 /* ============================ Reset & base ============================ */
@@ -2160,8 +2162,14 @@ figure.fig figcaption b {
     align-items: flex-start;
     justify-content: center;
     gap: var(--rail-gap);
-    /* 取消镜像留白，空间交给正文与翻页区（取舍见本节顶部注释） */
-    padding-right: 0;
+    /*
+     * 取消镜像留白，空间交给正文与翻页区（取舍见本节顶部注释）；
+     * 但要留一份对称的呼吸位 —— 上一次 `padding-right: 0` 的结果是
+     * 「右侧翻页区贴在屏幕最右缘、1px 描边和 2px 圆角看起来像被裁掉」。
+     * 两侧都给 --rail-gap，且因为左右等量，正文的居中基准不变（仍偏右 134px）。
+     */
+    padding-left: var(--rail-gap);
+    padding-right: var(--rail-gap);
   }
 
   .page-rail {
@@ -2173,7 +2181,7 @@ figure.fig figcaption b {
     top: 96px;
     align-self: flex-start;
     min-height: 300px;
-    padding: 24px var(--rail-pad, 20px) 22px;
+    padding: 24px var(--rail-pad) 22px;
     gap: 10px;
     background: var(--paper-light);
     border: 1px solid var(--border);

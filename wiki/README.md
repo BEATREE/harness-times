@@ -112,7 +112,7 @@ node scripts/wiki-facts.mjs --md     # 输出可直接粘进 index.md 的表格�
 | `node scripts/verify-build.mjs` | 产物结构：**64 项**断言（代码块、大翻页区、正文与工具栏同宽、图解动效…） | 每次构建后 |
 | `node scripts/wiki-lint.mjs` | 本目录的统计与实际内容是否一致（27 项） | 改完正文/题库后 |
 | `node scripts/check-links.mjs` | 站外链接是否还活着 | 上线前后 |
-| `node tools/verify.mjs` | 活页面交互（**51 项**，需起 preview；含真键盘事件的翻页与「不抢键」守卫） | 动过 JS/交互后 |
+| `node tools/verify.mjs` | 活页面交互（**53 项**，需起 preview；含真键盘事件的翻页与「不抢键」守卫） | 动过 JS/交互后 |
 | `node tools/audit.mjs` | 多视口横向溢出审计 | 动过 CSS 后 |
 | `node scripts/measure.mjs` | 版面几何（正文与工具栏同宽、翻页区尺寸、居中、留白、溢出） | 动过 CSS 后 |
 

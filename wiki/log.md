@@ -26,12 +26,15 @@
   1. **正文栏宽度**：新增 `--sheet-pad`（纸面内边距）作为唯一来源。
      `.chapter-head` / `.prose` / `.chapter-foot` 与 `.chapter-toolbar` 共用同一个式子
      （`width: calc(100% + 2*var(--sheet-pad))` + 等量负 margin），**四条边线因此重合**。
-     实测 1440px 下正文栏 640px → **809px**（= 工具栏宽，这就是诉求本身）。
+     实测 1440px 下正文栏 640px → **761px**（= 工具栏宽，这就是诉求本身）。
   2. **两侧大翻页区**：删掉原来的 `.side-pager`（34px 宽悬浮小书签），
      换成 `.main` 里的三栏 flex：`rail-prev | .sheet | rail-next`。
      新面板 **150×(≥300)px**，直接显示目标章节标题 / 摘要 / 版块 / 时长，
      领域配色沿用侧栏与图解那套，`position: sticky` 跟随阅读位置。
      断点从 1340px 收到 **1300px**（按 侧栏 268 + 翻页区 348 + 可读下限 720 算出来的）。
+     `.main` 在 ≥1300px 时左右各留 `--rail-gap`(24px) 呼吸位 ——
+     先试过 `padding-right: 0`，右侧面板正好贴在屏幕最右缘、描边与圆角像被裁掉，
+     所以补上这一份。因为左右等量，正文居中基准不变（仍偏右 134px），只把栏宽 809 → 761。
   3. **键盘 ← / →**：与翻页区等价，带三道「不抢键」守卫
      （焦点在输入框 / 按了修饰键 / 焦点元素可横向滚动）。
      走 `target.click()` 而非 `location.href`，否则站内的换页过渡会失效。
@@ -47,16 +50,17 @@
   （= 侧栏宽 / 2）。收起侧栏时 `--sidebar-hold` 归零，正文自然回到正中央。
 - **连带改动**（这几处必须一起改，否则静默出错）：
   - `src/styles/global.css`·`src/layouts/BaseLayout.astro`（新增 `rail-prev` / `rail-next` 具名 slot）·`src/layouts/ChapterLayout.astro`
-  - `scripts/verify-build.mjs`（50 → **64 项**）·`tools/verify.mjs`（36 → **51 项**）·`scripts/measure.mjs`
+  - `scripts/verify-build.mjs`（50 → **64 项**）·`tools/verify.mjs`（36 → **53 项**）·`scripts/measure.mjs`
   - `design.md`（新增 5.2 取舍一节，第八节整节重写为 `.page-rail`）
   - `wiki/index.md`·`wiki/schema.md`·`wiki/sources.md`·`wiki/README.md`·根 `README.md`
-- **顺手修掉的坑**：`tools/verify.mjs` / `tools/audit.mjs` / `scripts/measure.mjs` 的默认地址
-  写成 `127.0.0.1:4321`，而 Windows 上 `astro preview` **默认只绑 IPv6 回环**，
-  于是三个脚本在没有 `--base` 时全部连不上（`curl` 返回 `000`，且报错完全看不出是地址族问题）。
+- **顺手修掉的坑**：`tools/verify.mjs` / `tools/audit.mjs` / `scripts/measure.mjs` / `scripts/shoot.mjs`
+  的默认地址写成 `127.0.0.1:4321`，而 Windows 上 `astro preview` **默认只绑 IPv6 回环**，
+  于是这几个脚本在没有 `--base` 时全部连不上（`curl` 返回 `000`，`shoot.mjs` 更隐蔽 ——
+  它会安静地截出一批空白图，且报错完全看不出是地址族问题）。
   默认值统一改成 `http://localhost:4321`。
 - **验证**（全部在默认 `npm run preview` 下跑，未传任何 `--base`）：
   - `node scripts/verify-build.mjs` → **64/64**（新增 14 条：翻页区存在性 / 兄弟节点顺序 / 领域着色 / 键盘提示 / 正文与工具栏同宽 / 打印隐藏 / CSV 缺席）
-  - `node tools/verify.mjs` → **51/51**（新增 15 条：真键盘事件跳章 + 两道不抢键守卫 + 面板尺寸 + 首末章边界）
+  - `node tools/verify.mjs` → **53/53**（新增 17 条：真键盘事件跳章 + 两道不抢键守卫 + 面板尺寸与呼吸位 + 侧栏不压面板 + 首末章边界）
   - `node scripts/measure.mjs` → **异常 0 项**（新增「正文栏 vs 工具栏宽度」这一组直接量）
   - `node tools/audit.mjs` → 全视口无横向溢出
   - `node scripts/wiki-lint.mjs` → 27/27
