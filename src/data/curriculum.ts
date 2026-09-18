@@ -90,9 +90,9 @@ export const CHAPTERS: Chapter[] = [
     title: 'Transformer 与自注意力',
     en: 'Attention Is All You Need',
     desc:
-      'Agent 的一切都跑在注意力机制之上。这一章只做一件事：让你能白板画出 QKV 到注意力矩阵的形状变化，并说清复杂度里的那个 n² 从哪来。',
+      'Agent 的一切都跑在注意力机制之上。这一章只做三件事：说清 token、张量、投影、打分这些名词，跟着数据走一遍形状变化，再把 n² 的来源与工程推论讲透。',
     level: 1,
-    minutes: 22,
+    minutes: 35,
     tags: ['Self-Attention', 'QKV', '复杂度', '位置编码'],
   },
   {

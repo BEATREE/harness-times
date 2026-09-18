@@ -1,0 +1,566 @@
+---
+/**
+ * 名词库。
+ *
+ * 这一页解决的问题：正文里出现的专业名词，读者必须能就地查到「它是什么、
+ * 在哪里出现、为什么会需要它」。正文里的行内术语不是装饰，它们带着
+ * [[id]] 标记，构建期被展开成指向本页锚点（#t-<id>）的链接——
+ * 所以这一页是「全站名词解释」的落点，也是没有 JS 时术语链接的兜底目标。
+ *
+ * 三个来源、一份数据：
+ *   · 名词本体来自 src/data/glossary.ts（唯一来源，正文弹窗与本页共用）
+ *   · 「出现在哪些章」由每章正文里的 [[id]] 标记反查得出（构建期扫描）
+ *   · 外部延伸阅读写在名词的 refs 里，本页原样呈现（不做转载，只登记链接与理由）
+ *
+ * 没有 JS 也完全可用：所有卡片都是服务端渲染的，搜索框只是增强。
+ * （与 /interview/ 的筛选器行为一致，那页也是这个取舍。）
+ */
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Masthead from '../components/Masthead.astro';
+import TermCardBody from '../components/TermCardBody.astro';
+import {
+  TERMS,
+  TERM_DOMAINS,
+  termsByDomain,
+  searchTextOf,
+  anchorOf,
+} from '../data/glossary';
+import { collectTermIds } from '../lib/glossary-terms';
+import { chapterById, pathOf } from '../data/curriculum';
+
+/*
+ * 反查「名词 → 出现章节」。
+ * 直接扫章节 markdown 的原始正文（entry.body），和 [[slug].astro] 收集本章
+ * 术语用的是同一个函数 —— 两边用同一套规则，才不会出现「章节页弹窗里有、
+ * 名词库反查里没有」这种对不上的情况。
+ */
+const entries = await getCollection('chapters');
+const appearIn = new Map<string, { id: string; no: number; title: string; href: string }[]>();
+
+for (const entry of entries) {
+  const chapter = chapterById(entry.id);
+  if (!chapter) continue;
+  for (const id of collectTermIds(entry.body ?? '')) {
+    const list = appearIn.get(id) ?? [];
+    list.push({
+      id: chapter.id,
+      no: chapter.no,
+      title: chapter.title,
+      href: pathOf(chapter.id),
+    });
+    appearIn.set(id, list);
+  }
+}
+/* 按章序排，读者看到的顺序跟目录一致 */
+appearIn.forEach((list) => list.sort((a, b) => a.no - b.no));
+
+const groups = termsByDomain();
+
+const withFigure = TERMS.filter((t) => t.figure).length;
+const withRefs = TERMS.filter((t) => t.refs && t.refs.length > 0).length;
+const refCount = TERMS.reduce((n, t) => n + (t.refs?.length ?? 0), 0);
+const linkedCount = TERMS.filter((t) => (appearIn.get(t.id)?.length ?? 0) > 0).length;
+
+/** 搜索用的可检索文本，构建期算好写进 HTML —— 客户端只做 includes，不做分词 */
+const searchOf = new Map(TERMS.map((t) => [t.id, searchTextOf(t)]));
+---
+
+<BaseLayout
+  title="名词库"
+  description={`全站 ${TERMS.length} 条专业名词的中文解释：含义、出现场景、相关学科、展开说明、例子与外部延伸阅读。正文里点术语即可弹出卡片，本页是可搜索的完整落点。`}
+  currentDomain=""
+>
+  <Masthead kicker="工具 · 名词库" title="名词库" en="The Glossary" />
+
+  <section class="lead-col" style="margin-bottom:26px">
+    <p class="lead" style="margin-bottom:14px">
+      这里收着全站 {TERMS.length} 条专业名词。每一条都按同一个骨架写：<b>一句话含义</b> →
+      <b>在哪出现</b> → <b>相关学科</b> → <b>展开解释</b> → <b>例子</b> → <b>外部延伸阅读</b>。
+      骨架固定是有意的：读者第三次打开卡片时，就知道该往哪儿看。
+    </p>
+    <p style="font-family:var(--font-ui);font-size:.82rem;line-height:1.8;color:var(--ink-muted)">
+      正文里带下划虚线、鼠标移上去能看出是名词的词，点一下就会弹出对应的卡片，不必离开当前章节。
+      想系统性扫一遍、或者想按关键词找，就来这一页。禁用了 JS 也照样能读——卡片是随页面一起发出来的。
+    </p>
+  </section>
+
+  <div class="stat-row" style="margin-bottom:24px">
+    <div class="s"><span class="n">{TERMS.length}</span><span class="l">名词总数</span></div>
+    <div class="s"><span class="n">{groups.length}</span><span class="l">知识域</span></div>
+    <div class="s"><span class="n">{withFigure}</span><span class="l">配图例</span></div>
+    <div class="s"><span class="n">{refCount}</span><span class="l">外部延伸</span></div>
+  </div>
+
+  {
+    linkedCount < TERMS.length && (
+      <p class="glossary-progress">
+        已有 <b>{linkedCount}</b> / {TERMS.length} 条名词在正文里被实际引用
+        （其余是随章节重写逐步接入的）——没被引用的条目通常也是你要用的，先扫一遍不亏。
+      </p>
+    )
+  }
+
+  <div class="glossary-tools">
+    <label class="gt-search">
+      <span class="gt-k">搜索</span>
+      <input
+        type="search"
+        data-glossary-q
+        placeholder="名词、英文名、别名，或解释里的任意词……"
+        autocomplete="off"
+        spellcheck="false"
+        aria-label="在名词库里搜索"
+      />
+    </label>
+    <div class="gt-filters" data-glossary-filters>
+      <button class="btn on" data-domain="all">全部</button>
+      {
+        groups.map((g) => (
+          <button class="btn" data-domain={g.domain}>
+            {TERM_DOMAINS[g.domain].label}
+          </button>
+        ))
+      }
+    </div>
+    <span class="gt-count" data-glossary-count aria-live="polite">
+      共 {TERMS.length} 条
+    </span>
+    {/*
+      学习跟踪的入口：只看「还没掌握」的词，是查漏最实际的一种用法。
+      数字由脚本填（它跟着本机存储走，服务端渲染不出来）。
+    */}
+    <button
+      class="btn gt-known"
+      type="button"
+      data-known-only
+      aria-pressed="false"
+      title="只显示还没有标记为「已掌握」的名词"
+    >
+      只看未掌握<span class="gt-known-n" data-known-count>0</span>
+    </button>
+  </div>
+
+  <!--
+    快速索引：按知识域把名词名摊平成一排小链接。
+    长页面的主要痛点是「知道要找什么、但不知道在哪」，索引解决的就是这一跳。
+    锚点直接指卡片本身（#t-<id>），和正文里的术语链接落点是同一个。
+  -->
+  <nav class="glossary-index" aria-label="名词快速索引">
+    {
+      groups.map((g) => (
+        <div class="gi-row">
+          <span
+            class="gi-domain"
+            style={`--tc-accent:${TERM_DOMAINS[g.domain].accent};--tc-text:${TERM_DOMAINS[g.domain].text}`}
+          >
+            {TERM_DOMAINS[g.domain].label}
+          </span>
+          <span class="gi-links">
+            {g.terms.map((t) => (
+              <a href={`#${anchorOf(t.id)}`} data-glossary-jump={t.id}>
+                {t.term}
+              </a>
+            ))}
+          </span>
+        </div>
+      ))
+    }
+  </nav>
+
+  {
+    groups.map((g) => (
+      <section class="glossary-group" data-glossary-group={g.domain}>
+        <div class="section-head">
+          {TERM_DOMAINS[g.domain].label}
+          <span class="gg-count">{g.terms.length} 条</span>
+        </div>
+
+        {g.terms.map((t) => (
+          <div
+            class="glossary-item"
+            data-glossary-item={t.id}
+            data-domain={t.domain}
+            data-search={searchOf.get(t.id)}
+          >
+            <TermCardBody term={t} />
+            {appearIn.has(t.id) && (
+              <p class="tc-appears">
+                <span class="tc-k">正文出现于</span>
+                {appearIn.get(t.id)!.map((c) => (
+                  <a class="tc-appear-link" href={c.href}>
+                    第 {String(c.no).padStart(2, '0')} 章 · {c.title}
+                  </a>
+                ))}
+              </p>
+            )}
+          </div>
+        ))}
+      </section>
+    ))
+  }
+
+  <p class="glossary-empty" data-glossary-empty hidden>
+    没有匹配的名词。换个词试试——中英文、别名、以及解释正文里的词都能搜到。
+  </p>
+
+  <p class="glossary-foot">
+    发现名词解释有误、或者有该收没收的词？名词数据的唯一来源是
+    <code>src/data/glossary.ts</code>，仓库
+    <a href="https://github.com/BEATREE/harness-times" target="_blank" rel="noopener noreferrer">
+      公开在 GitHub<span aria-hidden="true">↗</span>
+    </a>
+    ，欢迎直接提 issue。
+  </p>
+</BaseLayout>
+
+<style>
+  .glossary-progress {
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    line-height: 1.8;
+    color: var(--ink-muted);
+    margin: -8px 0 22px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  /* ---------- 工具条 ---------- */
+  .glossary-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    padding: 13px 15px;
+    background: var(--paper-light);
+    border: 1px solid var(--border);
+    margin-bottom: 22px;
+  }
+  .gt-search {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex: 1;
+    min-width: 220px;
+  }
+  .gt-k {
+    font-family: var(--font-ui);
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+  }
+  .gt-search input {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    color: var(--ink);
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--border-strong);
+    padding: 5px 2px;
+  }
+  .gt-search input:focus {
+    outline: none;
+    border-bottom-color: var(--red);
+  }
+  .gt-search input::placeholder {
+    color: var(--ink-faint);
+    font-size: 0.84rem;
+  }
+  .gt-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .gt-count {
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    color: var(--ink-muted);
+    margin-left: auto;
+    white-space: nowrap;
+  }
+
+  /* ---------- 「只看未掌握」 ----------
+     角标里是已掌握的数量。零标记时它是灰的（不抢眼），
+     一旦标了几个就变成青绿 —— 让「我在跟踪」这件事自己显形。 */
+  .gt-known {
+    margin-left: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .gt-known-n {
+    font-variant-numeric: tabular-nums;
+    font-size: 0.9em;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--paper-dark);
+    color: var(--ink-muted);
+  }
+  .gt-known.has-known .gt-known-n {
+    background: rgba(47, 97, 87, 0.14);
+    color: var(--teal);
+    font-weight: 700;
+  }
+
+  /* ---------- 快速索引 ---------- */
+  .glossary-index {
+    border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--ink);
+    padding: 12px 0;
+    margin-bottom: 30px;
+    display: grid;
+    gap: 7px;
+  }
+  .gi-row {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    line-height: 1.9;
+  }
+  .gi-domain {
+    flex: 0 0 auto;
+    min-width: 6.2em;
+    font-size: 0.64rem;
+    letter-spacing: 0.1em;
+    color: var(--tc-text, var(--ink-muted));
+    border-left: 3px solid var(--tc-accent, var(--border-strong));
+    padding-left: 7px;
+  }
+  .gi-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+  }
+  .gi-links a {
+    color: var(--ink-soft);
+    border-bottom: 1px solid transparent;
+  }
+  .gi-links a:hover {
+    color: var(--red);
+    border-bottom-color: var(--red);
+  }
+
+  /* ---------- 分组与条目 ---------- */
+  .glossary-group {
+    margin-bottom: 34px;
+  }
+  .gg-count {
+    float: right;
+    font-family: var(--font-ui);
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+    color: var(--ink-faint);
+  }
+  .glossary-item.hide,
+  .glossary-group.hide {
+    display: none;
+  }
+
+  /*
+   * 锚点定位补偿：站点顶部的报头不是 sticky，但有 .chapter-toolbar 之类
+   * 会贴在视口顶端的元素，跳转落点太贴边会看不见卡片头部。
+   */
+  .glossary-item :global(.term-card) {
+    scroll-margin-top: 24px;
+  }
+
+  /* 从正文点过来时给一记短促的高亮，否则读的人不知道自己落在哪 */
+  .glossary-item :global(.term-card:target) {
+    animation: tcTarget 1.5s ease-out 1;
+  }
+  @keyframes tcTarget {
+    0%,
+    55% {
+      box-shadow: 0 0 0 3px rgba(184, 148, 75, 0.4);
+    }
+    100% {
+      box-shadow: 0 0 0 3px rgba(184, 148, 75, 0);
+    }
+  }
+
+  .tc-appears {
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    line-height: 1.9;
+    color: var(--ink-muted);
+    margin: 0 0 30px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    align-items: baseline;
+  }
+  .tc-appear-link {
+    color: var(--ink-soft);
+    border-bottom: 1px solid var(--border-strong);
+  }
+  .tc-appear-link:hover {
+    color: var(--red);
+    border-bottom-color: var(--red);
+  }
+
+  .glossary-empty {
+    font-family: var(--font-ui);
+    font-size: 0.86rem;
+    color: var(--ink-muted);
+    padding: 26px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .glossary-foot {
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    line-height: 1.9;
+    color: var(--ink-muted);
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    margin-top: 8px;
+  }
+  .glossary-foot code {
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: var(--ink-soft);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .glossary-item :global(.term-card:target) {
+      animation: none;
+      box-shadow: 0 0 0 3px rgba(184, 148, 75, 0.4);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .gt-count {
+      margin-left: 0;
+    }
+    .gi-domain {
+      min-width: 100%;
+    }
+    .gi-row {
+      flex-direction: column;
+      gap: 2px;
+    }
+  }
+</style>
+
+<script>
+  /*
+   * 搜索 + 知识域筛选 + 「只看未掌握」。
+   *
+   * 数据全部来自服务端渲染好的 DOM（每条的 data-search 是构建期算好的
+   * 可检索文本，含别名与解释正文），这里只做 includes —— 没有索引、没有
+   * 分词、没有额外请求：名词库几十上百条的规模，这样最省也最不容易出 bug。
+   */
+  import { knownTermIds } from '../lib/progress';
+
+  const items = Array.from(document.querySelectorAll<HTMLElement>('[data-glossary-item]'));
+  const groups = Array.from(document.querySelectorAll<HTMLElement>('[data-glossary-group]'));
+  const input = document.querySelector<HTMLInputElement>('[data-glossary-q]');
+  const countEl = document.querySelector<HTMLElement>('[data-glossary-count]');
+  const emptyEl = document.querySelector<HTMLElement>('[data-glossary-empty]');
+  const knownBtn = document.querySelector<HTMLElement>('[data-known-only]');
+
+  let domain = 'all';
+  let knownOnly = false;
+
+  const render = () => {
+    const q = (input?.value ?? '').trim().toLowerCase();
+    /*
+     * 已掌握集合**现读现算**，不去看卡片上的 data-known ——
+     * 那个属性是卡片自己的脚本刷的，两个脚本谁先跑没有保证，
+     * 一旦读早了，「只看未掌握」首屏就会把已掌握的词也列出来。
+     */
+    const known = new Set(knownTermIds());
+    let shown = 0;
+
+    for (const el of items) {
+      const matchDomain = domain === 'all' || el.dataset.domain === domain;
+      const matchText = !q || (el.dataset.search ?? '').includes(q);
+      const matchKnown = !knownOnly || !known.has(el.dataset.glossaryItem ?? '');
+      const vis = matchDomain && matchText && matchKnown;
+      el.classList.toggle('hide', !vis);
+      if (vis) shown += 1;
+    }
+
+    /* 整组都被筛掉时收起分组标题，免得留下空标题 */
+    for (const g of groups) {
+      const any = Array.from(g.querySelectorAll<HTMLElement>('[data-glossary-item]')).some(
+        (el) => !el.classList.contains('hide')
+      );
+      g.classList.toggle('hide', !any);
+    }
+
+    if (countEl) {
+      const filtered = q || domain !== 'all' || knownOnly;
+      countEl.textContent = filtered ? `筛出 ${shown} / ${items.length} 条` : `共 ${items.length} 条`;
+    }
+    if (emptyEl) emptyEl.hidden = shown > 0;
+
+    /* 把当前筛选状态写进 URL：这样「搜到一半」的链接可以直接发给别人 */
+    const url = new URL(location.href);
+    if (q) url.searchParams.set('q', q);
+    else url.searchParams.delete('q');
+    if (domain !== 'all') url.searchParams.set('d', domain);
+    else url.searchParams.delete('d');
+    if (knownOnly) url.searchParams.set('k', '1');
+    else url.searchParams.delete('k');
+    history.replaceState(null, '', url);
+  };
+
+  /** 已掌握计数（按钮上的角标）；标记变化后要跟着刷 */
+  const paintKnownCount = () => {
+    const n = knownTermIds().length;
+    document.querySelectorAll<HTMLElement>('[data-known-count]').forEach((el) => {
+      el.textContent = String(n);
+    });
+    knownBtn?.classList.toggle('has-known', n > 0);
+  };
+
+  /* 带 ?q= / ?d= / ?k= 进来时先还原，方便分享一个「已经筛好」的视图 */
+  const params = new URLSearchParams(location.search);
+  if (input && params.get('q')) input.value = params.get('q')!;
+  if (params.get('d')) domain = params.get('d')!;
+  if (params.get('k') === '1') knownOnly = true;
+
+  document.querySelectorAll<HTMLElement>('[data-glossary-filters] [data-domain]').forEach((b) => {
+    b.classList.toggle('on', b.dataset.domain === domain);
+  });
+  if (knownBtn) {
+    knownBtn.classList.toggle('on', knownOnly);
+    knownBtn.setAttribute('aria-pressed', String(knownOnly));
+  }
+
+  input?.addEventListener('input', render);
+
+  document.querySelectorAll<HTMLElement>('[data-glossary-filters] [data-domain]').forEach((b) => {
+    b.addEventListener('click', () => {
+      domain = b.dataset.domain || 'all';
+      document
+        .querySelectorAll<HTMLElement>('[data-glossary-filters] [data-domain]')
+        .forEach((x) => x.classList.toggle('on', x === b));
+      render();
+    });
+  });
+
+  knownBtn?.addEventListener('click', () => {
+    knownOnly = !knownOnly;
+    knownBtn.classList.toggle('on', knownOnly);
+    knownBtn.setAttribute('aria-pressed', String(knownOnly));
+    render();
+  });
+
+  /* 在卡片上点了「已掌握」之后，角标与「只看未掌握」的结果都要立刻跟着变 */
+  window.addEventListener('ht:progress', () => {
+    paintKnownCount();
+    render();
+  });
+
+  paintKnownCount();
+  render();
+</script>

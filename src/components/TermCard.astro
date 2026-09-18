@@ -1,0 +1,176 @@
+---
+/**
+ * 章节页的名词卡片：把本章用到的卡片渲染成隐藏节点，点正文里的术语时弹出来。
+ *
+ * 几个刻意的选择：
+ *   · 卡片内容**服务端渲染**，不在 JS 里拼 HTML —— 卡片只有一套模板
+ *     （TermCardBody.astro），弹窗与名词库页共用，不会各写一份然后慢慢不一致。
+ *   · 只渲染「本章真的用到的」名词，不会把整个名词库塞进每一页。
+ *   · 打开时是把卡片节点**搬进**弹窗（不是 clone），所以文档里始终只有一份
+ *     id="t-<id>"，不会出现重复 id 这种无效 HTML。
+ *   · 点击监听挂在**捕获阶段**：页面换页过渡也监听 click，靠 defaultPrevented
+ *     判断要不要接管。挂在冒泡阶段会依赖两个脚本的注册顺序，太脆；
+ *     捕获阶段一定先跑，preventDefault 之后过渡自然就不接管了。
+ *   · 没有 JS 时这些都不发生，术语链接直接跳到 /glossary/#t-<id> ——
+ *     解释依然读得到，弹窗只是增强。
+ */
+import TermCardBody from './TermCardBody.astro';
+import { termById, type Term } from '../data/glossary';
+
+interface Props {
+  /** 本章用到的名词 id（由 [slug].astro 从正文里收集） */
+  ids: string[];
+}
+
+const { ids } = Astro.props;
+const terms = ids.map((id) => termById(id)).filter(Boolean) as Term[];
+---
+
+{
+  terms.length > 0 && (
+    <>
+      <div class="term-modal" data-term-modal hidden aria-hidden="true">
+        <div class="tm-backdrop" data-tm-close />
+        <div class="tm-panel" role="dialog" aria-modal="true" data-tm-panel>
+          <div class="tm-bar">
+            <span class="tm-kicker">名词卡片</span>
+            <a class="tm-allsrc" data-tm-href href="/glossary/">
+              在名词库中查看
+              <span aria-hidden="true">↗</span>
+            </a>
+            <button class="tm-close" data-tm-close aria-label="关闭名词卡片">
+              ✕
+            </button>
+          </div>
+          <div class="tm-body" data-tm-body />
+        </div>
+      </div>
+      <div class="term-store" hidden>
+        {terms.map((t) => (
+          <TermCardBody term={t} />
+        ))}
+      </div>
+    </>
+  )
+}
+
+<script>
+  const modal = document.querySelector<HTMLElement>('[data-term-modal]');
+
+  if (modal) {
+    const panel = modal.querySelector<HTMLElement>('[data-tm-panel]')!;
+    const body = modal.querySelector<HTMLElement>('[data-tm-body]')!;
+    const allSrc = modal.querySelector<HTMLAnchorElement>('[data-tm-href]')!;
+    const store = document.querySelector<HTMLElement>('.term-store');
+
+    /** 当前弹窗里那张卡片的原始位置，关闭时要放回去（保证 id 永远只有一份） */
+    let openCard: HTMLElement | null = null;
+    let openHome: HTMLElement | null = null;
+    let lastFocus: HTMLElement | null = null;
+
+    const focusables = (): HTMLElement[] =>
+      [...panel.querySelectorAll<HTMLElement>('a[href], button:not([disabled])')].filter(
+        (el) => el.offsetParent !== null || el === document.activeElement
+      );
+
+    const open = (id: string, trigger: HTMLElement): boolean => {
+      const card = store?.querySelector<HTMLElement>(`[data-term-card="${id}"]`);
+      if (!card || !card.parentElement) return false;
+
+      openCard = card;
+      openHome = card.parentElement;
+
+      // 卡片的 aria-label 取 data-term-name（而不是 .tc-term 的 textContent：
+      // 标题里还嵌着英文名，读出来会变成「张量 Tensor —— 名词卡片」）
+      const name = card.dataset.termName || '名词';
+      panel.setAttribute('aria-label', `${name} —— 名词卡片`);
+      allSrc.href = `/glossary/#t-${id}`;
+
+      body.replaceChildren(card);
+      modal.hidden = false;
+      modal.setAttribute('aria-hidden', 'false');
+
+      // 锁滚动并补偿滚动条宽度，避免打开弹窗时整页横向抖一下
+      const sbw = window.innerWidth - document.documentElement.clientWidth;
+      document.documentElement.style.setProperty('--sbw', `${sbw}px`);
+      document.documentElement.classList.add('term-open');
+
+      lastFocus = trigger;
+      panel.querySelector<HTMLElement>('.tm-close')?.focus();
+      return true;
+    };
+
+    const close = () => {
+      if (modal.hidden) return;
+      if (openCard && openHome) openHome.appendChild(openCard);
+      openCard = null;
+      openHome = null;
+
+      modal.hidden = true;
+      modal.setAttribute('aria-hidden', 'true');
+      body.replaceChildren();
+      document.documentElement.classList.remove('term-open');
+
+      lastFocus?.focus();
+      lastFocus = null;
+    };
+
+    /* 捕获阶段：先于页面的换页过渡拦截器拿到 click（见文件头说明） */
+    document.addEventListener(
+      'click',
+      (e) => {
+        const t = e.target as HTMLElement | null;
+        if (!t?.closest) return;
+
+        const termLink = t.closest<HTMLAnchorElement>('a.term');
+        if (termLink) {
+          const id = termLink.dataset.term;
+          if (id && open(id, termLink)) e.preventDefault();
+          return;
+        }
+
+        if (!modal.hidden && t.closest('[data-tm-close]')) {
+          e.preventDefault();
+          close();
+        }
+      },
+      true
+    );
+
+    document.addEventListener('keydown', (e) => {
+      if (modal.hidden) return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        close();
+        return;
+      }
+
+      // 焦点陷阱：Tab 不跑出弹窗
+      if (e.key === 'Tab') {
+        const items = focusables();
+        if (items.length === 0) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        const active = document.activeElement as HTMLElement | null;
+
+        if (e.shiftKey && (active === first || !panel.contains(active))) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && active === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    });
+
+    // 从名词库跳过来时（/glossary/#t-x）在章节页上不该发生，但保留一个兜底：
+    // 若页面带着章节内术语锚点加载，就直接把它弹出来。
+    const hash = location.hash;
+    if (hash.startsWith('#t-')) {
+      const id = hash.slice(3);
+      const trigger = document.querySelector<HTMLElement>(`a.term[data-term="${id}"]`);
+      if (trigger) open(id, trigger);
+    }
+  }
+</script>

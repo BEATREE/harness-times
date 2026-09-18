@@ -1,0 +1,172 @@
+---
+/**
+ * 一张名词卡片的本体。
+ *
+ * 这个组件被两处复用，所以它只负责「把一张卡片画出来」，不关心从哪来：
+ *   1. /glossary/ 名词库页（全部卡片，服务端渲染，无 JS 也能读）
+ *   2. 章节页的名词卡片弹窗（TermCard.astro 把本章用到的卡片渲染成隐藏节点，
+ *      点击术语时由脚本把它挪进弹窗显示）
+ *
+ * 复用同一个组件是刻意的：如果弹窗另写一套模板，两边的字段顺序、
+ * 外链的 rel、图例的尺寸迟早会不一致，而这种不一致没人会发现。
+ */
+import { TERM_DOMAINS, type Term } from '../data/glossary';
+
+interface Props {
+  term: Term;
+  /** 卡片标题的层级：名词库里是 h3，弹窗里保持同一层级即可 */
+  heading?: 'h3' | 'h4';
+}
+
+const { term, heading = 'h3' } = Astro.props;
+const Heading = heading;
+const domain = TERM_DOMAINS[term.domain];
+---
+
+<article
+  class="term-card"
+  id={`t-${term.id}`}
+  data-term-card={term.id}
+  data-term-name={term.term}
+  data-domain={term.domain}
+>
+  <header class="tc-head">
+    <Heading class="tc-term">
+      {term.term}
+      {term.en && <span class="tc-en">{term.en}</span>}
+    </Heading>
+    <span
+      class="tc-domain"
+      style={`--tc-accent:${domain.accent};--tc-text:${domain.text}`}>{domain.label}</span>
+  </header>
+
+  <p class="tc-meaning" set:html={term.meaning} />
+
+  <p class="tc-scene">
+    <span class="tc-k">出现场景</span>
+    <span set:html={term.scene} />
+  </p>
+
+  {
+    /* 命名辨析：中文技术名基本都是直译，读者按字面理解就会跑偏
+     * （前馈 vs 前向、隐藏维度 vs d_model、打分 vs attention score）。
+     * 所以它紧跟「出现场景」，在读者还没进入正文解释之前先把名字澄清。 */
+    term.naming && (
+      <div class="tc-naming">
+        <span class="tc-k">命名</span>
+        <div set:html={term.naming} />
+      </div>
+    )
+  }
+
+  {
+    term.figure && (
+      <div class="tc-figure fig-frame" set:html={term.figure} aria-hidden="false" />
+    )
+  }
+
+  <div class="tc-explain" set:html={term.explain} />
+
+  {
+    term.example && (
+      <div class="tc-example">
+        <span class="tc-k">例子</span>
+        <div set:html={term.example} />
+      </div>
+    )
+  }
+
+  {
+    term.refs && term.refs.length > 0 && (
+      <div class="tc-refs">
+        <span class="tc-k">延伸阅读</span>
+        <ul>
+          {term.refs.map((r) => (
+            <li>
+              <a href={r.url} target="_blank" rel="noopener noreferrer">
+                {r.label}
+                <span class="tc-ext" aria-hidden="true">↗</span>
+              </a>
+              <span class="tc-why" set:html={r.why} />
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+
+  {/*
+    学习跟踪：一个按钮就够。
+    状态落在 src/lib/progress.ts 的 terms 里（和章节进度同一个 localStorage），
+    所以导出学习记录时会一起带走，也不会因为换页面就丢。
+    按钮的服务端默认值是「未掌握」——没有 JS 时它是个不动的按钮，
+    但卡片内容仍然完整可读，这符合本站「没有 JS 也能读」的底线。
+  */}
+  <footer class="tc-foot">
+    <button
+      type="button"
+      class="tc-track"
+      data-term-toggle={term.id}
+      aria-pressed="false"
+    >
+      <span class="tc-track-ico" aria-hidden="true">○</span>
+      <span class="tc-track-txt">标记已掌握</span>
+    </button>
+    <span class="tc-track-hint" data-term-hint>记在本机，计入名词库的掌握统计</span>
+  </footer>
+</article>
+
+<script>
+  /**
+   * 名词卡片的「已掌握」按钮。
+   *
+   * 这段脚本放在卡片本体里是刻意的：卡片被三个地方复用
+   * （章节页弹窗、章节页的隐藏容器、名词库页），放这里就三处都有，
+   * 不用在三个页面各写一遍（写三遍必然只改一处）。
+   *
+   * 两个必须处理的状态同步：
+   *   1. 同一页里可能有多个按钮（名词库页一次渲染 25 个）——任一变化都要全量刷新；
+   *   2. 别的组件也会写这份存储（比如进度页导入备份）——监听 ht:progress 事件跟着刷。
+   */
+  import { getTermState, toggleTermKnown, storageAvailable } from '../lib/progress';
+
+  const paint = (btn: HTMLButtonElement) => {
+    const id = btn.dataset.termToggle || '';
+    const st = getTermState(id);
+    btn.setAttribute('aria-pressed', String(st.known));
+    btn.classList.toggle('on', st.known);
+    const ico = btn.querySelector('.tc-track-ico');
+    const txt = btn.querySelector('.tc-track-txt');
+    if (ico) ico.textContent = st.known ? '✓' : '○';
+    if (txt) txt.textContent = st.known ? '已掌握' : '标记已掌握';
+    btn.title = st.known ? '再点一下取消标记' : '标记为已掌握（只存在你的浏览器里）';
+    // 名词库页靠卡片上的 data-known 做「只看未掌握」筛选
+    const item = btn.closest<HTMLElement>('[data-glossary-item]');
+    if (item) item.dataset.known = st.known ? '1' : '0';
+  };
+
+  const paintAll = () => {
+    document.querySelectorAll<HTMLButtonElement>('[data-term-toggle]').forEach(paint);
+  };
+
+  const ok = storageAvailable();
+  if (!ok) {
+    document.querySelectorAll<HTMLElement>('[data-term-hint]').forEach((el) => {
+      el.textContent = '浏览器禁用了本地存储，标记无法保存';
+    });
+  }
+
+  paintAll();
+  window.addEventListener('ht:progress', paintAll);
+
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-term-toggle]');
+    if (!btn) return;
+    e.preventDefault();
+    // preventDefault 也挡住了冒泡到弹窗的「点在遮罩上就关闭」，但按钮在面板内，
+    // 本来就不该触发关闭 —— 这一行是为了防止将来有人把按钮移到面板外。
+    e.stopPropagation();
+    toggleTermKnown(btn.dataset.termToggle || '');
+    paintAll();
+  });
+</script>

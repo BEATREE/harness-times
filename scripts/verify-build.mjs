@@ -48,7 +48,7 @@ const pages = new Map(
   htmlFiles.map((f) => [f.slice(dist.length + 1).replace(/\\/g, '/'), readFileSync(f, 'utf8')])
 );
 
-check('生成了 30 个 HTML 页面', pages.size === 30, `实际 ${pages.size}`);
+check('生成了 31 个 HTML 页面', pages.size === 31, `实际 ${pages.size}`);
 
 /* ---------- 1. 代码块：文件名栏 ---------- */
 let codeBlocks = 0;
@@ -193,6 +193,26 @@ check(
 check('已移除旧的窄书签翻页（side-pager / sp-card）', !allHtml.includes('side-pager') && !allHtml.includes('sp-card'));
 
 /* ---------- 7. 图解：构建期动效标注 ---------- */
+// 期望值从内容源里数出来，而不是写死一个数字。
+// 原因：这两个数字每加一张图就变，写死的结果是「断言一红就被人改成当前实际值」，
+// 断言沦为记账。从源里数则仍然拦得住真正的退化 —— 插件一旦停止标注，
+// dmSvg 就会掉到源里的 svg 数以下，dmGo 同理。
+//
+// 读源文件一律走 readText()：Windows 上 core.autocrlf=true 会把内容文件签出成 CRLF，
+// 而带 m 标志的 JS 正则里 `$` 不认 \r\n，会让逐行匹配静默失配。
+const chapterSrcDir = join(root, 'src', 'content', 'chapters');
+const readText = (f) => readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
+const allChapterSrc = readdirSync(chapterSrcDir)
+  .filter((f) => f.endsWith('.md'))
+  .map((f) => readText(join(chapterSrcDir, f)))
+  .join('\n');
+const expectSvg = count(allChapterSrc, '<svg viewBox');
+// 插件只给「能读出两端坐标」的箭头线补流光层，所以这里也照同样的条件数：
+// 非 <defs> 内（defs 里的 marker/path 不参与）+ 带 marker-end + 坐标齐全。
+const expectGo = allChapterSrc
+  .split('\n')
+  .filter((l) => /^\s*<line\b/.test(l) && /marker-end=/.test(l) && /x1="[\d.-]+"/.test(l) && /y1="[\d.-]+"/.test(l) && /x2="[\d.-]+"/.test(l) && /y2="[\d.-]+"/.test(l)).length;
+
 let dmSvg = 0;
 let dmGo = 0;
 let dmT = 0;
@@ -206,9 +226,9 @@ for (const [, html] of chapterPages) {
   // 每个被标注的 svg 都要带 --vbw（否则动效层算不出尺寸）
   vbwMissing += count(html, 'class="dm-svg"') - count(html, 'dm-svg" style="--vbw:');
 }
-check('图解均已标注 dm-svg', dmSvg === 22, `实际 ${dmSvg}`);
+check('图解均已标注 dm-svg（与内容源里的 svg 数一致）', dmSvg === expectSvg, `产物 ${dmSvg} / 源 ${expectSvg}`);
 check('每个图解都带 --vbw 设计宽', vbwMissing === 0, `缺 ${vbwMissing}`);
-check('箭头均有流向彗星层 dm-go', dmGo === 28, `实际 ${dmGo}`);
+check('箭头均有流向彗星层 dm-go（与内容源里的箭头数一致）', dmGo === expectGo, `产物 ${dmGo} / 源 ${expectGo}`);
 check('图示文字均参与入场（dm-t）', dmT >= 400, `实际 ${dmT}`);
 check('图示节点参与描边扫读（dm-n）', dmN >= 80, `实际 ${dmN}`);
 
@@ -312,6 +332,217 @@ check('JS 里挂了悬停唤出（nav-peek + 真实指针事件）',
 check('JS 里只用 hover-capable 设备启用（不吃触屏的 pointermove）',
   /\(hover:\s*hover\)/.test(js));
 check('JS 里有停留判定与「离开边带才解除拉黑」的阈值', js.includes('clientX'));
+
+/* ---------- 10. 名词卡片基础设施 ----------
+ *
+ * 这一组是 2026-09 新增的。它守的是三件「坏了也不报错」的事：
+ *   1) 正文里的 [[id]] 有没有真的被展开成指向名词库的链接
+ *      —— 展开逻辑一失效，页面上就原样显示 `[[tensor]]`，构建照样成功；
+ *   2) 名词数据本身是否自洽（id 不重复、必填字段不为空、每条 refs 都写了 why）
+ *      —— 数据错了只会让某张卡片缺一块，页面看起来「只是有点简陋」；
+ *   3) 弹窗的无障碍与动效降级是否还在
+ *      —— 焦点陷阱、Esc 关闭、prefers-reduced-motion 少了任何一个，
+ *         鼠标用户完全无感，键盘与晕动症用户直接不能用。
+ *
+ * 卡片本体渲染在章节页的隐藏容器里（.term-store），所以下面的计数用的是
+ * 章节页 + 名词库页两边的总和：只查一边会漏掉另一半。
+ */
+const glossaryPage = pages.get('glossary/index.html') ?? '';
+check('生成了 /glossary/ 名词库页', glossaryPage.length > 0);
+
+/* —— 10.1 正文里的术语链接确实展开了 —— */
+let termLinks = 0;
+let termBadHref = 0;
+let rawMarkerPages = 0;
+/* 未展开的标记会以 `[[xxx]]` 原样出现在 HTML 里；构建期不做断言，只能在这里抓 */
+const RAW_MARKER = /\[\[[a-z0-9][a-z0-9-]*(\|[^\]]+)?\]\]/;
+for (const [, html] of chapterPages) {
+  /* 注意属性顺序：rehype 输出的是 `<a href="…" class="term" …>`，
+   * 所以不能写成 `<a class="term"`，否则永远匹配 0 个（踩过）。 */
+  const links = html.match(/<a [^>]*class="term"[^>]*>/g) ?? [];
+  termLinks += links.length;
+  for (const a of links) {
+    if (!/href="\/glossary\/#t-[a-z0-9-]+"/.test(a)) termBadHref += 1;
+    if (!/data-term="[a-z0-9-]+"/.test(a)) termBadHref += 1;
+  }
+  if (RAW_MARKER.test(html)) rawMarkerPages += 1;
+}
+check('章节页里有行内术语链接（至少第 1 章已接入）', termLinks >= 20, `实际 ${termLinks}`);
+check('所有术语链接都指向 /glossary/#t-<id> 且带 data-term', termBadHref === 0, `异常 ${termBadHref} 个`);
+check('没有未展开的 [[id]] 标记漏进产物', rawMarkerPages === 0, `${rawMarkerPages} 个页面有残留标记`);
+
+/* —— 10.2 名词数据自洽 —— */
+/* 读源文件一律折成 LF：Windows 上 core.autocrlf=true 会把源文件签出成 CRLF，
+ * 而带 m 标志的 `$` 不认 `\r\n` —— 下面 `id: '...',$` 这类行尾锚定的正则
+ * 会静默数成 0，断言红得莫名其妙。（同一约定见 scripts/wiki-lint.mjs） */
+const glossarySrc = readFileSync(join(root, 'src/data/glossary.ts'), 'utf8').replace(/\r\n/g, '\n');
+const termIds = [...glossarySrc.matchAll(/^\s{4}id: '([a-z0-9-]+)',$/gm)].map((m) => m[1]);
+check('名词库 id 不重复', new Set(termIds).size === termIds.length,
+  `${termIds.length} 个 id，去重后 ${new Set(termIds).size} 个`);
+for (const field of ['meaning', 'scene', 'explain']) {
+  const n = (glossarySrc.match(new RegExp(`^\\s{4}${field}:`, 'gm')) ?? []).length;
+  check(`每个名词都有 ${field}（${termIds.length} 条）`, n === termIds.length, `实际 ${n}`);
+  /* 内联 HTML 字段里写 markdown 加粗 → 页面上会原样显示两个星号。
+   * JSDoc 注释不在这些字段里，所以直接按行首 `    xxx:` 抓即可。 */
+  const mdBold = (glossarySrc.match(/^\s{4}(meaning|scene|explain|example):[^\n]*\*\*/gm) ?? []).length;
+  check(`${field} 所在字段没有误用 markdown 加粗`, mdBold === 0, `发现 ${mdBold} 处 **`);
+}
+{
+  /* refs 的每条都必须有 why —— 「只贴链接不写理由」是这个项目明确禁止的 */
+  const labelN = (glossarySrc.match(/^\s{8}label:/gm) ?? []).length;
+  const whyN = (glossarySrc.match(/^\s{8}why:/gm) ?? []).length;
+  check('每条延伸阅读都写了 why（为什么值得读）', labelN > 0 && labelN === whyN,
+    `label ${labelN} / why ${whyN}`);
+}
+
+/* —— 10.3 名词库页渲染完整 —— */
+const cardOnGlossary = count(glossaryPage, 'class="term-card"');
+check('名词库页每条名词一张卡片', cardOnGlossary === termIds.length,
+  `卡片 ${cardOnGlossary} / 名词 ${termIds.length}`);
+check('名词库页卡片都有锚点 id（#t-<id>）',
+  (glossaryPage.match(/class="term-card" id="t-[a-z0-9-]+"/g) ?? []).length === termIds.length);
+check('名词库页有搜索入口', glossaryPage.includes('data-glossary-q'));
+check('名词库页有知识域筛选', glossaryPage.includes('data-glossary-filters'));
+check('名词库页有可跳转的快速索引', glossaryPage.includes('data-glossary-jump='));
+check('名词库页默认是可读的全部内容（不靠 JS 才渲染）',
+  count(glossaryPage, 'data-glossary-item=') === termIds.length);
+
+/* —— 10.4 章节页的弹窗（含无障碍与降级） —— */
+const firstChapterPage = pages.get('llm/llm-01-transformer/index.html') ?? '';
+check('章节页渲染了名词卡片弹窗', firstChapterPage.includes('data-term-modal'));
+check('弹窗是 role=dialog + aria-modal', /role="dialog"[^>]*aria-modal="true"/.test(firstChapterPage));
+check('弹窗有「在名词库中查看」兜底出口', firstChapterPage.includes('data-tm-href'));
+check('弹窗默认隐藏（hidden）', /data-term-modal[^>]*hidden/.test(firstChapterPage));
+/* 注意：弹窗脚本**不在 dist 的 .js 文件里** —— 它太小了，Astro 会直接内联进
+ * 页面 HTML 的 `<script type="module">`。所以这里要连 HTML 一起搜，
+ * 只搜 js 文件会永远为 false（踩过）。 */
+const jsAndInline = js + '\n' + allHtml;
+check('JS 里有关闭键（Esc）与焦点陷阱（Tab）',
+  jsAndInline.includes('Escape') && jsAndInline.includes('Tab') && jsAndInline.includes('term-open'));
+check('弹窗打开时锁页面滚动', /term-open/.test(css) && /overflow:\s*hidden/.test(css));
+check('内联术语有可辨识的下划线与悬停态', /a\.term\s*\{[\s\S]{0,200}?border-bottom:\s*1px dashed/.test(css));
+check('术语与弹窗都有 prefers-reduced-motion 降级',
+  /prefers-reduced-motion[\s\S]{0,300}?\.tm-panel[\s\S]{0,80}?animation:\s*none/.test(css));
+check('弹窗有 .term-store[hidden] 兜底（避免卡片铺满页面）',
+  /\.term-store\[hidden\]\s*\{\s*display:\s*none/.test(css));
+
+/* —— 10.5 术语的双语原名 · 命名辨析 · 掌握标记（2026-09-18 新增） ——
+ *
+ * 这一组守的是「坏了也看不出来」的那半边：
+ *   · 英文原名（term-en）由构建期按「本章首次出现」注入。注错位置（每次都注、
+ *     或者注进链接**里面**）页面看起来一样正常，只有逐字读源码才发现；
+ *   · 单词卡里的「命名」一行来自 glossary.ts 的 naming 字段 —— 漏一条只是那张卡
+ *     少半块，25 张卡没人逐张核对；
+ *   · 「标记已掌握」按钮的**静态结构**在这里查，点下去的**行为**在 tools/verify.mjs
+ *     里用真事件查（这里跑不起浏览器）。
+ *
+ * 另外把「术语红」的对比度实算一遍：用户提的是「更容易看到」，
+ * 那就不能只写个 var(--red) 就算数 —— 颜色值随时可能被调，
+ * 调暗一点就从「醒目」变成「看不清」。数字算出来才拦得住。
+ */
+const hex2rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const relLum = (h) => {
+  const [r, g, b] = hex2rgb(h).map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a, b) => {
+  const [hi, lo] = [relLum(a), relLum(b)].sort((m, n) => n - m);
+  return (hi + 0.05) / (lo + 0.05);
+};
+const cssVar = (name) => (new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`).exec(css) ?? [])[1];
+
+let termEn = 0;
+let glossInsideLink = 0;
+let glossDuplicated = 0;
+for (const [, html] of chapterPages) {
+  const n = count(html, 'class="term-en"');
+  termEn += n;
+  /* 只认「紧跟在 </a> 之后」的那种 —— 用户点得动的只有中文那一段，
+   * 英文注解不该跟着变成链接（否则点它也会弹卡片、也会被下划线连起来） */
+  const adjacent = count(html, '</a><span class="term-en">');
+  if (adjacent !== n) glossInsideLink += 1;
+  /* 同一页里同一个术语只该注一次（「首次」）。重复注 = 首次判断失效 */
+  const ids = new Set();
+  for (const a of html.match(/<a [^>]*class="term"[^>]*>/g) ?? []) {
+    const m = /href="\/glossary\/#t-([a-z0-9-]+)"/.exec(a);
+    if (m) ids.add(m[1]);
+  }
+  if (n > ids.size) glossDuplicated += 1;
+}
+check('正文术语给出了英文原名（term-en）', termEn >= 8, `实际 ${termEn} 处`);
+check('英文原名挂在术语链接之外（点了不跳转、不连下划线）', glossInsideLink === 0,
+  `${glossInsideLink} 个页面把注解塞进了链接里`);
+check('同一页同一术语只注一次英文原名（「首次」判断生效）', glossDuplicated === 0,
+  `${glossDuplicated} 个页面重复注解`);
+check('英文原名确实说的是那个术语本身（例：自注意力 → Self-Attention）',
+  /自注意力<\/a><span class="term-en">（Self-Attention）<\/span>/.test(firstChapterPage));
+
+const namingSrc = (glossarySrc.match(/^\s{4}naming:/gm) ?? []).length;
+const namingCards = count(glossaryPage, 'class="tc-naming"');
+check('名词库登记了「命名辨析」（译名丢了什么）', namingSrc >= 20, `${namingSrc} 条`);
+check('每张单词卡都渲染出「命名」行', namingCards === namingSrc,
+  `卡片 ${namingCards} / 数据 ${namingSrc}`);
+
+check('单词卡都带「标记已掌握」按钮',
+  count(glossaryPage, 'data-term-toggle=') === termIds.length,
+  `${count(glossaryPage, 'data-term-toggle=')} / ${termIds.length}`);
+check('掌握按钮带 aria-pressed（读屏能念出当前状态）',
+  /data-term-toggle="[a-z0-9-]+"[^>]*aria-pressed="false"/.test(glossaryPage));
+check('名词库有「只看未掌握」入口', glossaryPage.includes('data-known-only'));
+
+check('正文术语用套色红标出（不是跟正文同色）',
+  /a\.term\s*\{[^}]*color:\s*var\(--red\)/.test(css));
+check('术语红与纸色的对比度达到 AA（≥ 4.5:1）',
+  !!cssVar('red') && !!cssVar('paper') && contrast(cssVar('red'), cssVar('paper')) >= 4.5,
+  cssVar('red') && cssVar('paper')
+    ? `${cssVar('red')} on ${cssVar('paper')} = ${contrast(cssVar('red'), cssVar('paper')).toFixed(2)}:1`
+    : '取不到 --red / --paper');
+
+/* ---------- 11. 中文标点不许吃掉加粗 ----------
+ *
+ * 用户报的现象：正文里写 `关键在于：**这个矩阵不是人写的，是训练出来的。**训练时…`，
+ * 页面上 `**` 原样印了出来，一个字都没加粗。
+ *
+ * 原因是 CommonMark 的强调定界符规则：闭合标记紧邻中文标点时不再是 right-flanking，
+ * 于是这一对谁也配不上谁。更糟的是多个中文标点会让配对**整体错位** ——
+ * `其实只是**「数 + 排列方式」**。用一个叫**阶数**（rank）…`
+ * 会渲染成 `<strong>。用一个叫</strong>`，把五个毫不相干的字加粗了。
+ *
+ * 修复见 `scripts/lib/emphasis.mjs`（把坏掉的那几对改写成 `<strong>`），
+ * 源头由 `content:check` 守着。这里守的是**产物**这一端：
+ * 万一哪天改写逻辑没跑、或者有人手工把源码改回去，也必须有人喊。
+ *
+ * ⚠️ 检查前要剥掉三类东西，它们里面的 `**` 都是**故意的**：
+ *   · HTML 注释 —— 布局文件的设计说明里就写着 `.sheet 的**兄弟节点**`
+ *     （第一版没剥，31 个页面全红，纯属自找）；
+ *   · `<script>` / `<style>` —— 不是读者可见文字；
+ *   · `<pre>` / `<code>` —— 代码块里的 `**` 是代码（Python 的 `1024**3` 幂运算、
+ *     `**kwargs`），展示提示词模板时那对 `**` 也是要原样给读者看的。
+ * 剥完之后再出现 `**`，就只可能是「markdown 没解析掉」这一个原因了。
+ */
+const visibleOf = (html) =>
+  html
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<script[\s\S]*?<\/script>/g, '')
+    .replace(/<style[\s\S]*?<\/style>/g, '')
+    .replace(/<pre[\s\S]*?<\/pre>/g, '')
+    .replace(/<code[\s\S]*?<\/code>/g, '');
+
+let leakPages = 0;
+for (const [, html] of chapterPages) {
+  if (visibleOf(html).includes('**')) leakPages += 1;
+}
+check('正文里没有漏出的星号加粗（中文标点会吃掉它）', leakPages === 0, `${leakPages} 个页面仍有`);
+
+const ch1Visible = visibleOf(firstChapterPage);
+check('报过的那句加粗已正常渲染',
+  ch1Visible.includes('<strong>这个矩阵不是人写的，是训练出来的。</strong>训练时'));
+check('配对错位已修好（不再把无关的字加粗）',
+  !ch1Visible.includes('<strong>。用一个叫</strong>') &&
+    ch1Visible.includes('<strong>「数 + 排列方式」</strong>'));
 
 /* ---------- 输出 ---------- */
 let failed = 0;

@@ -1,6 +1,7 @@
 import { defineConfig } from 'astro/config';
 import { shikiCodeTitle, rehypeCodeTitleWrapper } from './src/lib/code-title.mjs';
 import { rehypeDiagramMotion } from './src/lib/diagram-motion.mjs';
+import { remarkGlossaryTerms } from './src/lib/glossary-terms.ts';
 
 // Harness Times — 静态输出，产物在 dist/，可直接交给 Cloudflare Pages
 export default defineConfig({
@@ -31,6 +32,11 @@ export default defineConfig({
     // 顺序有讲究：这两个插件都跑在 rehype-raw 之前，各自处理不同形态的节点
     // （Shiki 产出的 <pre> 元素 / markdown 里原样保留的 raw HTML 图解），互不干扰。
     rehypePlugins: [rehypeDiagramMotion, rehypeCodeTitleWrapper],
+    // 把正文里的术语标记 [[id]] 展开成指向 /glossary/#t-<id> 的可点链接。
+    // 它必须在 remark 阶段（mdast）做：那时 [[id]] 还落在一个 text 节点里，
+    // 可以结构化地换成 link 节点，不会误伤代码块与 raw HTML 图解。
+    // 术语数据来自 src/data/glossary.ts（唯一来源），未知 id 会让构建失败。
+    remarkPlugins: [remarkGlossaryTerms],
     smartypants: false,
   },
   vite: {

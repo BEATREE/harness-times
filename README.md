@@ -96,10 +96,14 @@ src/
 │   ├── BaseLayout.astro     # 报头 + 侧栏 + 纸张翻页过渡 + 本机数据面板
 │   └── ChapterLayout.astro  # 章节阅读框架 + 进度/笔记/自评控件
 ├── components/              # Masthead / Sidebar / QA / InterviewSection
+│                            # + TermCard / TermCardBody（名词卡片：弹窗与名词库页共用一套模板）
+├── data/glossary.ts         # 名词库：全站术语的唯一来源（含义/场景/命名辨析/解释/例子/外链）
 ├── lib/progress.ts          # 存储层（localStorage，带版本号与迁移）
+├── lib/glossary-terms.ts    # remark 插件：把 [[id]] 展开成术语链接，并在本章首次出现处补英文原名
 ├── pages/
 │   ├── index.astro          # 头版
 │   ├── about.astro          # 关于本站（定位、出品方、关联网站、隐私模型）
+│   ├── glossary.astro       # 名词库（全部术语卡片，可搜索 / 可按知识域筛 / 可只看未掌握）
 │   ├── interview.astro      # 面试题库总览（可筛选、可自评）
 │   ├── progress.astro       # 学习进度与复习计划
 │   └── [domain]/            # 领域索引 + 章节页
@@ -173,6 +177,7 @@ node scripts/check-links.mjs --file=scripts/sources.txt
 - 章节状态（未读 / 阅读中 / 已学完）、打开次数、累计停留秒数、最大滚动完成度
 - 自测作答（题目 ID → 选择与对错）
 - 掌握度自评 0–5、重点标记
+- 名词掌握标记（`terms` 顶层记录：哪几个术语已经掌握了；跟着词走，不按章节分）
 - 笔记（可多条，按时间倒序）
 - 间隔重复队列：答「记得」档位前进，答「再想想」回到第一档并 10 分钟后重刷
 - 每日学习分钟（`YYYY-MM-DD → minutes`），用于 30 天热力图与活跃天数

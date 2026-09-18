@@ -3,6 +3,7 @@ import { getCollection, render } from 'astro:content';
 import ChapterLayout from '../../layouts/ChapterLayout.astro';
 import InterviewSection from '../../components/InterviewSection.astro';
 import { DOMAINS, chapterById, domainOf } from '../../data/curriculum';
+import { collectTermIds } from '../../lib/glossary-terms';
 
 export async function getStaticPaths() {
   const entries = await getCollection('chapters');
@@ -30,9 +31,23 @@ export async function getStaticPaths() {
 const { chapter, entry } = Astro.props;
 const { Content } = await render(entry);
 const domain = domainOf(chapter.domain);
+
+/*
+ * 本章正文里出现过哪些术语标记（[[id]]）。
+ * 只把这几个名词的卡片渲染进页面 —— 名词库有几十上百条，
+ * 整库塞进每一页会让 HTML 白胖一圈，而读者在单章里点不到那些没出现的名词。
+ * entry.body 是 glob loader 给的原始 markdown（不含 frontmatter）。
+ */
+const termIds = collectTermIds(entry.body ?? '');
 ---
 
-<ChapterLayout chapter={chapter} domain={domain} lead={entry.data.lead} note={entry.data.note}>
+<ChapterLayout
+  chapter={chapter}
+  domain={domain}
+  lead={entry.data.lead}
+  note={entry.data.note}
+  termIds={termIds}
+>
   <Content />
 
   <InterviewSection chapterId={chapter.id} />

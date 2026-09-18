@@ -11,7 +11,13 @@
 
 export const STORAGE_KEY = 'ht:progress:v1';
 export const APP_TAG = 'harness-times';
-export const SCHEMA_VERSION = 1;
+/**
+ * 存储结构版本。
+ *   v1 → v2：新增 terms（名词卡片的「已掌握」标记）。
+ * 升级不需要迁移脚本：normalize() 会把缺字段的对象补齐成当前 schema，
+ * 旧的 v1 数据读进来自然就多出一个空的 terms。
+ */
+export const SCHEMA_VERSION = 2;
 
 /** 间隔重复的复习间隔（天）。stage 越大间隔越长。 */
 export const REVIEW_INTERVALS = [1, 3, 7, 16, 35];
@@ -58,6 +64,25 @@ export interface Store {
   /** 'YYYY-MM-DD' -> 当日学习分钟数 */
   daily: Record<string, number>;
   chapters: Record<string, ChapterState>;
+  /**
+   * 名词标记：termId -> 状态。
+   * 挂在顶层而不是某一章下面，因为同一个名词会在多章出现，
+   * 而「这个词我懂了」是跟着词走的，不是跟着章走的。
+   */
+  terms: Record<string, TermState>;
+}
+
+/**
+ * 一个名词的学习状态。
+ *
+ * 只做一件事：记住「这个词我已经弄懂了」。刻意**不做**间隔重复的档位
+ * （章节级的复习队列已经有一套），因为名词的粒度太细 —— 让读者为 25 个名词
+ * 逐个安排复习日期，结果一定是没人用。
+ */
+export interface TermState {
+  known: boolean;
+  /** 最近一次标记为已掌握的时间；取消标记后保留，便于以后做统计 */
+  at: string | null;
 }
 
 /* ============================ 基础工具 ============================ */
@@ -97,6 +122,7 @@ const emptyStore = (): Store => ({
   updatedAt: nowISO(),
   daily: {},
   chapters: {},
+  terms: {},
 });
 
 /* ============================ 读写 ============================ */
@@ -166,6 +192,18 @@ const normalizeChapter = (raw: unknown): ChapterState => {
   };
 };
 
+const normalizeTerms = (raw: unknown): Record<string, TermState> => {
+  const out: Record<string, TermState> = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!v || typeof v !== 'object') continue;
+    const r = v as Partial<TermState>;
+    if (!r.known) continue; // 没标记过的不留记录，省得 localStorage 里全是空对象
+    out[k] = { known: true, at: typeof r.at === 'string' ? r.at : null };
+  }
+  return out;
+};
+
 const normalize = (raw: unknown): Store => {
   const base = emptyStore();
   if (!raw || typeof raw !== 'object') return base;
@@ -190,6 +228,7 @@ const normalize = (raw: unknown): Store => {
     updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : nowISO(),
     daily,
     chapters,
+    terms: normalizeTerms(r.terms),
   };
 };
 
@@ -341,6 +380,31 @@ export const recordQuiz = (
   mutate(id, (c) => {
     c.quizzes[qid] = { chosen, correct };
   });
+
+/* ============================ 名词标记 ============================ */
+
+/** 读某个名词的状态；没记录过就是未掌握 */
+export const getTermState = (id: string): TermState =>
+  load().terms[id] ?? { known: false, at: null };
+
+/** 切换「已掌握」并落盘。返回切换后的状态 */
+export const toggleTermKnown = (id: string): TermState => {
+  const s = load();
+  const cur = s.terms[id];
+  const next: TermState = cur?.known
+    ? { known: false, at: cur.at }
+    : { known: true, at: nowISO() };
+  if (next.known) s.terms[id] = next;
+  else delete s.terms[id];
+  save(s);
+  return next;
+};
+
+/** 已经标记「已掌握」的名词 id */
+export const knownTermIds = (): string[] =>
+  Object.entries(load().terms)
+    .filter(([, v]) => v.known)
+    .map(([k]) => k);
 
 /* ============================ 笔记 ============================ */
 
@@ -554,8 +618,9 @@ export const importPayload = (text: string, merge = true): ImportResult => {
     Record<string, unknown>;
   const incoming = normalize(body);
   const count = Object.keys(incoming.chapters).length;
-  if (count === 0) {
-    return { ok: false, message: '没有找到任何章节记录，已忽略' };
+  const termCount = Object.keys(incoming.terms).length;
+  if (count === 0 && termCount === 0) {
+    return { ok: false, message: '没有找到任何章节记录或名词标记，已忽略' };
   }
 
   if (merge) {
@@ -590,11 +655,22 @@ export const importPayload = (text: string, merge = true): ImportResult => {
     for (const [k, m] of Object.entries(incoming.daily)) {
       cur.daily[k] = Math.max(cur.daily[k] || 0, m);
     }
+    // 名词标记同样是「取并集」：已掌握过就保持已掌握，别被旧备份降级
+    for (const [k, v] of Object.entries(incoming.terms)) {
+      const old = cur.terms[k];
+      if (!old) {
+        cur.terms[k] = v;
+        continue;
+      }
+      cur.terms[k] = { known: true, at: old.at || v.at };
+    }
     save(cur);
   } else {
     save(incoming);
   }
-  return { ok: true, message: `已导入 ${count} 章的记录` };
+  const parts = [`${count} 章`];
+  if (termCount) parts.push(`${termCount} 个名词标记`);
+  return { ok: true, message: `已导入 ${parts.join(' · ')}` };
 };
 
 export const resetAll = (): void => {

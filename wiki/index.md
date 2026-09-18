@@ -8,7 +8,7 @@
 **口径**：`图` = 手写 `<svg>` 数量 · `码` = 围栏代码块数量 · `节` = `##` 小节数量 ·
 `问答` = 题数（括号内为标注「高频」的题数）。
 
-| 总量 | 4 领域 | 22 章 | 22 图 | 24 段代码 | 131 小节 | 72 问（30 高频） | 约 5.8 万汉字 |
+| 总量 | 4 领域 | 22 章 | 28 图 | 24 段代码 | 133 小节 | 72 问（30 高频） | 约 6.4 万汉字 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 
 ---
@@ -22,7 +22,7 @@
 
 | # | 章节标题 | 文件 | 难度 | 时长 | 图/码/节 | 问答 | 关键标签 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Transformer 与自注意力 | `llm-01-transformer.md` | L1 | 22 | 1/1/7 | 3(1) | Self-Attention · QKV · 复杂度 · 位置编码 |
+| 1 | Transformer 与自注意力 | `llm-01-transformer.md` | L1 | 35 | 7/1/9 | 3(1) | Self-Attention · QKV · 复杂度 · 位置编码 |
 | 2 | KV Cache：多轮对话的隐性账单 | `llm-02-kv-cache.md` | L2 | 26 | 1/2/6 | 4(3) | KV Cache · 前缀稳定性 · 成本模型 · 显存估算 |
 | 3 | MoE 与稀疏激活 | `llm-03-moe.md` | L2 | 24 | 1/1/6 | 3(1) | MoE · 路由 · 稀疏激活 · 显存 |
 | 4 | 采样、温度与确定性 | `llm-04-sampling.md` | L1 | 20 | 1/1/6 | 3(0) | Temperature · Top-P · 解码策略 · 确定性 |
@@ -148,13 +148,20 @@ I. 大模型原理 (5章)  →  II. Harness 工程 (8章)  →  III. 评测工�
 | `/` | `src/pages/index.astro` | 头版：能力地图、四领域入口、学习路径 |
 | `/<domain>/` | `src/pages/[domain]/index.astro` | 领域索引（`llm` / `harness` / `eval` / `knowledge`） |
 | `/<domain>/<id>/` | `src/pages/[domain]/[slug].astro` | 章节页（22 个）。**这是正文唯一的出口** |
+| `/glossary/` | `src/pages/glossary.astro` | 名词库：全部专业名词的解释卡片，可搜索、可按知识域筛。**正文里的术语链接落点** |
 | `/interview/` | `src/pages/interview.astro` | 题库总览（可筛选、可自评） |
 | `/progress/` | `src/pages/progress.astro` | 学习进度、30 天热力图、复习队列、导出/导入 |
 | `/about/` | `src/pages/about.astro` | 关于本站、出品方、关联网站、隐私模型 |
 
 页面骨架：`BaseLayout.astro`（报头 + 侧栏 + 纸张翻页过渡 + 本机数据面板
-+ `.sheet` 两侧的 `rail-prev` / `rail-next` 具名 slot）
-→ `ChapterLayout.astro`（阅读框架 + 进度/笔记/自评 + **两侧大翻页区** + 章尾 `.pager`）。
++ `.sheet` 两侧的 `rail-prev` / `rail-next` 具名 slot + `.app` 之外的 `overlay` 具名 slot）
+→ `ChapterLayout.astro`（阅读框架 + 进度/笔记/自评 + **两侧大翻页区** + 章尾 `.pager`
++ **名词卡片弹窗**）。
+
+> 📌 **名词卡片的三处落点**：正文行内标记（`[[id]]`，构建期展开）、章节页弹窗、
+> `/glossary/` 名词库页。三者共用 `src/data/glossary.ts` 这一份数据与
+> `TermCardBody.astro` 这一套模板，契约见 `wiki/schema.md` 第十一节。
+
 
 ---
 

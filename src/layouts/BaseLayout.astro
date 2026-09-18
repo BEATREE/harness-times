@@ -71,6 +71,14 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://harness.bea
       </div>
     </div>
 
+    <!--
+      浮层（目前是名词卡片弹窗）挂在 .app **之外**。
+      原因：章节页的默认 slot 落在 <article class="prose"> 里面，
+      浮层若跟着进去，卡片就会被正文排版规则（.prose p / a / h3）串味，
+      而且正文里的相对定位/溢出规则也会影响它。浮层本来就该在最外层。
+    -->
+    <slot name="overlay" />
+
     <div class="toast" data-toast role="status" aria-live="polite"></div>
 
     <script>

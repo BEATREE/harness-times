@@ -48,3 +48,60 @@ https://github.com/datawhalechina/hugging-llm
 # —— 本站相关 ——
 https://beatree.cn
 https://beatree.cn/gzh/gzh-qr-card.jpg
+
+# —— 章级延伸阅读 · 大模型原理（不进入 about 页的「关联网站」列表）——
+#
+# 这一组的来源不是「关联网站」，而是两处内容里的外链：
+#   · src/content/chapters/*.md 每章末尾的「参考与延伸」
+#   · src/data/glossary.ts     每条名词卡片里的「延伸阅读」
+# 它们登记在这里是为了「全站外链只有一个台账」这条不变量：
+# 只要登记了，check-links 就会一并验活，不会等到读者点开才发现失效。
+# 与「本站相关」那一组同理：在台账里，但不在 about 页的 27 个 .rel-item 里。
+#
+# 收录标准比「关联网站」更松一档：允许单篇论文 / 单个文档页 ——
+# 因为它服务的是「读完某一段想往下深挖」这个具体动作，而不是长期追更。
+# 但两条规则不变：不转载原文；每条必须能说清「为什么值得读」。
+#
+# ⚠️ 可达性筛选（2026-09 实测）：en.wikipedia.org 与 huggingface.co 在
+# 本机直接 fetch failed（非 403、非超时，是连不上）。本站主要读者在中国大陆，
+# 这两个域名普遍需要额外手段才能打开，所以**不作为默认延伸阅读**，
+# 已全部替换为「中文可达」或「同类可达」的等价来源：
+#   维基百科 → 动手学深度学习（zh.d2l.ai） / OI Wiki（oi-wiki.org）
+#   HF 文档  → tiktoken 仓库 / vLLM 博客 / vLLM 论文 / The Illustrated Word2vec
+# 若日后要重新收录，请先在目标网络环境下实测再写进来。
+
+# llm-01 章末参考与延伸
+https://jalammar.github.io/illustrated-transformer/
+https://www.3blue1brown.com/lessons/attention
+https://karpathy.ai/zero-to-hero.html
+https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html
+https://arxiv.org/abs/1706.03762
+https://lilianweng.github.io/posts/2023-01-27-the-transformer-family-v2/
+https://arxiv.org/abs/2104.09864
+
+# 名词卡片延伸阅读（术语基础：张量 / 形状 / 点积 / 复杂度）
+https://pytorch.org/tutorials/beginner/basics/tensorqs_tutorial.html
+https://zh.d2l.ai/chapter_preliminaries/ndarray.html
+https://numpy.org/doc/stable/reference/generated/numpy.ndarray.shape.html
+https://www.3blue1brown.com/topics/linear-algebra
+https://zh.d2l.ai/chapter_preliminaries/linear-algebra.html
+https://oi-wiki.org/basic/complexity/
+https://www.bigocheatsheet.com/
+
+# 名词卡片延伸阅读（token / embedding / 隐藏维度）
+https://platform.openai.com/tokenizer
+https://github.com/openai/tiktoken
+https://jalammar.github.io/illustrated-word2vec/
+https://kexue.fm/archives/8265
+
+# 名词卡片延伸阅读（注意力机制细节）
+https://lilianweng.github.io/posts/2018-06-24-attention/
+https://nlp.seas.harvard.edu/annotated-transformer/
+https://zh.d2l.ai/chapter_linear-networks/softmax-regression.html
+https://kexue.fm/archives/6394
+
+# 名词卡片延伸阅读（Prefill / Decode / KV Cache / 长上下文）
+https://blog.vllm.ai/2023/06/20/vllm.html
+https://arxiv.org/abs/2309.06180
+https://arxiv.org/abs/2307.03172
+

@@ -1,6 +1,7 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import Masthead from '../components/Masthead.astro';
+import TermCard from '../components/TermCard.astro';
 import {
   type Chapter,
   type Domain,
@@ -18,9 +19,11 @@ interface Props {
   lead: string;
   /** 可选的编辑注（本版修订说明） */
   note?: string;
+  /** 本章正文用到的名词 id（由 [slug].astro 从正文收集），用于名词卡片弹窗 */
+  termIds?: string[];
 }
 
-const { chapter, domain, lead, note } = Astro.props;
+const { chapter, domain, lead, note, termIds = [] } = Astro.props;
 const { prev, next } = neighbors(chapter.id);
 const totalMin = chapter.minutes;
 
@@ -240,6 +243,17 @@ const railNext = next ? railCard(next, 'next') : null;
       }
     </nav>
   </section>
+
+  <!--
+    名词卡片弹窗。走 <BaseLayout> 的 overlay 具名 slot —— 它被放在 .app 之外，
+    因为弹窗必须逃出 .prose 的排版上下文（正文有 max-width 与首行缩进，
+    面板塞在里面会被压扁、且 z-index 会跟 .sheet 的层叠上下文打架）。
+
+    卡片本体在构建期就渲染好了（每章一份，藏在 [data-term-store] 里），
+    点击正文里的 [[id]] 链接时只是把它「搬」进面板 —— 不请求、不闪烁、离线可用。
+    正文里的链接是普通 <a href="/glossary/#t-xxx">，禁 JS 时退化成跳到名词库页面。
+  -->
+  <TermCard slot="overlay" ids={termIds} />
 </BaseLayout>
 
 <script>

@@ -739,8 +739,330 @@ try {
   }
   await cdp.send('Emulation.clearDeviceMetricsOverride');
 
-  /* ============ 11. 无 JS 报错 ============ */
-  console.log('\n[11] 运行期异常');
+  /* ============ 11. 名词卡片：名词库页 + 章节弹窗 ============
+   *
+   * 这一节必须用真事件、必须跑在真页面上，有三个具体理由：
+   *   1) 搜索是 `input` 事件驱动的，直接改 value 不触发 —— 那等于只测了「函数能跑」；
+   *   2) Esc 关闭挂在 document 的 keydown 上，只有真实按键才会走到那条分支；
+   *   3) 「卡片搬家」的 bug 只在「开一次 + 关一次」之后才现形：关的时候不放回原位，
+   *      那张卡片就永久消失了，而第一次打开时一切正常。
+   */
+  console.log('\n[11] 名词卡片（名词库页 / 章节弹窗）');
+  await cdp.goto(`${BASE}/glossary/`, 700);
+
+  const gl = await cdp.evaluate(`(() => ({
+    cards: document.querySelectorAll('[data-glossary-item]').length,
+    id: document.querySelector('h1') ? 'y' : 'n',
+    hasSearch: !!document.querySelector('[data-glossary-q]'),
+  }))()`);
+  check('名词库页渲染出全部名词卡片', gl.cards >= 20, `${gl.cards} 条`);
+
+  /* 搜索：必须派发 input 事件，光改 value 不会触发监听 */
+  const searched = await cdp.evaluate(`(() => {
+    const q = document.querySelector('[data-glossary-q]');
+    if (!q) return { before: -1, after: -1, label: '' };
+    const visible = () => [...document.querySelectorAll('[data-glossary-item]')]
+      .filter((el) => !el.classList.contains('hide')).length;
+    const before = visible();
+    q.value = 'softmax';
+    q.dispatchEvent(new Event('input', { bubbles: true }));
+    const after = visible();
+    const label = document.querySelector('[data-glossary-count]')?.textContent.trim() || '';
+    q.value = '';
+    q.dispatchEvent(new Event('input', { bubbles: true }));
+    return { before, after, restored: visible(), label };
+  })()`);
+  check('在名词库里搜索能筛掉不相干的条目',
+    searched.after > 0 && searched.after < searched.before,
+    `${searched.before} → ${searched.after}（"${searched.label}"）`);
+  check('清空搜索后条目全部恢复', searched.restored === searched.before,
+    `${searched.restored} / ${searched.before}`);
+
+  /* 知识域筛选：点一个域，只剩该域的条目 */
+  const glFiltered = await cdp.evaluate(`(() => {
+    const btn = document.querySelector('[data-glossary-filters] [data-domain="llm"]');
+    if (!btn) return null;
+    btn.click();
+    const items = [...document.querySelectorAll('[data-glossary-item]')];
+    const shown = items.filter((el) => !el.classList.contains('hide'));
+    return { shown: shown.length, allSameDomain: shown.every((el) => el.dataset.domain === 'llm') };
+  })()`);
+  check('按知识域筛选只留下该域的条目',
+    !!glFiltered && glFiltered.shown > 0 && glFiltered.allSameDomain,
+    glFiltered ? `留下 ${glFiltered.shown} 条` : '没找到筛选按钮');
+
+  /* 章节页：点术语 → 弹窗；Esc → 关闭；卡片必须回到原位（不能凭空消失） */
+  await cdp.goto(`${BASE}/llm/llm-01-transformer/`, 700);
+
+  /*
+   * ⚠️ 先掐掉全站的 `html { scroll-behavior: smooth }` 再定位。
+   * 它会让 scrollIntoView 变成**异步动画**：紧接着量出来的坐标还是滚动前的位置，
+   * 术语常常因此落在视口之外 —— elementFromPoint 返回 null，
+   * 现象是「点下去什么都没发生」，看起来像点击坐标算错了，其实是没滚到位。
+   * （scrollIntoView({behavior:'auto'}) 不解决问题：auto 的语义就是「听 CSS 的」。）
+   */
+  await cdp.evaluate(`(() => {
+    document.documentElement.style.scrollBehavior = 'auto';
+    document.querySelector('a.term[data-term="tensor"]')?.scrollIntoView({ block: 'center' });
+  })()`);
+  await sleep(200);
+
+  const termBox = await cdp.evaluate(`(() => {
+    const a = document.querySelector('a.term[data-term="tensor"]');
+    if (!a) return null;
+    /*
+     * ⚠️ 必须用 getClientRects()[0] 而不是 getBoundingClientRect()。
+     * a.term 是**行内元素**，一旦术语正好落在换行处，bounding rect 会把两行
+     * 一起框住 —— 它的中心点很可能落在两行之间的空白上，点下去什么也没点中，
+     * 表现出来却是「弹窗没打开」，让人以为功能坏了。getClientRects() 给的是
+     * 每一行的方框，取第一个永远落在字形上。
+     */
+    const r = a.getClientRects()[0] || a.getBoundingClientRect();
+    const x = r.x + Math.min(r.width / 2, 18);
+    const y = r.y + r.height / 2;
+    const hit = document.elementFromPoint(x, y);
+    return {
+      href: a.getAttribute('href'), x, y,
+      storeCards: document.querySelectorAll('.term-store [data-term-card]').length,
+      hitIsTerm: !!(hit && hit.closest && hit.closest('a.term')),
+      hit: hit ? hit.tagName.toLowerCase() + '.' + String(hit.className || '') : 'null',
+      /* 点位出没出视口 —— 它才是「命中 null」的真凶，写进 detail 免得下次又猜 */
+      inView: x >= 0 && y >= 0 && x <= innerWidth && y <= innerHeight,
+    };
+  })()`);
+  check('正文里的术语渲染成指向名词库的链接',
+    !!termBox && /^\/glossary\/#t-[a-z0-9-]+$/.test(termBox.href), termBox?.href || '没找到术语链接');
+  check('术语链接的点击位确实落在链接上（行内元素换行坑）',
+    !!termBox && termBox.hitIsTerm,
+    termBox ? `命中 ${termBox.hit}，点位在视口内=${termBox.inView}（${termBox.x},${termBox.y}）` : '');
+  check('本章名词卡片已预渲染进隐藏容器', !!termBox && termBox.storeCards > 0,
+    `${termBox?.storeCards} 张`);
+
+  await clickAt(termBox.x, termBox.y);
+  await sleep(320);
+  const opened = await cdp.evaluate(`(() => {
+    const m = document.querySelector('[data-term-modal]');
+    const panel = document.querySelector('[data-tm-panel]');
+    /* 底栏有没有被滚动区推到看不见的地方。
+     * 「张量」这张卡正文比面板高 400+px —— 如果底栏只是普通流元素，
+     * 弹窗里最常用的「标记已掌握」就藏在滚动条尽头，实测 4 张卡里 3 张如此。 */
+    const btnInView = (() => {
+      const body = document.querySelector('[data-tm-body]');
+      const btn = document.querySelector('.tm-body [data-term-toggle]');
+      if (!body || !btn) return '找不到底栏按钮';
+      const b = body.getBoundingClientRect();
+      const r = btn.getBoundingClientRect();
+      if (r.top >= b.top - 1 && r.bottom <= b.bottom + 1) return true;
+      return '按钮底 ' + Math.round(r.bottom) + ' > 滚动区底 ' + Math.round(b.bottom);
+    })();
+    return {
+      hidden: m.hidden,
+      cardInPanel: !!document.querySelector('.tm-body [data-term-card="tensor"]'),
+      label: panel.getAttribute('aria-label') || '',
+      lock: document.documentElement.classList.contains('term-open'),
+      focused: (document.activeElement?.className || '') + '',
+      path: location.pathname,
+      btnInView,
+    };
+  })()`);
+  check('点击术语弹出对应卡片（不是跳走）',
+    opened.hidden === false && opened.cardInPanel, `hidden=${opened.hidden} 卡片在面板内=${opened.cardInPanel}`);
+  check('弹窗带 aria-label 且锁住页面滚动',
+    opened.label.includes('张量') && opened.lock, `${opened.label} / lock=${opened.lock}`);
+  check('打开后焦点移到弹窗内（关闭按钮）', opened.focused.includes('tm-close'), opened.focused);
+  check('弹窗里的「标记已掌握」不用滚动就能看到', opened.btnInView === true, String(opened.btnInView));
+  check('点术语没有真的跳转走', opened.path === '/llm/llm-01-transformer/', opened.path);
+
+  /* 真实按键：Esc 关闭 */
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyDown', key: 'Escape', code: 'Escape',
+    windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27,
+  });
+  await cdp.send('Input.dispatchKeyEvent', {
+    type: 'keyUp', key: 'Escape', code: 'Escape',
+    windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27,
+  });
+  await sleep(300);
+  const closed = await cdp.evaluate(`(() => ({
+    hidden: document.querySelector('[data-term-modal]').hidden,
+    lock: document.documentElement.classList.contains('term-open'),
+    inStore: !!document.querySelector('.term-store [data-term-card="tensor"]'),
+    dupes: document.querySelectorAll('#t-tensor').length,
+    emptyBody: document.querySelector('.tm-body').children.length === 0,
+    focusBack: (document.activeElement?.getAttribute('data-term') || '') + '',
+  }))()`);
+  check('按 Esc 能关掉弹窗并解锁滚动',
+    closed.hidden === true && closed.lock === false, `hidden=${closed.hidden} lock=${closed.lock}`);
+  check('关闭后卡片回到原位（不是被销毁）', closed.inStore && closed.dupes === 1,
+    `在容器内=${closed.inStore} #t-tensor 出现 ${closed.dupes} 次`);
+  check('关闭后焦点回到触发它的术语链接', closed.focusBack === 'tensor', closed.focusBack || '未回焦');
+
+  /* —— 掌握标记：写入 → 取消 → 筛选 → 刷新读回 ——
+   *
+   * 为什么要跑这一整圈：标记只写进 localStorage，**写不进去页面也毫无反应**，
+   * 看起来和「写了但读不回来」一模一样。所以必须同时验四个方向：
+   * 写进去没有（原始 JSON）、取消能不能回退、筛选读的是不是最新状态、
+   * 重新加载后还在不在。少任何一端，坏了都发现不了。
+   */
+  await cdp.goto(`${BASE}/glossary/`, 700);
+  const mark = await cdp.evaluate(`(() => {
+    const store = () => {
+      try { return JSON.parse(localStorage.getItem('ht:progress:v1') || '{}'); } catch { return {}; }
+    };
+    /* 先归一化到「一条都没掌握」：上一次运行可能留下别的已掌握条目，
+     * 会让下面「只看未掌握」少筛掉几条，红得莫名其妙。 */
+    const raw = store();
+    raw.terms = {};
+    localStorage.setItem('ht:progress:v1', JSON.stringify(raw));
+    window.dispatchEvent(new CustomEvent('ht:progress'));
+
+    const btn = document.querySelector('[data-term-toggle]');
+    if (!btn) return null;
+    const id = btn.getAttribute('data-term-toggle');
+    /* 刻意把「条目不存在」和「存在但 known=false」分开读：
+     * 取消标记的实现是**删掉整条**（见 progress.ts toggleTermKnown），
+     * 而不是原地写 known:false。这样存储里只留真正掌握过的词，
+     * knownTermIds() 不用过滤、也不会攒下一堆没用的空行。
+     * 如果哪天真写成 known:false，这条断言要能红 —— 那就得连着决定到底哪个是契约。 */
+    const read = () => {
+      const t = store().terms || {};
+      return {
+        pressed: btn.getAttribute('aria-pressed'),
+        present: Object.prototype.hasOwnProperty.call(t, id),
+        known: t[id] ? t[id].known : null,
+        on: btn.classList.contains('on'),
+      };
+    };
+    const initial = read();
+    btn.click();
+    const afterOn = read();
+    btn.click();
+    const afterOff = read();
+    btn.click();
+    const afterOnAgain = read();
+    return { id, initial, afterOn, afterOff, afterOnAgain };
+  })()`);
+  check('点「标记已掌握」写入本机进度（ht:progress.v1 · terms）',
+    !!mark && mark.initial.pressed === 'false' && mark.initial.present === false
+      && mark.afterOn.pressed === 'true' && mark.afterOn.present === true
+      && mark.afterOn.known === true && mark.afterOn.on,
+    mark
+      ? `${mark.id}: ${mark.initial.pressed} → ${mark.afterOn.pressed}（known=${mark.afterOn.known}, .on=${mark.afterOn.on}）`
+      : '没找到掌握按钮');
+  check('再点一下能取消标记（整条移除，不留 known:false 空行）',
+    !!mark && mark.afterOff.pressed === 'false' && mark.afterOff.on === false
+      && mark.afterOff.present === false && mark.afterOnAgain.known === true,
+    mark ? `取消后 present=${mark.afterOff.present}, .on=${mark.afterOff.on}` : '');
+
+  /* 「只看未掌握」筛的是**最新状态**（读存储），不是卡片上可能过期的 data-known ——
+   * 所以这一条同时验证了「点完立刻筛选就生效」 */
+  const knownOnly = await cdp.evaluate(`(() => {
+    const btn = document.querySelector('[data-known-only]');
+    if (!btn) return null;
+    const items = [...document.querySelectorAll('[data-glossary-item]')];
+    const shown = () => items.filter((el) => !el.classList.contains('hide'));
+    const before = shown().length;
+    btn.click();
+    const after = shown();
+    return {
+      before,
+      shown: after.length,
+      knownStillShown: after.filter((el) => el.dataset.known === '1').length,
+    };
+  })()`);
+  check('「只看未掌握」把刚标记的那条筛掉',
+    !!knownOnly && knownOnly.shown === knownOnly.before - 1 && knownOnly.knownStillShown === 0,
+    knownOnly
+      ? `${knownOnly.before} → ${knownOnly.shown}（已掌握却仍显示 ${knownOnly.knownStillShown} 条）`
+      : '没找到「只看未掌握」按钮');
+
+  /* 重新加载：只写不读的实现看起来完全一样，只有刷新才现形 */
+  await cdp.goto(`${BASE}/glossary/`, 700);
+  const persisted = await cdp.evaluate(`(() => {
+    const btn = document.querySelector('[data-term-toggle][aria-pressed="true"]');
+    return {
+      restored: !!btn,
+      id: btn ? btn.getAttribute('data-term-toggle') : '',
+      count: document.querySelector('[data-known-count]')?.textContent.trim() || '',
+    };
+  })()`);
+  check('刷新后掌握状态还在（进度真的读回来了）',
+    persisted.restored && persisted.id === (mark ? mark.id : ''),
+    persisted.id ? `${persisted.id} / 计数「${persisted.count}」` : `未恢复（期望 ${mark?.id}）`);
+
+  /* ============ 12. 图解文字不许被画布静默裁掉 ============ */
+  console.log('\n[12] 图解文字是否被画布裁掉');
+
+  /*
+   * svg 默认 `overflow: hidden` —— 一行注释字只要比 viewBox 宽，就会在边缘被**安静地切掉**。
+   * 构建成功、全部断言绿、只有放大截图才看得出来。所以这里用 getBBox() 逐条量：
+   * 它给的是 user 单位，和 viewBox 同一把尺子，不用换算。
+   *
+   * ⚠️ 两个坑，都踩过：
+   *   (a) 量之前先把入场动效的 delay/duration 清零。dm-t 是 translateY 形式的动画，
+   *       中途量到的不是终态框。（改动画属性会让动画重播，所以注入与测量要分成两步，
+   *       中间留一拍 —— 同一个 evaluate 里注入完就量，样式还没重算。）
+   *   (b) 越界判断的四个减数顺序**不能凭感觉写**。第一版探针把垂直方向写成了
+   *       `(vy+vh) - (b.y+b.height)`，那量的是「底边还剩多少空间」，
+   *       于是任何正常文字都得到几百的假正值，全站报了 711 处假「溢出」。
+   *       正确的写法是 `b.y + b.height - (vy + vh)`。
+   */
+  await cdp.goto(`${BASE}/`, 300);
+  const chapterUrls = [];
+  for (const dom of ['llm', 'harness', 'eval', 'knowledge']) {
+    await cdp.goto(`${BASE}/${dom}/`, 200);
+    const found = await cdp.evaluate(`[...document.querySelectorAll('a[href]')]
+      .map((a) => a.getAttribute('href'))
+      .filter((h) => /^\\/${dom}\\/[a-z0-9-]+\\/$/.test(h))`);
+    for (const h of found) if (!chapterUrls.includes(h)) chapterUrls.push(h);
+  }
+  check('从四个领域页能找齐全部章节链接', chapterUrls.length >= 20, `${chapterUrls.length} 个`);
+
+  let overflow = 0;
+  const overflowSample = [];
+  for (const u of chapterUrls) {
+    await cdp.goto(`${BASE}${u}`, 120);
+    await cdp.evaluate(`(() => {
+      const s = document.createElement('style');
+      s.textContent = '*{animation-delay:0s !important;animation-duration:1ms !important}';
+      document.head.appendChild(s);
+    })()`);
+    await sleep(150); // 等这一帧的样式重算 + 动画跳到终态
+    const bad = await cdp.evaluate(`(() => {
+      const out = [];
+      document.querySelectorAll('svg.dm-svg').forEach((svg) => {
+        const raw = (svg.getAttribute('viewBox') || '').trim();
+        const vb = raw.split(/\\s+/).map(Number);
+        if (vb.length !== 4 || vb.some((n) => !Number.isFinite(n))) {
+          out.push('viewBox 异常: ' + JSON.stringify(raw));
+          return;
+        }
+        const [vx, vy, vw, vh] = vb;
+        svg.querySelectorAll('text').forEach((t) => {
+          const b = t.getBBox();
+          const over = Math.max(
+            b.x + b.width - (vx + vw),   /* 越右 */
+            vx - b.x,                    /* 越左 */
+            b.y + b.height - (vy + vh),  /* 越下 */
+            vy - b.y                     /* 越上 */
+          );
+          if (over > 0.5) {
+            out.push('「' + (t.textContent || '').slice(0, 22) + '」越界 ' + over.toFixed(1));
+          }
+        });
+      });
+      return out;
+    })()`);
+    if (bad.length) {
+      overflow += bad.length;
+      if (overflowSample.length < 3) overflowSample.push(`${u} → ${bad[0]}`);
+    }
+  }
+  check('图解里的文字都在画布内（没被 overflow:hidden 裁掉）', overflow === 0,
+    overflow ? `${overflow} 处：${overflowSample.join(' ｜ ')}` : `${chapterUrls.length} 页、全部图元通过`);
+
+  /* ============ 13. 无 JS 报错 ============ */
+  console.log('\n[13] 运行期异常');
   check('页面无未捕获异常', pageErrors.length === 0,
     pageErrors.slice(0, 3).join(' | ') || '无');
 

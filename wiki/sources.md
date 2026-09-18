@@ -27,19 +27,34 @@
 **唯一台账是 `scripts/sources.txt`**（每行一个 URL，`#` 开头为注释）。
 `src/pages/about.astro` 的「关联网站」区是从它派生的展示层。
 
-当前数量关系（`verify-build.mjs` 有断言盯着）：
+当前数量关系（`wiki-lint.mjs` 有断言盯着总数）：
 
 ```
-sources.txt        29 条 URL
-  ├─ 本站相关       2 条（beatree.cn 主站 + 公众号二维码）→ 不在「关联网站」列表里
-  └─ 关联网站       27 条 → about.astro 的 27 个 .rel-item
+sources.txt        54 条 URL
+  ├─ 本站相关            2 条（beatree.cn 主站 + 公众号二维码）→ 不在「关联网站」列表里
+  ├─ 章级延伸阅读        25 条（章节末「参考与延伸」+ 名词卡片「延伸阅读」）
+  │                       → 在台账里、被 check-links 验活，但同样不在「关联网站」列表里
+  └─ 关联网站            27 条 → about.astro 的 27 个 .rel-item（verify-build.mjs 断言这个数）
 ```
+
+台账里存在**两类条目**，区别只在于「渲染到哪」：
+
+| 类别 | 渲染位置 | 收录尺度 |
+| --- | --- | --- |
+| 关联网站（6 组） | `about.astro` 的 `.rel-item` 列表 | 只收「站点」，且要长期更新、每篇都有东西读 |
+| 章级延伸阅读（1 组） | 章节末「参考与延伸」+ 名词卡片 `refs` | 允许单篇论文 / 单个文档页，服务「读完这段想深挖」这个动作 |
+
+两类都遵守同一条铁律：**不转载原文，外链必须写清「为什么值得读」。**
 
 > ⛔ **改「关联网站」的正确顺序**：先改 `scripts/sources.txt` → 跑
 > `node scripts/check-links.mjs --file=scripts/sources.txt` 验活 →
 > 再把确认可用的写进 `about.astro` 的 `RELATED` 数组 → 最后跑 `verify-build.mjs`
 > （它断言 `.rel-item` 数量，数量错了会失败）。
 > **不要只改 `about.astro`**，那样台账和展示层就分家了。
+>
+> 改「章级延伸阅读」则**不需要动 `about.astro`**（它不渲染那一组），
+> 但一样要：先写 `sources.txt` → 验活 → 再落进正文 / `glossary.ts`。
+
 
 ### 分组清单
 
@@ -123,6 +138,30 @@ sources.txt        29 条 URL
 > 这是因为原来唯一的一条（宝玉）被移除了。若日后要补，请补充「原创解读 + 持续更新」型站点，
 > 不要补搬运号。
 
+#### 7. 章级延伸阅读（25 条，不进入「关联网站」列表）
+
+服务的是两处具体动作：**章节末尾的「参考与延伸」**（读完整章想往下深挖）
+与**名词卡片的「延伸阅读」**（点开一个术语想弄清它）。因为服务的是单点需求，
+收录尺度比「关联网站」松一档——允许单篇论文、单个文档页。
+
+> ⚠️ **可达性是这一组的硬筛选条件（2026-09 新增）。**
+> 本站主要读者在中国大陆，所以外链默认要能直接打开。实测结论：
+> `en.wikipedia.org` 与 `huggingface.co` 一律 `fetch failed`（连不上，不是 403），
+> **已全部替换**为等价的可达来源：
+> 维基百科 → 动手学深度学习（`zh.d2l.ai`）/ OI Wiki（`oi-wiki.org`）；
+> HF 文档 → tiktoken 仓库 / vLLM 博客 / vLLM 论文 / The Illustrated Word2vec。
+> 宁可用略逊一筹但打得开的，也不放一个点开是空白页的「更好资料」。
+
+| 分组 | 条数 | 归属（编辑判断） | 代表条目 |
+| --- | --- | --- | --- |
+| `llm-01` 章末参考与延伸 | 7 | `llm-01-transformer` | Illustrated Transformer · Karpathy Zero-to-Hero · 3Blue1Brown 注意力可视化 · `scaled_dot_product_attention` 文档 · Attention Is All You Need · Transformer Family v2.0 · RoPE |
+| 术语基础（张量 / 形状 / 点积 / 复杂度） | 7 | `glossary.ts`：`tensor` `shape` `vector` `dot-product` `big-o` | PyTorch Tensors 教程 · d2l 数据操作 · NumPy `shape` · 3B1B 线性代数 · d2l 线性代数 · OI Wiki 复杂度 · Big-O Cheat Sheet |
+| token / embedding / 隐藏维度 | 4 | `token` `embedding` `hidden-dim` | OpenAI Tokenizer · tiktoken · The Illustrated Word2vec · 科学空间·位置编码 |
+| 注意力机制细节 | 4 | `self-attention` `scoring` `weighted-sum` `causal-mask` `softmax` `projection` `multi-head` | Lilian Weng·Attention 综述（2018） · The Annotated Transformer · d2l softmax 回归 · 科学空间·Softmax |
+| Prefill / Decode / KV Cache / 长上下文 | 3 | `prefill-decode` `kv-cache` `context-window` | vLLM 博客·PagedAttention · vLLM 论文 · Lost in the Middle |
+
+一个链接常被多条名词共用，上表只列主要那几条，不追求一一对应。
+
 ---
 
 ## 三、外链验活
@@ -141,8 +180,15 @@ node scripts/check-links.mjs --file=scripts/sources.txt   # 只查台账
 | 现象 | 原因 | 处理 |
 | --- | --- | --- |
 | `openai.com` 系域名返回 403 | 对非浏览器 UA 的反爬 | 正常，链接有效 |
+| `kexue.fm` 返回 403 | 同上，只认浏览器 UA | 正常，中文数学博客，浏览器可开 |
 | 少数域名 `fetch failed` | 受限网络 | 换网络再验，不代表站点下线 |
 | GitHub 仓库 301 | 仓库被重命名 | 脚本已跟随重定向，看最终地址 |
+
+> ⚠️ **`fetch failed` 与 `403` 要区别对待。**
+> `403` 是「服务器拒绝非浏览器 UA」——站点活着，读者用浏览器打得开，属误报。
+> `fetch failed` 是**根本没连上**——很可能是域名在当前网络下不可达，
+> 对本站读者就等于「点了是空白页」。遇到这种要按「不可达」处理（替换或移除），
+> 不能像 403 那样放过。`en.wikipedia.org` / `huggingface.co` 就是这一类的实例。
 
 ---
 
@@ -154,6 +200,7 @@ node scripts/check-links.mjs --file=scripts/sources.txt   # 只查台账
 | 2 | 「关联网站」的**分组归属**与「归属章节」是编辑判断，不是原文声明 | 本页已明确标注，非问题 |
 | 3 | 22 处插图金句署名为 `<cite>本刊编辑部</cite>`，与「非报刊」定位措辞不一致 | 见 `wiki/schema.md` 第十节 |
 | 4 | 「中文资源」组在移除宝玉后只剩 3 条，且**没有一条是中文的 AI 评论 / 专栏** | 待办：可补充「原创解读 + 持续更新」型站点，不补搬运号 |
+| 5 | 章级延伸阅读里曾用 `en.wikipedia.org` 与 `huggingface.co` 作兜底来源，实测两者在本机 `fetch failed`（中国大陆普遍不可达） | ✅ **已收敛（2026-09-18）**：全部替换为可达等价来源（d2l 中文版 / OI Wiki / tiktoken / vLLM / Illustrated Word2vec），并在台账顶部写入「可达性是硬筛选条件」 |
 
 > 发现偏差请**登记到本表**并在 `wiki/log.md` 记一笔，
 > 不要只在对话里说一句——那种信息一定会丢。

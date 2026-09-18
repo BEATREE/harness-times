@@ -51,6 +51,8 @@ const SHOTS = [
   { name: '02-chapter-top', path: '/harness/harness-02-agent-loop/' },
   { name: '03-chapter-codeblock', path: '/harness/harness-02-agent-loop/', js: 'document.querySelector(".code-block")?.scrollIntoView({block:"center"})' },
   { name: '04-chapter-table', path: '/harness/harness-01-what-is-harness/', js: 'document.querySelector("table")?.scrollIntoView({block:"center"})' },
+  // 这两张故意只加 body 的类、不写 localStorage —— 收起状态由主循环在每个镜头前统一复位，
+  // 免得「看一眼收起的侧栏」把后面所有镜头的目录都带走。
   { name: '05-sidebar-collapsed', path: '/harness/harness-02-agent-loop/', js: 'document.body.classList.add("nav-collapsed")' },
   { name: '06-sidebar-group-collapsed', path: '/harness/harness-02-agent-loop/', js: '(function(){var g=document.querySelector(".nav-group[data-domain=\'llm\']");g&&g.classList.add("collapsed");})()' },
   { name: '07-about-top', path: '/about/' },
@@ -127,6 +129,41 @@ const SHOTS = [
     js: 'document.querySelector("[data-nav-collapse]")?.click()',
     wait: 520,
     hoverAt: [[760, 430], [8, 430]],
+  },
+  /*
+   * 名词卡片（2026-09 新增）。这一组要抓三种状态，缺一不可：
+   *   ① 名词库页首屏 —— 确认「工具条 + 快速索引 + 卡片」三段的层级没打架；
+   *   ② 章节页弹窗 —— 弹窗与正文的层叠关系（纸面 vs 遮罩）只能靠肉眼终审；
+   *   ③ 窄屏弹窗 —— ≤640px 走的是「全屏面板」分支，和桌面端是两套布局。
+   * ②③ 都用 `a.term` 的 `.click()`：这是普通 <a>，脚本拦截在捕获阶段，
+   * 程序化 click 同样会被捕获（不是 PointerEvent 伪造，见 README 的指针一节）。
+   */
+  { name: '27-glossary-top', path: '/glossary/' },
+  { name: '28-glossary-index', path: '/glossary/', js: 'document.querySelector(".glossary-index")?.scrollIntoView({block:"start"})' },
+  {
+    name: '29-glossary-card',
+    path: '/glossary/',
+    js: 'document.querySelector("#t-tensor")?.scrollIntoView({block:"start"})',
+  },
+  {
+    name: '30-term-modal',
+    path: '/llm/llm-01-transformer/',
+    js: 'document.querySelector(\'a.term[data-term="shape"]\')?.click()',
+    wait: 320,
+  },
+  {
+    name: '31-term-modal-figure',
+    path: '/llm/llm-01-transformer/',
+    js: '(function(){document.querySelector(\'a.term[data-term="tensor"]\')?.click();var b=document.querySelector(".tm-body");if(b)b.scrollTop=120;})()',
+    wait: 320,
+  },
+  {
+    name: '32-mobile-term-modal',
+    path: '/llm/llm-01-transformer/',
+    w: 390,
+    h: 844,
+    js: 'document.querySelector(\'a.term[data-term="projection"]\')?.click()',
+    wait: 320,
   },
 ];
 
@@ -206,9 +243,32 @@ await send('Runtime.enable');
 const shots = SHOTS.filter((s) => !ONLY || s.name.includes(ONLY));
 console.log(`[shoot] ${BASE} -> .shots/  共 ${shots.length} 个镜头`);
 
+/*
+ * 侧栏收起状态是**存在 localStorage 里的**（`ht:nav:sidebar`），所以镜头之间会互相污染：
+ * 26-nav-peek 点一下收起，之后每一张图就都少一条侧栏 —— 而看图的人不会知道少了什么，
+ * 只会觉得「新页面怎么没有目录」。这就是本文件里最隐蔽的一类 bug：不报错、不空白、
+ * 只是**默默地少了一部分界面**，而且新加的镜头排在后面就自动中招。
+ *
+ * 所以每个镜头在跳转前都显式把状态写回去（默认展开），要收起的镜头自己用 `nav: 'collapsed'` 声明。
+ * 必须在**上一次的页面上下文里**写：localStorage 是按源生效的，下一跳同源就能读到。
+ */
+const NAV_KEY = 'ht:nav:sidebar';
+const setNavState = (state) => send('Runtime.evaluate', {
+  expression: `try { localStorage.setItem(${JSON.stringify(NAV_KEY)}, ${JSON.stringify(state)}); }
+    catch {} `,
+  returnByValue: true,
+});
+
+// 先访问一次站点根：about:blank 是不透明源，写不了 localStorage
+await send('Page.navigate', { url: BASE + '/' });
+await sleep(900);
+await setNavState('open');
+
 for (const shot of shots) {
   const w = shot.w ?? W;
   const h = shot.h ?? H;
+
+  await setNavState(shot.nav === 'collapsed' ? 'collapsed' : 'open');
 
   if (shot.reducedMotion === false) {
     // 抓过渡中间帧时才放开动效

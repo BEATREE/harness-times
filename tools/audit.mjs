@@ -19,8 +19,15 @@ const CHROME =
  * 用 localhost 而不是 127.0.0.1：
  * astro preview 在 Windows 上默认只绑 IPv6 回环（::1），写死 127.0.0.1 会连不上。
  * localhost 两个族都会试，对「绑 ::1」和「绑 127.0.0.1」两种起法都成立。
+ *
+ * ⚠️ 支持 `--base=` 与 `HT_BASE`（前者优先），与 tools/verify.mjs、scripts/shoot.mjs 对齐。
+ * 起因是真的踩过：只有环境变量时，`node tools/audit.mjs --base=http://localhost:4399`
+ * 会**静默**跑在默认的 4321 上 —— 如果 4321 恰好有别的服务在跑，
+ * 你会得到一份「看起来跑过了」的报告，实际审的是一个完全不相干的站点。
+ * 传了参数却不生效，比直接报错危险得多。
  */
-const BASE = process.env.HT_BASE || 'http://localhost:4321';
+const argBase = process.argv.find((a) => a.startsWith('--base='))?.slice('--base='.length);
+const BASE = (argBase || process.env.HT_BASE || 'http://localhost:4321').replace(/\/$/, '');
 const PORT = 9343;
 
 const PATHS = [
@@ -28,6 +35,7 @@ const PATHS = [
   '/about/',
   '/progress/',
   '/interview/',
+  '/glossary/',
   '/llm/',
   '/harness/',
   '/eval/',
