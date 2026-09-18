@@ -40,6 +40,35 @@
 
 ---
 
+## 2026-09-18 · 上面那两条提交推上云（+ 一个「git push 连不上」的真因）
+
+- **类型**：部署
+- **改了什么**：`e587a85` / `b9040af` 两条推上 `origin/main`，远端
+  `3efc52a → b9040af`，共 **15 条提交**；本地与远端逐字符一致。
+- **为什么单列一条**：下面那条里写的「已强推到 `3efc52a`」是**那一刻**的实况，
+  这两条是之后才攒出来的 —— 补一句才不至于让人以为远端停在 13 条。
+- **⚠️ 踩到的坑：`git push` 全挂在网络层，真因是代理。**
+  三种报错依次出现，很容易一路误判：
+  1. `OpenSSL SSL_read: SSL_ERROR_SYSCALL, errno 0` —— 像是 TLS 坏了；
+  2. `CONNECT tunnel failed, response 502` —— 像是仓库或代理挂了；
+  3. 手动清掉代理后 `Failed to connect to github.com port 443 after 21s` —— 又像是被墙。
+
+  实际原因：**shell 里的 `HTTPS_PROXY` 环境变量指向一个不转发 GitHub 的代理**。
+  最有迷惑性的一点是 `Invoke-WebRequest https://github.com` 返回 **200** ——
+  因为它走的是 **Windows 系统代理**，与 `HTTPS_PROXY` 是两套东西。
+  「浏览器能开、git 就是不行」这个经典错位，源头就在这里。
+  - 读系统代理：`HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings`
+    的 `ProxyServer` 值；
+  - 让 git 显式走它：`git -c http.proxy=<系统代理> -c https.proxy=<系统代理> push`
+    —— 命令行 `-c` 的优先级**高于环境变量**，正好用来覆盖掉那个坏代理；
+  - 顺手设 `GIT_TERMINAL_PROMPT=0`，凭据缺失时直接失败，而不是一直挂着等人敲键盘。
+- **验证**：`git ls-remote` 与本地 HEAD 一致（`b9040af`）；15 条提交的
+  author / committer 全部是 `BEATREE <BEATREE@users.noreply.github.com>`；
+  全历史 **28862 行新增**对 6 类标识 + `ghp_` + 两类私钥头 **0 命中**
+  （`sk-` 唯一命中是 `gfm-task-list-item` 里的 `sk-`，误报）。
+
+---
+
 ## 2026-09-18 · 给 `log.md` 补结构断言（并修掉断言自己的一处误报）+ 把 9 处漂了的断言数拉回一致
 
 - **类型**：工程
