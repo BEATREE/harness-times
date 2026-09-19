@@ -1,6 +1,6 @@
 # Harness Times · Agent 工程学习站
 
-一份用**报纸版式**写成的 Harness / Agent 工程中文学习站。22 章正文，覆盖大模型原理、Harness 工程、评测工程、知识引擎构建四大领域；理论、动手实操、面试问答三层递进。
+一份用**报纸版式**写成的 Harness / Agent 工程中文学习站。23 章正文，覆盖大模型原理、Harness 工程、评测工程、知识引擎构建四大领域；理论、动手实操、面试问答三层递进。
 
 Astro 静态站，学习进度全部存在**你自己的浏览器**里（localStorage），不经过任何服务器。
 
@@ -39,7 +39,7 @@ Astro 静态站，学习进度全部存在**你自己的浏览器**里（localSt
 | 文件 | 一句话 |
 | --- | --- |
 | [`wiki/README.md`](wiki/README.md) | 三层结构（原始 / 知识 / 规则）、三个操作（ingest / query / lint）、**不变量清单** |
-| [`wiki/index.md`](wiki/index.md) | 知识目录：4 领域 / 22 章 / 134 问，每章一行含统计与关键标签 |
+| [`wiki/index.md`](wiki/index.md) | 知识目录：4 领域 / 23 章 / 137 问，每章一行含统计与关键标签 |
 | [`wiki/tasks.md`](wiki/tasks.md) | 迭代进度看板：逐章完善度与已知缺口 |
 | [`wiki/schema.md`](wiki/schema.md) | 契约：frontmatter、正文骨架、图解规范、代码块、术语表、禁止事项 |
 | [`wiki/sources.md`](wiki/sources.md) | 原始层：取材原则、外链台账（29 条）、归属章节、已知偏差 |
@@ -91,11 +91,11 @@ npm run content:fix     # 自动删除 HTML 块内部的空行
 ```
 src/
 ├── data/
-│   ├── curriculum.ts        # 4 大领域 / 22 章元数据（编号、难度、时长、关键词）
-│   ├── interview.ts         # 题库：22 章 × 3–7 题，含高频标记与追问
+│   ├── curriculum.ts        # 4 大领域 / 23 章元数据（编号、难度、时长、关键词）
+│   ├── interview.ts         # 题库：23 章 × 3–7 题，含高频标记与追问
 │   └── glossary.ts          # 名词库：全站术语的唯一来源（含义/场景/命名辨析/解释/例子/外链）
 ├── content/
-│   ├── chapters/*.md        # 22 章正文
+│   ├── chapters/*.md        # 23 章正文
 │   └── content.config.ts     # 内容集合 schema
 ├── layouts/
 │   ├── BaseLayout.astro     # 报头 + 侧栏 + 纸张翻页过渡 + 本机数据面板
@@ -115,7 +115,7 @@ src/
 
 wiki/                        # 知识库：内容维护的唯一入口（先读 wiki/README.md）
 ├── README.md                # 三层结构 + 三个操作 + 不变量清单
-├── index.md                 # 知识目录：4 领域 / 22 章 / 134 问
+├── index.md                 # 知识目录：4 领域 / 23 章 / 137 问
 ├── tasks.md                 # 迭代进度看板：逐章完善度与已知缺口
 ├── schema.md                # 契约：写作、图解、代码、命名、术语
 ├── sources.md               # 取材原则 + 外链台账 + 归属章节

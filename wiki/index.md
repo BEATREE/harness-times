@@ -10,7 +10,7 @@
 **口径**：`图` = 手写 `<svg>` 数量 · `码` = 围栏代码块数量 · `节` = `##` 小节数量 ·
 `问答` = 题数（括号内为标注「高频」的题数）。
 
-| 总量 | 4 领域 | 22 章 | 70 图 | 26 段代码 | 176 小节 | 134 问（52 高频） | 约 10.6 万汉字 |
+| 总量 | 4 领域 | 23 章 | 74 图 | 28 段代码 | 188 小节 | 137 问（53 高频） | 约 11.5 万汉字 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 
 ---
@@ -26,7 +26,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Transformer 与自注意力 | `llm-01-transformer.md` | L1 | 35 | 7/1/10 | 3(1) | Self-Attention · QKV · 复杂度 · 位置编码 |
 | 2 | KV Cache：多轮对话的隐性账单 | `llm-02-kv-cache.md` | L2 | 26 | 3/3/8 | 7(5) | KV Cache · 前缀稳定性 · 成本模型 · 显存估算 |
-| 3 | MoE 与稀疏激活 | `llm-03-moe.md` | L2 | 24 | 3/1/8 | 6(2) | MoE · 路由 · 稀疏激活 · 显存 |
+| 3 | MoE 与稀疏激活 | `llm-03-moe.md` | L2 | 24 | 4/1/9 | 6(2) | MoE · 路由 · 稀疏激活 · 显存 |
 | 4 | 采样、温度与确定性 | `llm-04-sampling.md` | L1 | 20 | 3/1/8 | 5(1) | Temperature · Top-P · 解码策略 · 确定性 |
 | 5 | 推理优化与成本杠杆 | `llm-05-inference-opt.md` | L3 | 30 | 3/1/8 | 6(2) | 量化 · 投机解码 · Continuous Batching · MLA |
 
@@ -48,10 +48,10 @@ MoE 决定了「大模型为什么能便宜」；采样策略决定了「为什�
 | 2 | Agent Loop 与终止条件 | `harness-02-agent-loop.md` | L1 | 32 | 3/1/9 | 7(3) | ReAct · 终止条件 · 循环检测 · Human-in-the-loop |
 | 3 | Tool Use 与工具契约 | `harness-03-tool-use.md` | L2 | 34 | 3/1/8 | 7(3) | Function Calling · 工具描述 · 错误分类 · MCP |
 | 4 | Context Engineering | `harness-04-context-engineering.md` | L2 | 36 | 3/1/8 | 7(4) | 上下文预算 · 上下文压缩 · 前缀稳定性 · 状态外置 |
-| 5 | Memory 记忆系统 | `harness-05-memory.md` | L2 | 30 | 3/1/8 | 6(2) | 长期记忆 · 写入策略 · 检索 · 冲突消解 |
+| 5 | Memory 记忆系统 | `harness-05-memory.md` | L2 | 30 | 3/1/9 | 6(2) | 长期记忆 · 写入策略 · 检索 · 冲突消解 |
 | 6 | Subagent 与多智能体编排 | `harness-06-multi-agent.md` | L3 | 34 | 3/1/9 | 6(2) | Subagent · Supervisor · 上下文隔离 · 结果汇总 |
 | 7 | 沙箱、权限与提示注入 | `harness-07-sandbox-security.md` | L3 | 32 | 3/1/8 | 6(3) | 沙箱 · 最小权限 · Prompt Injection · 审计 |
-| 8 | 长任务与失败恢复 | `harness-08-long-horizon.md` | L2 | 36 | 3/2/8 | 7(3) | 流式卡死 · 状态机 · 检查点 · 幂等 |
+| 8 | 长任务与失败恢复 | `harness-08-long-horizon.md` | L2 | 36 | 3/3/8 | 7(3) | 流式卡死 · 状态机 · 检查点 · 幂等 |
 
 **贯穿这 8 章的一条主线**：第 1 章画出能力地图 → 第 2 章是循环（骨架）→
 第 3–5 章是循环要用到的三样东西（工具、上下文、记忆）→ 第 6 章是怎么拆成多个循环 →
@@ -89,21 +89,23 @@ MoE 决定了「大模型为什么能便宜」；采样策略决定了「为什�
 
 | # | 章节标题 | 文件 | 难度 | 时长 | 图/码/节 | 问答 | 关键标签 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 知识建模：实体、事实、推断 | `knowledge-01-modeling.md` | L2 | 30 | 3/1/7 | 6(2) | 实体抽取 · 事实层 · 推断层 · 依据链 |
+| 1 | 知识建模：实体、事实、推断 | `knowledge-01-modeling.md` | L2 | 30 | 3/1/8 | 6(2) | 实体抽取 · 事实层 · 推断层 · 依据链 |
 | 2 | RAG 的链路与失效模式 | `knowledge-02-rag.md` | L2 | 32 | 3/1/7 | 6(2) | RAG · 切分 · 召回 · 失效模式 |
 | 3 | Embedding 与向量检索 | `knowledge-03-embedding.md` | L2 | 28 | 3/1/8 | 6(2) | Embedding · 余弦相似度 · ANN · 能力边界 |
 | 4 | 混合检索、Rerank 与知识可信 | `knowledge-04-hybrid-trust.md` | L3 | 34 | 3/1/7 | 7(2) | 混合检索 · Rerank · 溯源引用 · 冲突消解 |
+| 5 | 知识更新与时效性 | `knowledge-05-knowledge-update.md` | L2 | 30 | 3/1/9 | 3(1) | 时效机制 · TTL · 增量更新 · 回滚 · 新鲜度 |
 
-**这四章的递进关系**：先定义知识的形状（三层建模）→ 再讲怎么把它取出来（RAG 链路）→
-再讲取出来靠什么算（向量检索及其边界）→ 最后把召回与精排拼成一条可信链路（混合 + Rerank + 溯源）。
+**这五章的递进关系**：先定义知识的形状（三层建模）→ 再讲怎么把它取出来（RAG 链路）→
+再讲取出来靠什么算（向量检索及其边界）→ 再把召回与精排拼成一条可信链路（混合 + Rerank + 溯源）→
+最后讲怎么让这些知识在时间轴上不腐坏（时效 / 更新 / 回滚）。
 
 ---
 
 ## 学习路径与前置关系
 
 ```
-I. 大模型原理 (5章)  →  II. Harness 工程 (8章)  →  III. 评测工程 (5章)  →  IV. 知识引擎 (4章)
-   为什么要懂              真正的战场                怎么证明有用            知识怎么进去
+I. 大模型原理 (5章)  →  II. Harness 工程 (8章)  →  III. 评测工程 (5章)  →  IV. 知识引擎 (5章)
+   为什么要懂              真正的战场                怎么证明有用            知识怎么进去且不腐坏
    ─── 无前置 ───       ─── 依赖 I 的成本模型 ──   ── 依赖 II 的循环 ──   ── 依赖 II+III ──
 ```
 
@@ -117,6 +119,7 @@ I. 大模型原理 (5章)  →  II. Harness 工程 (8章)  →  III. 评测工�
 | `eval-02-dataset` | `eval-01-first-principles` | 不知道「评什么维度」就建不出评测集 |
 | `eval-05-trace-loop` | `eval-03` / `eval-04` | 回归门禁要挂在前两章定义好的指标上 |
 | `knowledge-04-hybrid-trust` | `knowledge-02-rag` · `knowledge-03-embedding` | 混合检索 = 关键词 + 向量，两者都要懂 |
+| `knowledge-05-knowledge-update` | `knowledge-01-modeling` | 回滚与作废要联动推断层，先懂事实/推断分层 |
 
 **可以独立读的章节**（时间紧就从这几章开始）：
 `harness-01-what-is-harness`（全局地图）、`harness-02-agent-loop`（骨架）、
@@ -126,7 +129,7 @@ I. 大模型原理 (5章)  →  II. Harness 工程 (8章)  →  III. 评测工�
 
 ## 题库索引
 
-134 问分布在 4 个领域，其中 52 题标为**高频**（`freq: 'high'`）。
+137 问分布在 4 个领域，其中 53 题标为**高频**（`freq: 'high'`）。
 高频题集中在这三处，是面试前最该过的：
 
 | 高密集区 | 高频题数 | 主题 |
@@ -149,7 +152,7 @@ I. 大模型原理 (5章)  →  II. Harness 工程 (8章)  →  III. 评测工�
 | --- | --- | --- |
 | `/` | `src/pages/index.astro` | 头版：能力地图、四领域入口、学习路径 |
 | `/<domain>/` | `src/pages/[domain]/index.astro` | 领域索引（`llm` / `harness` / `eval` / `knowledge`） |
-| `/<domain>/<id>/` | `src/pages/[domain]/[slug].astro` | 章节页（22 个）。**这是正文唯一的出口** |
+| `/<domain>/<id>/` | `src/pages/[domain]/[slug].astro` | 章节页（23 个）。**这是正文唯一的出口** |
 | `/glossary/` | `src/pages/glossary.astro` | 名词库：全部专业名词的解释卡片，可搜索、可按知识域筛。**正文里的术语链接落点** |
 | `/interview/` | `src/pages/interview.astro` | 题库总览（可筛选、可自评） |
 | `/progress/` | `src/pages/progress.astro` | 学习进度、30 天热力图、复习队列、导出/导入 |

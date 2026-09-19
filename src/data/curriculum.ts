@@ -353,6 +353,18 @@ export const CHAPTERS: Chapter[] = [
     minutes: 34,
     tags: ['混合检索', 'Rerank', '溯源引用', '冲突消解'],
   },
+  {
+    id: 'knowledge-05-knowledge-update',
+    domain: 'knowledge',
+    no: 5,
+    title: '知识更新与时效性',
+    en: 'Freshness and Update',
+    desc:
+      '知识会过期，而"过期的正确"比"错误"更危险。这一章讲清 TTL、失效标记、增量更新、回滚，以及怎么让"这条知识还新不新"变成系统可判定的属性，而不是靠人记得。',
+    level: 2,
+    minutes: 30,
+    tags: ['知识更新', '时效性', 'TTL', '增量更新'],
+  },
 ];
 
 /* ============================ 查询辅助 ============================ */

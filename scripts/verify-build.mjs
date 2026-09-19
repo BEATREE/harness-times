@@ -48,7 +48,14 @@ const pages = new Map(
   htmlFiles.map((f) => [f.slice(dist.length + 1).replace(/\\/g, '/'), readFileSync(f, 'utf8')])
 );
 
-check('生成了 31 个 HTML 页面', pages.size === 31, `实际 ${pages.size}`);
+// 章节数从内容源数出来（不是写死 22 / 31）——加/删章节只让源与产物同步变。
+const _chapterFiles = readdirSync(join(root, 'src', 'content', 'chapters'))
+  .filter((f) => f.endsWith('.md'));
+const chapterCount = _chapterFiles.length;
+// 固定页：首页 / 4 领域页 / 名词库 / 题库 / 进度 / 关于 = 9 页，加每章 1 页
+const expectPageCount = 9 + chapterCount;
+
+check(`生成了 ${expectPageCount} 个 HTML 页面`, pages.size === expectPageCount, `实际 ${pages.size}`);
 
 /* ---------- 1. 代码块：文件名栏 ---------- */
 let codeBlocks = 0;
@@ -156,7 +163,10 @@ check('侧栏有 beatree.cn 外链项', sample.includes('nav-item nav-ext'));
  *   3) 旧的窄书签（side-pager / sp-card）确实清干净了，没有半旧半新的残留。
  */
 const firstChapter = pages.get('llm/llm-01-transformer/index.html') ?? '';
-const lastChapter = pages.get('knowledge/knowledge-04-hybrid-trust/index.html') ?? '';
+/* 末章不写死文件名：哪一页的「下一章」带 is-end 就是末章（新增章节时不用改这里） */
+const lastChapter = chapterPages.map(([, h]) => h).find((h) =>
+  h.includes('class="page-rail rail-next is-end"')
+) ?? '';
 
 let railPrevPages = 0;
 let railNextPages = 0;
@@ -184,18 +194,18 @@ for (const [, html] of chapterPages) {
   const nextAt = html.search(RAIL_NEXT_AT);
   if (bodyAt !== -1 && prevAt > bodyAt && prevAt < sheetAt && nextAt > sheetAt) railStructureOk += 1;
 }
-check('21 章有「上一章」大翻页区', railPrevPages === 21, `实际 ${railPrevPages}`);
-check('22 章都有「下一章」大翻页区', railNextPages === 22, `实际 ${railNextPages}`);
+check(`除首章外 ${chapterCount - 1} 章有「上一章」大翻页区`, railPrevPages === chapterCount - 1, `实际 ${railPrevPages}`);
+check(`${chapterCount} 章都有「下一章」大翻页区`, railNextPages === chapterCount, `实际 ${railNextPages}`);
 check('首章无「上一章」（确实是第一篇）', !RAIL_PREV_AT.test(firstChapter), '首章出现了上一章面板');
 check(
   '末章「下一章」指向进度页并标 is-end',
   railEndPages === 1 && lastChapter.includes('class="page-rail rail-next is-end"') && lastChapter.includes('href="/progress/"'),
   `is-end 出现 ${railEndPages} 次`
 );
-check('翻页区是 .sheet 的兄弟节点且顺序正确', railStructureOk === 21, `结构正确 ${railStructureOk} / 21`);
-check('翻页区标题是可读文本（.rail-title，非 aria-hidden）', railTitlePages === 22, `实际 ${railTitlePages}`);
-check('翻页区按领域着色（data-domain）', railDomainPages === 22, `实际 ${railDomainPages}`);
-check('翻页区带快捷键提示 .rail-hint', railHintPages === 22, `实际 ${railHintPages}`);
+check('翻页区是 .sheet 的兄弟节点且顺序正确', railStructureOk === chapterCount - 1, `结构正确 ${railStructureOk} / ${chapterCount - 1}`);
+check('翻页区标题是可读文本（.rail-title，非 aria-hidden）', railTitlePages === chapterCount, `实际 ${railTitlePages}`);
+check('翻页区按领域着色（data-domain）', railDomainPages === chapterCount, `实际 ${railDomainPages}`);
+check('翻页区带快捷键提示 .rail-hint', railHintPages === chapterCount, `实际 ${railHintPages}`);
 check(
   '翻页区带 aria-label 供读屏使用',
   /class="page-rail rail-next"[^>]*aria-label="[^"]+"/.test(firstChapter)

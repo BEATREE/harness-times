@@ -69,7 +69,7 @@ const curriculum = [
   ),
 ].map((m) => ({ id: m[1], domain: m[2], no: Number(m[3]), title: m[4], level: Number(m[5]), minutes: Number(m[6]) }));
 
-check('curriculum.ts 解析出 22 章', curriculum.length === 22, `实际 ${curriculum.length}`);
+check('curriculum.ts 解析出的章数与正文文件数一致', curriculum.length === facts.length, `curriculum ${curriculum.length} vs 正文 ${facts.length}`);
 check('正文文件数与 curriculum 一致', facts.length === curriculum.length, `${facts.length} vs ${curriculum.length}`);
 check('题库覆盖全部章节', curriculum.every((c) => qa.has(c.id)), `缺 ${curriculum.filter((c) => !qa.has(c.id)).map((c) => c.id).join(',')}`);
 
@@ -93,7 +93,7 @@ for (const m of index.matchAll(rowRe)) {
   });
 }
 
-check('index.md 表格解析出 22 行', rows.length === 22, `实际 ${rows.length}`);
+check('index.md 表格行数与正文文件数一致', rows.length === facts.length, `表格 ${rows.length} 行 vs 正文 ${facts.length} 文件`);
 
 /* ---------- 3. 逐行核对 ---------- */
 let mismatch = [];

@@ -177,7 +177,65 @@ note: '本章最容易答错的是一道看似简单的推理题：稀疏激活�
   <figcaption><b>图 3</b>　左图每个专家都参与训练，容量不浪费；右图少数专家承担绝大多数 token，其余形同虚设。<b>坍缩不是网络崩溃，而是容量被白白浪费——这是 MoE 训练里最该监控的指标。</b></figcaption>
 </figure>
 
-## 四、动手：三十行感受一次路由
+## 四、专家怎么分布与并行
+
+前面讲的是「单个 MoE 层里发生了什么」，这一节把镜头拉到**整个集群**——671B 的权重，物理上到底放在哪、怎么分工。这决定了一个 MoE 模型能不能上线、以及它为什么难本地化。
+
+**第一个事实：总参数太大，单卡根本装不下。** 671B 参数按 fp16 算约 1.3 TB，远超单张 GPU 的显存（80GB 或更小）。所以专家必须被**切开放到多张卡**上——这就是[[expert-parallelism|专家并行]]（EP）：不同专家住在不同设备，门控网络选出专家后，token 要被送到对应设备上算。
+
+**第二个事实：把专家分开，就引出了通信这个新代价。** 一个 token 被选中的两个专家可能分布在两张不同的卡上，于是每层都要做一次 [[all-to-all|All-to-All 通信]]：把各卡的 token 按「目标专家」重新分发，算完再送回原卡。这张图就是这一节要讲的「分布 + 通信」：
+
+<figure class="fig">
+  <div class="fig-frame">
+    <svg viewBox="0 0 660 400" role="img" aria-label="专家并行：专家分布在不同设备，路由引发 All-to-All 通信">
+      <defs>
+        <marker id="arEP" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#2c4a7c"/>
+        </marker>
+      </defs>
+      <text x="16" y="20" font-family="Georgia, serif" font-size="13" font-weight="700" fill="#1f1b16">专家并行：把专家摊到多张卡，换来 All-to-All</text>
+      <text x="16" y="38" font-family="ui-monospace, monospace" font-size="10" fill="#6b6257">GPU 0/1/2/3 各装一部分专家；一个 token 被选中的专家可能不在本卡 → 必须跨卡搬运</text>
+      <!-- 四张卡 -->
+      <rect x="40" y="70" width="130" height="150" fill="#eef1f7" stroke="#2c4a7c" stroke-width="1.3"/>
+      <text x="105" y="90" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10.5" font-weight="700" fill="#2c4a7c">GPU 0</text>
+      <text x="105" y="108" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">专家 0–63</text>
+      <rect x="200" y="70" width="130" height="150" fill="#eef1f7" stroke="#2c4a7c" stroke-width="1.3"/>
+      <text x="265" y="90" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10.5" font-weight="700" fill="#2c4a7c">GPU 1</text>
+      <text x="265" y="108" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">专家 64–127</text>
+      <rect x="360" y="70" width="130" height="150" fill="#eef1f7" stroke="#2c4a7c" stroke-width="1.3"/>
+      <text x="425" y="90" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10.5" font-weight="700" fill="#2c4a7c">GPU 2</text>
+      <text x="425" y="108" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">专家 128–191</text>
+      <rect x="520" y="70" width="130" height="150" fill="#eef1f7" stroke="#2c4a7c" stroke-width="1.3"/>
+      <text x="585" y="90" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10.5" font-weight="700" fill="#2c4a7c">GPU 3</text>
+      <text x="585" y="108" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.2" fill="#6b6257">专家 192–255</text>
+      <!-- token 在 GPU 0，被选中专家在 GPU 1 和 GPU 3 -->
+      <rect x="76" y="140" width="58" height="28" fill="#fbf1f1" stroke="#9b2c2c" stroke-width="1.2"/>
+      <text x="105" y="158" text-anchor="middle" font-family="ui-monospace, monospace" font-size="9.5" font-weight="700" fill="#9b2c2c">token</text>
+      <!-- 箭头到 GPU 1 和 GPU 3 -->
+      <path d="M134 154 C 170 154, 180 100, 200 96" fill="none" stroke="#2c4a7c" stroke-width="1.2" marker-end="url(#arEP)"/>
+      <path d="M134 154 C 300 170, 440 140, 520 100" fill="none" stroke="#2c4a7c" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arEP)"/>
+      <text x="150" y="128" font-family="ui-monospace, monospace" font-size="9" fill="#2c4a7c">选到专家 88（GPU 1）</text>
+      <text x="300" y="130" font-family="ui-monospace, monospace" font-size="9" fill="#2c4a7c">选到专家 200（GPU 3）→ 跨卡搬运</text>
+      <!-- 底部说明 -->
+      <rect x="16" y="240" width="628" height="86" fill="#eef1f7" stroke="#2c4a7c" stroke-width="1.2"/>
+      <text x="30" y="264" font-family="Georgia, serif" font-size="11" font-weight="700" fill="#2c4a7c">「专家并行」是一组取舍</text>
+      <text x="30" y="286" font-family="ui-monospace, monospace" font-size="9.8" fill="#6b6257">并行度越高（专家分得越散）→ 单卡显存压力越小，但 All-to-All 通信越频繁、延迟越高。</text>
+      <text x="30" y="304" font-family="ui-monospace, monospace" font-size="9.8" fill="#6b6257">稠密模型只需同层数据并行，没有这种跨设备点对点搬运——这是 MoE 难本地化的根因。</text>
+      <text x="30" y="320" font-family="ui-monospace, monospace" font-size="9.8" fill="#9b2c2c">判据：小 batch 时每个专家分到的 token 极少，GPU 算力空转，通信固定开销照付 → 性价比缩水。</text>
+    </svg>
+  </div>
+  <figcaption><b>图 4</b>　专家分散在多卡上，token 被选中的专家若不在本卡，就要跨卡搬运（All-to-All）。<b>「专家并行度」就是在「显存压力」和「通信开销」之间拉的那根尺子——这也是 MoE 只适合云端大集群、难以下沉本地的物理原因。</b></figcaption>
+</figure>
+
+由此引出三个可直接用于选型与面试的结论：
+
+- **专家并行度和通信开销成正比。** 专家分得越散（并行度越高），单卡显存越省，但每层 All-to-All 的固定开销越高。部署时要在「显存装得下」和「通信扛得住」之间找平衡点，不是越高越好。
+- **这解释了「MoE 延迟不如吞吐」的深层原因。** 单请求延迟被跨卡搬运拖累，但高并发下大量 token 可以「凑成一批」一起分发，通信被摊薄，吞吐反而高。所以 MoE 适合高并发、可批量的云端，不适合低并发、强延迟敏感的本地。
+- **「未激活的专家」不是可以卸载的。** 有人会问：能不能把没选到的专家换出显存、省显存？答案是否定的——路由是运行时动态决定的，你无法预知下一个 token 会选谁；换入换出的代价远高于常驻。所以显存下限始终由**总参数量**决定，专家并行只是把这份「必须常驻」的总量**分摊**到多张卡，而不是削减它。
+
+这一节补上了 MoE 成本结构的最后一块拼图：**容量看总数、算力看激活、显存看总数、通信看并行度**。记住这四句，MoE 相关的面试题基本都能兜住。
+
+## 五、动手：三十行感受一次路由
 
 ```python title="moe_router.py"
 import numpy as np
@@ -226,33 +284,33 @@ print('专家使用次数:', layer.last_usage)   # 观察是否集中在少数�
   </ul>
 </div>
 
-## 五、常见误区与追问
+## 六、常见误区与追问
 
-### 5.1 误区：MoE 因为只激活部分专家，所以显存也省了
+### 6.1 误区：MoE 因为只激活部分专家，所以显存也省了
 
 错在哪：把「不计算」等同于「不占显存」。为什么自然：直觉上「没用到的东西就不用准备」，符合常识。正确做法：路由是运行时按输入动态决定的，你无法预知下一个 token 会走哪个专家，所以**所有专家权重必须常驻显存**。MoE 压的是每 token 的 FLOPs，不是权重的存储体积。**判据：被问「未激活专家能不能卸载到磁盘省显存」时，答案是否定的——除非你能接受极慢的换入换出，否则显存下限仍由总参数量（671B）决定。**
 
-### 5.2 误区：拿总参数量去和稠密模型比成本
+### 6.2 误区：拿总参数量去和稠密模型比成本
 
 错在哪：用 671B 的总参数去断言「这个模型比 70B 稠密贵一个量级」。为什么自然：总参数确实大一个量级，直觉成立。正确做法：比单 token 成本要看**激活参数量（37B）**，比容量/显存才看总参数（671B）。**判据：比成本比激活，比容量比总参；一句话说清「这模型单 token 算力≈一个 37B 稠密，但显存门槛≈一个 671B 稠密」。混用两个口径必然得出相反结论。**
 
-### 5.3 误区：稀疏激活 ≈ 稀疏注意力
+### 6.3 误区：稀疏激活 ≈ 稀疏注意力
 
 错在哪：把「稀疏」两个字当成同一种技术。为什么自然：中文都叫稀疏，容易并类。正确做法：MoE 的稀疏是**参数/专家层面的稀疏激活**（每个 token 只走少数专家），稀疏注意力是**注意力矩阵层面的稀疏**（只算部分位置对）。两者解决不同瓶颈、属于不同技术线，不能互相替代。**判据：问「它改的是哪一步」——MoE 改的是 FFN/专家选择，稀疏注意力改的是 QKᵀ 的 [n,n] 计算。**
 
-### 5.4 误区：路由坍缩只是训练不稳，不影响上线
+### 6.4 误区：路由坍缩只是训练不稳，不影响上线
 
 错在哪：认为坍缩只是训练期现象，推理时无所谓。为什么自然：推理时路由照常工作，输出看起来正常。正确做法：坍缩意味着少数专家承担了绝大多数 token，**其余专家形同虚设——等于你付了 671B 显存，只用了约 37B 的有效容量**。这是纯粹的成本浪费，且会让容量上限被悄悄锁死。**判据：上线前统计各专家在真实流量上的使用次数分布；若基尼系数高（少数专家占比超 80%），说明已坍缩，需要回炉训练加负载均衡损失。**
 
-### 5.5 误区：MoE 延迟一定比同激活量稠密模型更低
+### 6.5 误区：MoE 延迟一定比同激活量稠密模型更低
 
 错在哪：把「吞吐高」等同于「延迟低」。为什么自然：单位时间处理更多 token，听起来更快。正确做法：单请求延迟受 **All-to-All 跨设备通信** 拖累，往往比同激活量的稠密模型更慢；MoE 的优势在**吞吐**（高并发下单位成本更低），不在单请求延迟。**判据：高并发、可批量 → 用 MoE 划算；低并发、强延迟敏感、要本地化 → 稠密模型反而更合适。**
 
-### 5.6 误区：每个专家是一个「领域专家」
+### 6.6 误区：每个专家是一个「领域专家」
 
 错在哪：按字面把 expert 理解成「懂金融的专家」「懂代码的专家」。为什么自然：中文「专家」自带领域含义。正确做法：专家只是层内的一个**前馈子网络**，门控网络按 token 的表示动态选 top-k，并不按主题分工；同一个专家在不同 token 上可能扮演不同角色。<strong>判据：想验证，就看消融实验——打乱专家分配标签，模型表现基本不变，说明专家没有稳定的「主题身份」。</strong>
 
-## 六、自测
+## 七、自测
 
 <div class="quiz">
   <div class="quiz-head"><span>本章自测</span><span>第 1 题是高频陷阱题</span></div>
@@ -282,7 +340,7 @@ print('专家使用次数:', layer.last_usage)   # 观察是否集中在少数�
   </div>
 </div>
 
-## 七、小结
+## 八、小结
 
 | 你要能回答的问题 | 一句话答案 |
 | --- | --- |
@@ -290,11 +348,14 @@ print('专家使用次数:', layer.last_usage)   # 观察是否集中在少数�
 | MoE 贵在哪 | 显存下限高、跨设备 All-to-All 通信、训练需要负载均衡 |
 | 什么时候 MoE 划算 | 高并发、高吞吐的云端推理场景 |
 | 什么时候不划算 | 低并发、强延迟敏感、本地化部署 |
+| 专家并行（EP）是什么 | 把专家摊到多张卡，用 All-to-All 通信换单卡显存——并行度越高，通信越贵 |
 | 与 KV Cache 的关系 | 完全独立：KV Cache 管的是历史复用，MoE 管的是参数复用 |
+
+一句话记住成本结构：**容量看总数、算力看激活、显存看总数、通信看并行度**。
 
 下一章换个更贴近日常的问题：既然输出是采样出来的，那「同一个问题问两次答案不同」到底该不该修，以及怎么修。
 
-## 八、参考与延伸
+## 九、参考与延伸
 
 本章机制部分只讲到「够用」为止。想往下深挖，下面按「先看图、再看代码、最后读论文」的顺序排好了。全站不做原文转载，这里只登记链接与「为什么值得读」。
 
