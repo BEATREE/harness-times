@@ -120,6 +120,38 @@ for s in (8_000, 32_000, 128_000):
 2. **[[gqa|GQA]] / [[mqa|MQA]]** 的工程意义就在这里：把 [[n-kv-heads|K/V 头数]] 从 h 降到 h/8 甚至 1，每个头的 [[head-dim|维度]] 不变，缓存直接缩小同样倍数。这是长上下文能跑起来的关键手段之一。
 3. **缓存有[[cache-eviction|淘汰策略]]**。服务端不会让你无限占显存，通常按 LRU 或分页（PagedAttention）管理。这意味着**你的前缀如果排在很久不用的位置，可能已经被淘汰**——命中率还受并发与调度影响，不只看你自己。这也就是[[cache-hit-rate|缓存命中率]]不完全由你决定的原因。
 
+### 3.1 缓存也有一本账：命中 / 未命中怎么计价
+
+显存讲的是「技术代价」，真正决定**上不上缓存**的往往是钱。多数按 token 计费的服务里，输入 token 因为能复用前缀缓存，价格会**分档**：
+
+- **缓存命中（cache hit）**：这段前缀此前已经算过、还在缓存里，这次只做增量计算，单价最低；
+- **缓存未命中（cache miss）**：这段前缀要么是新的、要么已被淘汰，要完整重算，单价最贵（往往是命中的数倍）。
+
+所以同样的输入 token，因为「前缀有没有命中」会落到完全不同的价位。这带来两个反直觉但必须算清的结论：
+
+1. **「输入便宜、输出贵」不一定成立。** 传统说法是输出 token 更贵，但一个长前缀如果每次都**未命中**，输入端的累计成本可能反过来成为大头。
+2. **压缩上下文可能在「省钱」上适得其反。** 为了省 token 而压缩/改写历史，一旦改动发生在**前缀**部分，缓存就从命中变未命中——token 数省了，单价却翻了数倍，总价可能不降反升。
+
+```python title="cache_billing.py"
+def estimate_cost(input_tokens: int, output_tokens: int,
+                  hit_ratio: float,          # 输入里缓存命中的比例 0~1
+                  input_hit_price: float,    # 每 token 命中价（$）
+                  input_miss_price: float,   # 每 token 未命中价（$）
+                  output_price: float) -> float:
+    hit = input_tokens * hit_ratio
+    miss = input_tokens * (1 - hit_ratio)
+    return (hit * input_hit_price
+            + miss * input_miss_price
+            + output_tokens * output_price)
+# 例：同样 80k 输入 + 2k 输出，命中率 0% vs 90% 的差别
+LOW  = estimate_cost(80_000, 2_000, 0.0, 0.50, 2.50, 10.0)
+HIGH = estimate_cost(80_000, 2_000, 0.9, 0.50, 2.50, 10.0)
+print(f"命中 0%：${LOW/1e6:.2f}/M-token 折算")    # 未命中为主，输入占大头
+print(f"命中 90%：${HIGH/1e6:.2f}/M-token 折算")  # 命中为主，输入成本骤降
+```
+
+面试里能把「缓存命中率是一条**成本线**、不只是延迟线」讲清，比背显存公式更能体现你真正在生产里管过这块。判断标准一句话：**改任何「省 token」的优化（压缩、去重、重排历史），都要先问一句——它会不会把前缀从「命中」打成「未命中」？** 会的话，省的 token 可能远抵不上单价的上涨。
+
 <figure class="fig">
   <div class="fig-frame">
     <svg viewBox="0 0 660 360" role="img" aria-label="KV Cache 显存随长度线性增长，注意力算力随长度平方增长">
@@ -206,7 +238,7 @@ for s in (8_000, 32_000, 128_000):
 
 ## 四、动手：把「前缀稳定性」变成可检查的东西
 
-下面的脚本可以直接接进你自己的 Harness 里做日常检查。
+下面这套做法用一个[[prefix-fingerprint|前缀指纹]]，把「相邻两轮是否共享同一前缀」从「肉眼比对」落成「可自动跑的检查」——上一节讲的那些前缀破坏点，用它能被断言出来，而不是靠人记得。脚本可以直接接进你自己的 Harness 里做日常检查。
 
 ```python title="prefix_guard.py"
 import json, hashlib

@@ -56,13 +56,23 @@ let withHead = 0;
 let withLang = 0;
 const chapterPages = [...pages.entries()].filter(([p]) => /^[a-z]+\/[a-z0-9-]+\/index\.html$/.test(p));
 
+// 代码块总数：从内容源数围栏（``` 出现次数 / 2，与 wiki-facts 同口径），
+// 不写死常量 —— 加/删代码块只让源与产物同步变，不会误红。
+// 这里提前读一次章节源（后面第 11 节还会复用 readText/chapterSrcDir，但先在此定义避免 TDZ）。
+{
+  const _srcDir = join(root, 'src', 'content', 'chapters');
+  const _all = readdirSync(_srcDir).filter((f) => f.endsWith('.md'))
+    .map((f) => readFileSync(join(_srcDir, f), 'utf8').replace(/\r\n/g, '\n')).join('\n');
+  var expectCodeBlocks = Math.floor((_all.match(/^```/gm) || []).length / 2);
+}
+
 for (const [, html] of chapterPages) {
   codeBlocks += count(html, 'class="code-block"');
   withHead += count(html, 'class="code-head"');
   withLang += count(html, '<span class="lang">');
 }
 
-check('代码块总数为 24（与内容里的围栏数一致）', codeBlocks === 24, `实际 ${codeBlocks}`);
+check('代码块总数与内容源围栏数一致（不写死常量，加代码块不会红）', codeBlocks === expectCodeBlocks, `实际 ${codeBlocks}，源里围栏 ${expectCodeBlocks}`);
 check('每个代码块都有文件名栏', withHead === codeBlocks, `code-head ${withHead} / code-block ${codeBlocks}`);
 check('每个文件名栏都带语言标签', withLang === codeBlocks, `lang ${withLang} / code-block ${codeBlocks}`);
 

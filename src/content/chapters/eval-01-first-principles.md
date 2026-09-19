@@ -299,6 +299,56 @@ def compare(baseline: EvalReport, candidate: EvalReport) -> str:
 
 
 
+### 4.1 「差 3 个点」到底算不算提升
+
+上面的 `compare()` 用了一个极简判据——「差值是否超过 stdev」——它适合**随手扫一眼**，但不够严谨。真正的面试必答题是：**两个版本在同一个样本集上差 3 个百分点，这 3 个点到底是真提升，还是随机波动？** 这需要显式的[[significance|显著性检验]]。
+
+先说清为什么「3 个点」不可直接比较。Agent 评测有两个随机源：一是模型采样本身的随机性，二是评测集只是「全量线上流量」的一个抽样。两者都意味着：**换一批样本、或重跑一遍，那个 3 个点可能就没了。** 显著性检验要回答的是「如果两个版本其实没有差别，观察到这么大（或更大）差异的概率有多低」。
+
+对「同一批样本、两个版本各跑一遍」的配对场景，最贴切的工具是 **McNemar 检验**：它只看那些「两个版本结论不一致」的样本——A 对 B 错、或 A 错 B 对——而把「都对」「都错」的样本丢掉。逻辑是：如果两个版本真的没有差别，那么「A 对 B 错」与「A 错 B 对」的样本数应该差不多，差异只是抛硬币。
+
+```python title="mcnemar_test.py"
+from math import comb
+def mcnemar(a_only: int, b_only: int) -> float:
+    """
+    配对 McNemar 检验（双尾），返回 p 值。
+    a_only: 版本 A 判对、版本 B 判错的样本数
+    b_only: 版本 A 判错、版本 B 判对的样本数
+    两者是「结论不一致」的样本；「都对」「都错」的样本不参与。
+    """
+    n = a_only + b_only
+    if n == 0:
+        return 1.0          # 没有任何不一致样本，无法判断孰优孰劣
+    # 原假设：A、B 没有差别 → 每个不一致样本落入 a_only 或 b_only 的概率各 1/2
+    # 双尾 p = 2 × 单尾；单尾 = P(X ≥ max(a_only, b_only))，X ~ Binomial(n, 1/2)
+    m = max(a_only, b_only)
+    tail = sum(comb(n, k) * (0.5 ** n) for k in range(m, n + 1))
+    return min(1.0, 2 * tail)
+def compare_versions(baseline_ok, candidate_ok):
+    """
+    baseline_ok / candidate_ok：两个版本在每个样本上的 0/1 结果，顺序对齐。
+    """
+    a_only = sum(1 for b, c in zip(baseline_ok, candidate_ok) if b and not c)
+    b_only = sum(1 for b, c in zip(baseline_ok, candidate_ok) if not b and c)
+    p = mcnemar(a_only, b_only)
+    verdict = "差异不显著（不能下「提升」的结论）" if p >= 0.05 else "差异显著"
+    return a_only, b_only, p, verdict
+```
+
+三个要点，面试时能把它们讲清，基本可以确认你真的做过、而不是背过：
+
+- **配对 vs 独立**：两个版本跑在**同一批样本**上才是配对，用 McNemar；两批**不同的样本**（比如线上流量分桶）是独立的，要用两样本比例检验。选错检验比不检验更糟，因为结论是建立在错误假设上的。
+- **p 值不是「效果大小」**。p < 0.05 只能说明「差异不太可能是噪声」，不说明「差异够大、值得上线」。3 个点的显著提升，配上「上线要改的工程量 / 回归风险」，可能仍不值当；反过来 0.5 个点若稳定且零成本，也可能值得。
+- **多次比较会骗人**。同时看 10 个分层指标，纯随机也会有一个「p < 0.05」。所以分层指标要预先声明（预注册），事后到处找显著的分层属于「数据抓鱼」（p-hacking），得到的显著性不可信。
+
+<div class="box box-key">
+  <span class="box-title">线上怎么落地</span>
+  <p>日常不必每次都手算 p 值——大多数时候看<b>不一致样本数</b>就够：如果「A 对 B 错」与「A 错 B 对」的数量级接近（比如 12 vs 9），那个 3 个点的差异大概率是噪声。真正要下「版本 A 明显更好」的结论时，再上 McNemar / bootstrap 给出 p 值，写进评测报告里。</p>
+  <p>一句话判据：<b>没有显著性检验的对比，等于没有对比。</b></p>
+</div>
+
+
+
 <div class="box box-practice">
   <span class="box-title">实操任务</span>
   <ul>

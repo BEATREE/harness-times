@@ -172,7 +172,7 @@ note: '这一章的内容可以直接拿去改你手上的 Harness —— 它是
 
 **第二层，schema 约束。** 用 JSON Schema 的 `enum`、`minimum`、`maximum`、`pattern`、`required` 把非法输入堵死，这本质上是在强制 [[structured-output|结构化输出]]。多数模型 API 在结构化输出模式下会直接保证符合 schema。
 
-**第三层，[[pre-execution-validation|执行前校验]]。** 无论前面怎么写，Handler 入口必须再校验一遍——因为模型可能根本不走结构化输出通道，或者你做了参数转换。对有副作用的工具，还要配合 [[idempotency-key|幂等键]] 在重试时去重。
+**第三层，[[pre-execution-validation|执行前校验]]。** 无论前面怎么写，Handler 入口必须再校验一遍——因为模型可能根本不走结构化输出通道，或者你做了参数转换。而「校验」的前提是「先解析出来」：模型常返回带 markdown 代码块包裹、尾随逗号甚至注释的 JSON，严格解析会直接抛异常，所以入口处常用[[lenient-parsing|宽容解析]]先把结构抽出来，再对内容做严格校验——「宽容解析 + 严格校验」的组合，比「严格解析 + 宽容校验」有效得多（后者在解析阶段就已崩，校验根本没机会跑）。对有副作用的工具，还要配合 [[idempotency-key|幂等键]] 在重试时去重。
 
 ```python title="tool_contract.py"
 from dataclasses import dataclass
