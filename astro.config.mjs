@@ -1,4 +1,5 @@
 import { defineConfig } from 'astro/config';
+import sitemap from '@astrojs/sitemap';
 import { shikiCodeTitle, rehypeCodeTitleWrapper } from './src/lib/code-title.mjs';
 import { rehypeDiagramMotion } from './src/lib/diagram-motion.mjs';
 import { remarkGlossaryTerms } from './src/lib/glossary-terms.ts';
@@ -14,6 +15,10 @@ export default defineConfig({
   site: 'https://harness.beatree.cn',
   output: 'static',
   trailingSlash: 'ignore',
+  // 自动生成 /sitemap-index.xml（含 /sitemap-0.xml）。
+  // 静态路由 + 所有 getStaticPaths 枚举的动态页（4 领域索引、23 章正文）都会被收进去。
+  // lastmod 用 Git 提交时间（需在 git 仓库内构建），否则退回构建时间。
+  integrations: [sitemap()],
   build: {
     // 目录式输出：/harness/agent-loop/index.html，便于 Pages 直接命中
     format: 'directory',

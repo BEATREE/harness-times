@@ -32,6 +32,7 @@
     "bisect": "node tools/bisect.mjs"
   },
   "dependencies": {
+    "@astrojs/sitemap": "^3.7.4",
     "astro": "^5.14.1"
   },
   "engines": {

@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# 站点地图（自动生成，含全部章节与领域页）
+Sitemap: https://harness.beatree.cn/sitemap-index.xml
